@@ -7,23 +7,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 
-/**
- *
-Make ERC777 with constructor parameter (totalSupply, claimToken, claimDuration = WEEK, claimFraction=500)
-
-Contract itself will start out with totalSupply which is returned in balanceOf(self)
-
-These tokens are distributed when people call claim()
-No mint() or burn() function
-
-Ownable interface where renounceOwnership posts same event data as SAFEMOON
-
-And make function claim(address) which will check A = balance of claimToken on address, and check B = balance of claimToken on self. If (A + B) * claimFraction / 100000 < B then revert with message “please claim less tokens or wait longer for them to be unlocked”
-
-Also ensure global restriction that the amount of claimed tokens per claimDuration is not more than totalSupply * claimFraction / 100000, otherwiwe revert “please wait, too many tokens already claimed during this time period”
-
-Otherwise send same amount of  new token to address. Then send received balance of original token to 0x0 account .
- */
 contract ITR is Ownable, ERC777 {
     using SafeMath for uint256;
     
@@ -31,131 +14,98 @@ contract ITR is Ownable, ERC777 {
     
     uint256 internal constant WEEK = 604800;    // 7*24*60*60
     uint256 internal constant MONTH = 2592000;  // 30*24*60*60  30 days
-
-    // totalSupply is 200kk
     uint256 internal _maxTotalSupply = 200_000_000 * 10**18;
     
-    
-    // ITR(SRC20)
-    address claimToken = 0x6Ef5febbD2A56FAb23f18a69d3fB9F4E2A70440B;
-    
-    //claimDuration = MONTH;
-    uint256 public claimDuration = MONTH;
-    
-    //claimFraction=500
-    // multiple by `multiplier` 
-    // // 2000 = 2% = (0.02); 
-    uint256 public claimFraction=2000;
+    address _claimToken;
+    uint256 public _claimDuration;
+    uint256 public _claimFraction;
     
     // this is the amount of ITR which can be sold before any percent restrictions kick in
-    uint256 claimExcepted = 30000 * 10 **18;
+    uint256 _claimExcepted;
     
-    // (this represents adding 0.01 every `claimDuration`
-    // multiple by `multiplier`. means  
-    // 100000 = 100% = (1); 
-    // 1000 = 1% = (0.01); 
-    // 1 = 0.001% = (0.00001);
-    uint256 claimGrowth = 100;
+    // every _claimDuration this gets added to _claimFraction
+    uint256 _claimGrowth;
     
+	uint256 internal constant MULTIPLIER = 100000;
+    uint256 private deployedTime;
     
-    uint256 private multiplier = 100000;
-    uint256 private timeDeployed;
-    
-    // restriction variables
-    uint256 internal lastClaimedTime;
-    uint256 internal lastClaimedAmount;
+    // global restriction for claims
+    uint256 internal _lastClaimedTime;
+    uint256 internal _lastClaimedAmount;
     
     constructor() ERC777("ITR", "ITR", new address[](0)) {
-        //_mint(address(this), initialSupply, "", "");
-        timeDeployed = block.timestamp;
+       init(
+		   200_000_000 * 10**18,
+		   "0x6Ef5febbD2A56FAb23f18a69d3fB9F4E2A70440B",
+		   2000,
+		   MONTH,
+		   30000 * 10 **18,
+		   100
+	   );
     }
+
+	function init(
+		maxTotalSupply, claimToken, claimFraction,
+		claimDuration, claimExcepted, claimGrowth
+	) {
+		(_maxTotalSupply, _claimToken, _claimFraction, 
+		_claimDuration, _claimExcepted, _claimGrowth)
+		= (maxTotalSupply, claimToken, claimFraction,
+		claimDuration, claimExcepted, claimGrowth);
+		deployedTime = block.timestamp;
+	}
     
     // cap of total supply
     function maxTotalSupply() public view returns(uint256) {
         return _maxTotalSupply;
     }
     
-    // available to claim
+    // still available to claim
     function totalRemaining() public view returns(uint256) {
         return _maxTotalSupply.sub(totalSupply());
     }
+	
+	// how much to claim
+	function claimFraction() {
+		return _claimFraction.add(_claimGrowth.mul(getGrowthDurationsPassed()));
+	}
     
-    /**
-     * And make function claim(address) which will 
-     * check A = balance of claimToken on address, 
-     * and check B = balance of claimToken on self. 
-     * If (A + B) * claimFraction / 100000 < B then revert with message “please claim less tokens or wait longer for them to be unlocked”
-     */
+	// this function mints the tokens internally
     function claim(address to) public {
         uint256 a = IERC20(claimToken).balanceOf(to);
         uint256 b = IERC20(claimToken).balanceOf(address(this));
 
-        require(
-            b > 0, 
-            "insufficient balance"
-        );
+        require(b > 0, "nothing to claim");
         
-        // require(
-        //     (a.add(b)).mul(claimFraction).div(multiplier) >= b, 
-        //     "please claim less tokens or wait longer for them to be unlocked"
-        // );
-        
-        //if (B > claimExcepted) and (A + B) * claimFraction < B * (1 + claimGrowth * d) then REVERT
-        //// dev
-        // irb(main):027:0> 100*(1+0.01)
-        // => 101.0
-        // irb(main):034:0> 100*(1*100+(0.01)*100)/100.0
-        // => 101.0
-        // irb(main):035:0> 100*(1*10000+(0.01)*10000)/10000.0
-        // => 101.0
-        // -----
-        if (
-            (b > claimExcepted) &&
-            
-            // ((a.add(b)).mul(claimFraction).div(multiplier) < b.mul(
-            //                                                         uint256(1).mul(multiplier).add(
-            //                                                             claimGrowth.mul(getGrowthIntervalsPassed())
-            //                                                             )
-            //                                                       ) 
-            // )
-            
-            //B > (A + B) * (claimFraction + claimGrowth * d) / 100000
-            (
-                b > (
-                    (a.add(b)).mul(
-                                claimFraction.add(
-                                    claimGrowth.mul(getGrowthIntervalsPassed())
-                                )
-                            ).div(multiplier)
-                )
-            )
-        ) {
+        if ((b > claimExcepted) && (b > (
+			a.add(b).mul(claimFraction()).div(MULTIPLIER)
+		))) {
             revert("please claim less tokens or wait longer for them to be unlocked");
         }
          
-        uint256 indexInterval = (block.timestamp).div(claimDuration).mul(claimDuration);
-        if (indexInterval == lastClaimedTime) {
-            lastClaimedAmount = lastClaimedAmount.add(b);
+        uint256 index = (block.timestamp)
+			.div(_claimDuration)
+			.mul(_claimDuration);
+        if (index == _lastClaimedTime) {
+            _lastClaimedAmount = _lastClaimedAmount.add(b);
         } else {
-            lastClaimedTime = indexInterval;
-            lastClaimedAmount = b;
+            _lastClaimedTime = index;
+            _lastClaimedAmount = b;
         }
         
         require(
-            (_maxTotalSupply).mul(claimFraction).div(multiplier) >= lastClaimedAmount, 
+            (_maxTotalSupply).mul(claimFraction()).div(MULTIPLIER) >= _lastClaimedAmount, 
             "please wait, too many tokens already claimed during this time period"
         );
         
-        
-        require(_maxTotalSupply.sub(totalSupply()) >= b, "insufficient amount to claim");
-        // let's claim 
+        require(totalSupply().add(b) <= _maxTotalSupply, 
+			"this would exceed maxTotalSupply");
         _mint(to, b, "", "");
-        //_send(address(this), to, b, "", "", false);
         IERC20(claimToken).transfer(deadAddress, b);
         
     }
     
-    function getGrowthIntervalsPassed() internal view returns(uint256) {
-        return (block.timestamp.sub(timeDeployed)).div(claimGrowth);
+    function getGrowthDurationsPassed() internal view returns(uint256) {
+        return (block.timestamp.sub(deployedTime)).div(_claimDuration);
     }
 }

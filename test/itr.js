@@ -102,7 +102,7 @@ contract('NFT', (accounts) => {
         
         await truffleAssert.reverts(
             ITRInstance.claim(accountOne, {from: accountOne}),
-            'insufficient balance'
+            'nothing to claim'
         );
         
         // emulate transfer tokens and make it's already in ITRInstance
@@ -175,7 +175,7 @@ contract('NFT', (accounts) => {
         
         await truffleAssert.reverts(
             ITRInstance.claim(accountOne),
-            "insufficient amount to claim"
+            "this would exceed maxTotalSupply"
         );
         
     });
