@@ -66,7 +66,7 @@ contract ITR is Ownable, ERC777 {
     }
 	
 	// how much to claim
-	function claimFraction() {
+	function claimFraction() public view returns (uint256) {
 		return _claimFraction.add(_claimGrowth.mul(getGrowthDurationsPassed()));
 	}
     
