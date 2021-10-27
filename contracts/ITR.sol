@@ -47,7 +47,7 @@ contract ITR is Ownable, ERC777 {
 	function init(
 		maxTotalSupply, claimToken, claimFraction,
 		claimDuration, claimExcepted, claimGrowth
-	) {
+	) internal {
 		(_maxTotalSupply, _claimToken, _claimFraction, 
 		_claimDuration, _claimExcepted, _claimGrowth)
 		= (maxTotalSupply, claimToken, claimFraction,
