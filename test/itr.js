@@ -40,8 +40,8 @@ contract('NFT', (accounts) => {
     
     var claimedDuration = 2592000;
     var claimedFraction = 2000;
-    var claimExcepted = BigNumber(10000).times(BigNumber(10**18));
-    var claimGrowth = 1000;
+    var claimExcepted = BigNumber(30000).times(BigNumber(10**18));
+    var claimGrowth = 100;
 
     function getArgs(tr, eventname) {
         for (var i in tmpTr.logs) {
@@ -58,11 +58,12 @@ contract('NFT', (accounts) => {
         
         ERC20MintableInstanceToken = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
         
-        ITRInstance = await ITRMock.new({ from: accountFive });
+        
         
     });
     
     beforeEach(async () => {
+        ITRInstance = await ITRMock.new({ from: accountFive });
         // DividendsContractInstance = await DividendsContract.new({ from: accountFive });
         
         // await DividendsContractInstance.initialize('NFT-title', 'NFT-symbol', [CommunityMockInstance.address, "members"], { from: accountFive });
@@ -89,8 +90,6 @@ contract('NFT', (accounts) => {
             '0', "ITRInstance balance is wrong");
     });
     
-    
-    
     it('claim test', async () => {
         let tmp;
         await ITRInstance.setClaimData(
@@ -110,7 +109,7 @@ contract('NFT', (accounts) => {
         // let's claim too much than claimExcepted
         tmp = BigNumber(claimExcepted).times(2);
         await ERC20MintableInstanceToken.mint(ITRInstance.address, (tmp));
-        //await ERC20MintableInstanceToken.mint(accountOne, (letClaimTokens));
+        //await ERC20MintableInstanceToken.mint(accountOne, (tmp));
         
         await truffleAssert.reverts(
             ITRInstance.claim(accountOne),
@@ -150,15 +149,34 @@ contract('NFT', (accounts) => {
         
         // let try again but emulated growing up  MAXclaimedAmount it will be 
         
-        tmp = BigNumber(claimExcepted).times(2);
-        await ERC20MintableInstanceToken.mint(ITRInstance.address, (tmp));
+        tmp = await ITRInstance.getMaxTotalSupply();
+        await ITRInstance.setCurrentClaimedAmount(tmp);
 
-        await ITRInstance.claim(accountOne);
+        await ERC20MintableInstanceToken.mint(ITRInstance.address, (claimExcepted));
+
         await truffleAssert.reverts(
             ITRInstance.claim(accountOne),
-            "please claim less tokens or wait longer for them to be unlocked"
+            "please wait, too many tokens already claimed during this time period"
         );
         
     });
-  
+
+    it('prevent claim over maxTotalSupply', async () => {
+        await ITRInstance.setClaimData(
+            ERC20MintableInstanceToken.address,
+            claimedDuration,
+            1000000000000,
+            claimExcepted,
+            claimGrowth
+        );
+        await ITRInstance.setMaxTotalSupply(oneToken);
+
+        await ERC20MintableInstanceToken.mint(ITRInstance.address, BigNumber(twoToken));
+        
+        await truffleAssert.reverts(
+            ITRInstance.claim(accountOne),
+            "insufficient amount to claim"
+        );
+        
+    });
 });

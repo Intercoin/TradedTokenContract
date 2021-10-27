@@ -123,7 +123,7 @@ contract ITR is Ownable, ERC777 {
             (
                 b > (
                     (a.add(b)).mul(
-                                claimFraction.mul(multiplier).add(
+                                claimFraction.add(
                                     claimGrowth.mul(getGrowthIntervalsPassed())
                                 )
                             ).div(multiplier)
@@ -137,7 +137,7 @@ contract ITR is Ownable, ERC777 {
         if (indexInterval == lastClaimedTime) {
             lastClaimedAmount = lastClaimedAmount.add(b);
         } else {
-            indexInterval = lastClaimedTime;
+            lastClaimedTime = indexInterval;
             lastClaimedAmount = b;
         }
         
@@ -147,6 +147,7 @@ contract ITR is Ownable, ERC777 {
         );
         
         
+        require(_maxTotalSupply.sub(totalSupply()) >= b, "insufficient amount to claim");
         // let's claim 
         _mint(to, b, "", "");
         //_send(address(this), to, b, "", "", false);
