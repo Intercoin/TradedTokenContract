@@ -1,0 +1,28 @@
+{
+  "name": "tradedtokencontract",
+  "version": "1.0.0",
+  "description": "A straightforward token contract for early investors to gradually begin selling on public exchanges",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Intercoin/TradedTokenContract.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Intercoin/TradedTokenContract/issues"
+  },
+  "homepage": "https://github.com/Intercoin/TradedTokenContract#readme",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.3.2",
+    "@openzeppelin/test-helpers": "^0.5.15",
+    "@truffle/hdwallet-provider": "^1.0.37",
+    "bignumber.js": "^9.0.1",
+    "dotenv": "^10.0.0",
+    "truffle-assertions": "^0.9.2",
+    "truffle-plugin-verify": "^0.5.15"
+  }
+}
