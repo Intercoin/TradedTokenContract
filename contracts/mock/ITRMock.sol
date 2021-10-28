@@ -16,11 +16,11 @@ contract ITRMock is ITR {
         public 
     {
         
-        claimToken = addr;
-        claimDuration = duration;
-        claimFraction = fraction;
-        claimExcepted = excepted;
-        claimGrowth = growth;
+        _claimToken = addr;
+        _claimDuration = duration;
+        _claimFraction = fraction;
+        _claimExcepted = excepted;
+        _claimGrowth = growth;
     }
     
     function getClaimData(
@@ -35,23 +35,24 @@ contract ITRMock is ITR {
             uint256 growth
         )
     {
-        addr = claimToken;
-        duration = claimDuration;
-        fraction = claimFraction;
-        excepted = claimExcepted;
-        growth = claimGrowth;
+        addr = _claimToken;
+        duration = _claimDuration;
+        fraction = _claimFraction;
+        excepted = _claimExcepted;
+        growth = _claimGrowth;
     }
     
     function getCurrentClaimedAmount() public view returns(uint256) {
-        return lastClaimedAmount;
+        return _lastClaimedAmount;
     }
     function setCurrentClaimedAmount(uint256 input) public {
-        lastClaimedAmount = input;
+        _lastClaimedAmount = input;
     }
     
-    function getMaxTotalSupply() public view returns(uint256) {
-        return _maxTotalSupply;
-    }
+    // function getMaxTotalSupply() public view returns(uint256) {
+    //     return _maxTotalSupply;
+    // }
+    
     function setMaxTotalSupply(uint256 input) public {
         _maxTotalSupply = input;
     }

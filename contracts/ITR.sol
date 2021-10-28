@@ -36,7 +36,7 @@ contract ITR is Ownable, ERC777 {
     constructor() ERC777("ITR", "ITR", new address[](0)) {
        init(
 		   200_000_000 * 10**18,
-		   "0x6Ef5febbD2A56FAb23f18a69d3fB9F4E2A70440B",
+		   0x6Ef5febbD2A56FAb23f18a69d3fB9F4E2A70440B,
 		   2000,
 		   MONTH,
 		   30000 * 10 **18,
@@ -45,18 +45,21 @@ contract ITR is Ownable, ERC777 {
     }
 
 	function init(
-		maxTotalSupply, claimToken, claimFraction,
-		claimDuration, claimExcepted, claimGrowth
+		uint256 maxTotalSupply, 
+		address claimToken, 
+		uint256 claimFraction,
+		uint256 claimDuration, 
+		uint256 claimExcepted, 
+		uint256 claimGrowth
 	) internal {
-		(_maxTotalSupply, _claimToken, _claimFraction, 
-		_claimDuration, _claimExcepted, _claimGrowth)
-		= (maxTotalSupply, claimToken, claimFraction,
-		claimDuration, claimExcepted, claimGrowth);
+		(_maxTotalSupply, _claimToken, _claimFraction, _claimDuration, _claimExcepted, _claimGrowth) = 
+		    (maxTotalSupply, claimToken, claimFraction, claimDuration, claimExcepted, claimGrowth);
+		
 		deployedTime = block.timestamp;
 	}
     
     // cap of total supply
-    function maxTotalSupply() public view returns(uint256) {
+    function getMaxTotalSupply() public view returns(uint256) {
         return _maxTotalSupply;
     }
     
@@ -66,19 +69,19 @@ contract ITR is Ownable, ERC777 {
     }
 	
 	// how much to claim
-	function claimFraction() public view returns (uint256) {
+	function getClaimFraction() public view returns (uint256) {
 		return _claimFraction.add(_claimGrowth.mul(getGrowthDurationsPassed()));
 	}
     
 	// this function mints the tokens internally
     function claim(address to) public {
-        uint256 a = IERC20(claimToken).balanceOf(to);
-        uint256 b = IERC20(claimToken).balanceOf(address(this));
+        uint256 a = IERC20(_claimToken).balanceOf(to);
+        uint256 b = IERC20(_claimToken).balanceOf(address(this));
 
         require(b > 0, "nothing to claim");
         
-        if ((b > claimExcepted) && (b > (
-			a.add(b).mul(claimFraction()).div(MULTIPLIER)
+        if ((b > _claimExcepted) && (b > (
+			a.add(b).mul(getClaimFraction()).div(MULTIPLIER)
 		))) {
             revert("please claim less tokens or wait longer for them to be unlocked");
         }
@@ -94,14 +97,14 @@ contract ITR is Ownable, ERC777 {
         }
         
         require(
-            (_maxTotalSupply).mul(claimFraction()).div(MULTIPLIER) >= _lastClaimedAmount, 
+            (_maxTotalSupply).mul(getClaimFraction()).div(MULTIPLIER) >= _lastClaimedAmount, 
             "please wait, too many tokens already claimed during this time period"
         );
         
         require(totalSupply().add(b) <= _maxTotalSupply, 
 			"this would exceed maxTotalSupply");
         _mint(to, b, "", "");
-        IERC20(claimToken).transfer(deadAddress, b);
+        IERC20(_claimToken).transfer(deadAddress, b);
         
     }
     
