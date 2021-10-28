@@ -113,7 +113,7 @@ contract('ITR', (accounts) => {
         
         await truffleAssert.reverts(
             ITRInstance.claim(accountOne),
-            "please claim less tokens or wait longer for them to be unlocked"
+            "please claim less tokens in each time period"
         );
         
         let claimedAmountBefore = await ITRInstance.getCurrentClaimedAmount();

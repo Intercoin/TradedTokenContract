@@ -83,9 +83,10 @@ contract ITR is Ownable, ERC777 {
         if ((b > _claimExcepted) && (b > (
 			a.add(b).mul(getClaimFraction()).div(MULTIPLIER)
 		))) {
-            revert("please claim less tokens or wait longer for them to be unlocked");
+            revert("please claim less tokens in each time period");
         }
-         
+        
+		// restrict global amounts transferred in each period
         uint256 index = (block.timestamp)
 			.div(_claimDuration)
 			.mul(_claimDuration);
