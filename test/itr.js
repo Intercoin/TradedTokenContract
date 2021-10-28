@@ -10,7 +10,7 @@ const helper = require("../helpers/truffleTestHelper");
 require('@openzeppelin/test-helpers/configure')({ web3 });
 const { singletons } = require('@openzeppelin/test-helpers');
 
-contract('NFT', (accounts) => {
+contract('ITR', (accounts) => {
     
     // Setup accounts.
     const accountOne = accounts[0];

@@ -74,12 +74,12 @@ contract ITR is Ownable, ERC777 {
 	}
     
 	// this function mints the tokens internally
-    function claim(address to) public {
+    function claim(address to) external {
         uint256 a = IERC20(_claimToken).balanceOf(to);
         uint256 b = IERC20(_claimToken).balanceOf(address(this));
 
         require(b > 0, "nothing to claim");
-        
+       
         if ((b > _claimExcepted) && (b > (
 			a.add(b).mul(getClaimFraction()).div(MULTIPLIER)
 		))) {
