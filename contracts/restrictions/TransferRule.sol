@@ -82,6 +82,20 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
         return ret;
         
     }
+	
+	function addRestrictions(
+	        address[] memory addressArray, 
+	        uint256[] memory amountArray, 
+	        uint256[] memory untilArray
+	    ) public onlyOwner {
+	        uint l=addressArray.length;
+	        for (uint i=0; i<l; i++) {
+	            restrictions[ addressArray[i] ] = Item({
+	                lockedAmount: amountArray[i],
+	                untilTime: untilArray[i]
+	            });
+	        }
+	    }
     
     //---------------------------------------------------------------------------------
     // external  section
