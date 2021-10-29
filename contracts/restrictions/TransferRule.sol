@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./ChainRuleBase.sol";
@@ -13,12 +12,11 @@ import "../interfaces/ISRC20.sol";
 import "../interfaces/IITR.sol";
 
 contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
-    using Strings for uint256;
     using SafeMath for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
     
     address public _src20;
-    address public doTransferCaller;
+    address public _doTransferCaller;
 
     uint256 internal constant MULTIPLIER = 100000;
     
@@ -33,10 +31,10 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
     }
     mapping(address => Item) restrictions;
     
-    EnumerableSet.AddressSet exchangeDepositAddresses;
+    EnumerableSet.AddressSet _exchangeDepositAddresses;
     
     modifier onlyDoTransferCaller {
-        require(msg.sender == address(doTransferCaller));
+        require(msg.sender == address(_doTransferCaller));
         _;
     }
     
@@ -61,25 +59,25 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
     
     function cleanSRC() public onlyOwner() {
         _src20 = address(0);
-        doTransferCaller = address(0);
+        _doTransferCaller = address(0);
         //_setChain(address(0));
     }
     
     
     function addExchangeAddress(address addr) public onlyOwner() {
-        exchangeDepositAddresses.add(addr);
+        _exchangeDepositAddresses.add(addr);
     }
     
     function removeExchangeAddress(address addr) public onlyOwner() {
-        exchangeDepositAddresses.remove(addr);
+        _exchangeDepositAddresses.remove(addr);
     }
     
     function viewExchangeAddresses() public view returns(address[] memory) {
-        uint256 len = exchangeDepositAddresses.length();
+        uint256 len = _exchangeDepositAddresses.length();
         
         address[] memory ret = new address[](len);
         for (uint256 i =0; i < len; i++) {
-            ret[i] = exchangeDepositAddresses.at(i);
+            ret[i] = _exchangeDepositAddresses.at(i);
         }
         return ret;
         
@@ -94,10 +92,10 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
     * @param src20 - Address of src20 contract.
     */
     function setSRC(address src20) override external returns (bool) {
-        require(doTransferCaller == address(0), "external contract already set");
+        require(_doTransferCaller == address(0), "external contract already set");
         require(address(_src20) == address(0), "external contract already set");
         require(src20 != address(0), "src20 can not be zero");
-        doTransferCaller = _msgSender();
+        _doTransferCaller = _msgSender();
         _src20 = src20;
         return true;
     }
@@ -143,8 +141,8 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
         (_from, _to, _value, _success, _errmsg) = (from, to, value, true, "");
 
         require(
-            exchangeDepositAddresses.contains(to) == false, 
-            string(abi.encodePacked("Please send 0x", toAsciiString(_tradedToken), " instead"))
+            _exchangeDepositAddresses.contains(to) == false, 
+            string(abi.encodePacked("Don't deposit directly to this exchange. Send to the address ITR.ETH first, to obtain the correct token in your wallet."))
         );
         
         uint256 balanceFrom = ISRC20(_src20).balanceOf(from);
@@ -159,7 +157,6 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
             }
         }
         
-        
         if (
             _success && 
             (to == _tradedToken) &&
@@ -171,28 +168,10 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
         
         }
         
-        
-        
     }
     
     //---------------------------------------------------------------------------------
     // private  section
     //---------------------------------------------------------------------------------
-    function toAsciiString(address x) internal view returns (string memory) {
-        bytes memory s = new bytes(40);
-        for (uint i = 0; i < 20; i++) {
-            bytes1 b = bytes1(uint8(uint160(x) / (2**(8*(19 - i)))));
-            bytes1 hi = bytes1(uint8(b) / 16);
-            bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
-            s[2*i] = char(hi);
-            s[2*i+1] = char(lo);            
-        }
-        return string(s);
-    }
-    
-    function char(bytes1 b) private view returns (bytes1 c) {
-        if (b < bytes1(uint8(10))) return bytes1(uint8(b) + 0x30);
-        else return bytes1(uint8(b) + 0x57);
-    }
 }
     
