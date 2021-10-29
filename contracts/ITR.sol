@@ -1,12 +1,3 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
-
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-
-import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
-import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
-
 contract ITR is Ownable, ERC777 {
     using SafeMath for uint256;
     
@@ -33,7 +24,7 @@ contract ITR is Ownable, ERC777 {
     uint256 internal _lastClaimedTime;
     uint256 internal _lastClaimedAmount;
     
-    constructor() ERC777("ITR", "ITR", new address[](0)) {
+    constructor() ERC777("Intercoin Investor Token", "ITR", new address[](0)) {
        init(
 		   200_000_000 * 10**18,
 		   0x6Ef5febbD2A56FAb23f18a69d3fB9F4E2A70440B,
@@ -83,9 +74,9 @@ contract ITR is Ownable, ERC777 {
         if ((b > _claimExcepted) && (b > (
 			a.add(b).mul(getClaimFraction()).div(MULTIPLIER)
 		))) {
-            revert("please claim less tokens in each time period");
+            revert("please claim less tokens per month");
         }
-        
+         
 		// restrict global amounts transferred in each period
         uint256 index = (block.timestamp)
 			.div(_claimDuration)
@@ -99,7 +90,7 @@ contract ITR is Ownable, ERC777 {
         
         require(
             (_maxTotalSupply).mul(getClaimFraction()).div(MULTIPLIER) >= _lastClaimedAmount, 
-            "please wait, too many tokens already claimed during this time period"
+            "please wait, too many tokens already claimed this month"
         );
         
         require(totalSupply().add(b) <= _maxTotalSupply, 
