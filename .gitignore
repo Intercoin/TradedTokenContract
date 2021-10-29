@@ -5,3 +5,4 @@ artifacts
 .deps
 secret.*.json
 TODO.txt
+/flattenen

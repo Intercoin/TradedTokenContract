@@ -1,25 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-
-// Make new TransferRules contract, with constructor parameter (tradedToken, lockupDuration=WEEK, lockupFraction = 90000). 
-// It will allow owner to setChain(contract). During transfer it will definitely do its own checks first, and revert if necessary. 
-// Otherwise, it will call a method “check()” of next contract in the chain. If it reverts or throws exception then just dont catch it. 
-
-// The checks include: if _until[from] > now then do two checks:
-// 1) if to = TradedTokenContract, revert with message “you recently claimed new tokens, please wait until duration has elapsed to claim again”
-
-// 2) after transfer, address would have less balance than _minimums[from] then revert with message: “you recently claimed new tokens, please wait until duration has elapsed to transfer this many tokens” 
-
-// Later we will renounceOwnership on the ITR contract, so we will not be able to mint, forceTransfer or change rules. 
-// We will still be owner of the RulesContract, but unable to remove the restrictions in it, only add additional restrictions.
-
-// Anyway, this TransferRules will have constructor parameter to set the 0x11111 TradedTokenContract address. 
-// Anytime tokens are sent to this address it will doTransfer, and AFTER this will call tradedToken.claim(from)
-
-// And after successful claim, it will add a minimum = (current claimToken balance * afterClaimLockup / 100000) required to be held in balance until now + duration.
-
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./ChainRuleBase.sol";
@@ -29,7 +13,9 @@ import "../interfaces/ISRC20.sol";
 import "../interfaces/IITR.sol";
 
 contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
+    using Strings for uint256;
     using SafeMath for uint256;
+    using EnumerableSet for EnumerableSet.AddressSet;
     
     address public _src20;
     address public doTransferCaller;
@@ -46,6 +32,8 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
         
     }
     mapping(address => Item) restrictions;
+    
+    EnumerableSet.AddressSet exchangeDepositAddresses;
     
     modifier onlyDoTransferCaller {
         require(msg.sender == address(doTransferCaller));
@@ -75,6 +63,26 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
         _src20 = address(0);
         doTransferCaller = address(0);
         //_setChain(address(0));
+    }
+    
+    
+    function addExchangeAddress(address addr) public onlyOwner() {
+        exchangeDepositAddresses.add(addr);
+    }
+    
+    function removeExchangeAddress(address addr) public onlyOwner() {
+        exchangeDepositAddresses.remove(addr);
+    }
+    
+    function viewExchangeAddresses() public view returns(address[] memory) {
+        uint256 len = exchangeDepositAddresses.length();
+        
+        address[] memory ret = new address[](len);
+        for (uint256 i =0; i < len; i++) {
+            ret[i] = exchangeDepositAddresses.at(i);
+        }
+        return ret;
+        
     }
     
     //---------------------------------------------------------------------------------
@@ -108,6 +116,7 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
         (from, to, value, success, errmsg) = _doValidate(from, to, value);
         
         
+        
         require(success, (bytes(errmsg).length == 0) ? "chain validation failed" : errmsg);
         
         // todo: need to check params after chains validation??
@@ -132,10 +141,12 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
     function _validate(address from, address to, uint256 value) internal virtual override returns (address _from, address _to, uint256 _value, bool _success, string memory _errmsg) {
         
         (_from, _to, _value, _success, _errmsg) = (from, to, value, true, "");
-// The checks include: if _until[from] > now then do two checks:        
-// 1) if to = TradedTokenContract, revert with message “you recently claimed new tokens, please wait until duration has elapsed to claim again”
-// 2) after transfer, address would have less balance than _minimums[from] then revert with message: “you recently claimed new tokens, please wait until duration has elapsed to transfer this many tokens” 
 
+        require(
+            exchangeDepositAddresses.contains(to) == false, 
+            string(abi.encodePacked("Please send 0x", toAsciiString(_tradedToken), " instead"))
+        );
+        
         uint256 balanceFrom = ISRC20(_src20).balanceOf(from);
         
         if (restrictions[from].untilTime > block.timestamp) {
@@ -167,6 +178,21 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
     //---------------------------------------------------------------------------------
     // private  section
     //---------------------------------------------------------------------------------
-
+    function toAsciiString(address x) internal view returns (string memory) {
+        bytes memory s = new bytes(40);
+        for (uint i = 0; i < 20; i++) {
+            bytes1 b = bytes1(uint8(uint160(x) / (2**(8*(19 - i)))));
+            bytes1 hi = bytes1(uint8(b) / 16);
+            bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
+            s[2*i] = char(hi);
+            s[2*i+1] = char(lo);            
+        }
+        return string(s);
+    }
+    
+    function char(bytes1 b) private view returns (bytes1 c) {
+        if (b < bytes1(uint8(10))) return bytes1(uint8(b) + 0x30);
+        else return bytes1(uint8(b) + 0x57);
+    }
 }
     
