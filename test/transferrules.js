@@ -71,7 +71,7 @@ contract('Transfer Rule', (accounts) => {
         
         ITRInstance = await ITRMock.new({ from: accountFive });
         
-        TransferRuleInstance = await TransferRule.new(ITRInstance.address, lockupDuration, lockupFraction, { from: accountTen });
+        TransferRuleInstance = await TransferRule.new(ITRInstance.address, lockupDuration, lockupFraction, [], { from: accountTen });
         
         MockSRC20Instance = await MockSRC20.new({ from: accountTen });
         

@@ -33,6 +33,12 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
     
     EnumerableSet.AddressSet _exchangeDepositAddresses;
     
+    struct Income {
+        address addr;
+        uint256 lockedAmount;
+        
+    }
+    
     modifier onlyDoTransferCaller {
         require(msg.sender == address(_doTransferCaller));
         _;
@@ -49,12 +55,22 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
     constructor(
         address tradedToken,
         uint256 lockupDuration,
-        uint256 lockupFraction
+        uint256 lockupFraction,
+        Income[] memory initialRestrictions
     ) 
     {
         _tradedToken = tradedToken;
         _lockupDuration = lockupDuration;
         _lockupFraction = lockupFraction;
+        
+        uint256 untilTime = (block.timestamp).add(lockupDuration);
+        uint256 l=initialRestrictions.length;
+        for (uint i=0; i<l; i++) {
+            restrictions[ initialRestrictions[i].addr ] = Item({
+                lockedAmount: initialRestrictions[i].lockedAmount,
+                untilTime: untilTime
+            });
+        }
     }
     
     function cleanSRC() public onlyOwner() {
