@@ -1,3 +1,12 @@
+// SPDX-License-Identifier: AGPL
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
+import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
+
 contract ITR is Ownable, ERC777 {
     using SafeMath for uint256;
     
