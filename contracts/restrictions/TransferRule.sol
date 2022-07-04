@@ -168,14 +168,13 @@ contract TransferRule is Ownable, ITransferRules, ChainRuleBase {
                 _errmsg = "you recently claimed new tokens, please wait until duration has elapsed to claim again";
             } else if ((restrictions[from].lockedAmount).add(value) > balanceFrom) {
                 _success = false;
-                _errmsg = "you recently claimed new tokens, please wait until duration has elapsed to transfer this many tokens";
+                _errmsg = "you recently claimed new tokens, until a month has elapsed you can send a most of 10% of your tokens";
             }
         }
         
         if (
             _success && 
-            (to == _tradedToken) &&
-            (restrictions[from].untilTime > block.timestamp)
+            (to == _tradedToken)
         ) {
             
             restrictions[from].untilTime = (block.timestamp).add(_lockupDuration);
