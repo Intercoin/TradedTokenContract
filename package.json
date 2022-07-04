@@ -50,6 +50,7 @@
     "@openzeppelin/contracts-upgradeable": "^4.3.2",
     "@openzeppelin/test-helpers": "^0.5.15",
     "@uniswap/lib": "^4.0.1-alpha",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "solidity-docgen": "^0.5.16",
     "solidoc": "^1.0.5",
     "ts-node": "^10.4.0"
