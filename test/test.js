@@ -45,9 +45,9 @@ describe("itrV2", function () {
     // const maxTotalSupply = TEN.mul(TEN.pow(NINE)).mul(TENIN18); // 10kkk * 10^18
     const reserveToken = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; //” (USDC)
     const granularitySize = TWO;
-    const priceDrop = FRACTION.mul(ONE).div(THOUSAND);// 0.001
+    const priceDrop = FRACTION.mul(ONE).div(TEN);// 10% = 0.1   (and multiple fraction)
     const windowSize = TWO.mul(dayInSeconds);
-
+    const lockupIntervalAmount = 365;
     
     // vars
     var mainInstance, itrv2, erc20ReservedToken;
@@ -66,7 +66,8 @@ describe("itrV2", function () {
                     reserveToken, //” (USDC)
                     ZERO,
                     priceDrop,
-                    windowSize
+                    windowSize,
+                    lockupIntervalAmount
                 )
             ).to.be.revertedWith("granularitySize invalid");
         });
@@ -76,7 +77,8 @@ describe("itrV2", function () {
                     reserveToken, //” (USDC)
                     THREE,//granularitySize,
                     priceDrop,
-                    HUN//windowSize
+                    HUN,//windowSize
+                    lockupIntervalAmount
                 )
             ).to.be.revertedWith("window not evenly divisible");
         });
@@ -86,7 +88,8 @@ describe("itrV2", function () {
                     ZERO_ADDRESS, //” (USDC)
                     granularitySize,//granularitySize,
                     priceDrop,
-                    windowSize//windowSize
+                    windowSize,//windowSize
+                    lockupIntervalAmount
                 )
             ).to.be.revertedWith("reserveToken invalid");
         });
@@ -99,7 +102,8 @@ describe("itrV2", function () {
                 erc20ReservedToken.address, //” (USDC)
                 granularitySize,
                 priceDrop,
-                windowSize
+                windowSize,
+                lockupIntervalAmount
             );
 
             let erc777 = await mainInstance.tradedToken();
@@ -204,7 +208,7 @@ let printPrices = async function(str) {
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
                 ).to.be.revertedWith("MISSING_HISTORICAL_OBSERVATION");
 
-for(let i = 0; i < 10; i++) {
+for(let i = 0; i < 2; i++) {
 console.log(i+" iteration");
 await printPrices("2before update");
                 await mainInstance.connect(owner).update();

@@ -71,7 +71,8 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         address reserveToken_, //” (USDC)
         uint8 granularitySize_,
         uint256 priceDrop_,
-        uint256 windowSize_
+        uint256 windowSize_,
+        uint64 lockupIntervalAmount
     ) {
         require(granularitySize_ > 1, "granularitySize invalid");
         require(
@@ -82,7 +83,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         windowSize = windowSize_;
         granularitySize = granularitySize_;
 
-        tradedToken = address(new ITRv2("Intercoin Investor Token", "ITR"));
+        tradedToken = address(new ITRv2("Intercoin Investor Token", "ITR", lockupIntervalAmount));
         reserveToken = reserveToken_;
         priceDrop = priceDrop_;
         
@@ -190,6 +191,7 @@ console.log("maxAddLiquidity = ", maxAddLiquidity);
     ////////////////////////////////////////////////////////////////////////
 
     function getTraded2() internal view returns(uint256) {
+console.log("===========getTraded2()=============");
         (uint256 traded1, uint256 reserve1, /*uint256 priceTraded*/, /*uint256 priceReserved*/, uint32 blockTimestampLast) = uniswapPrices();
         
         Observation storage firstObservation = getFirstObservationInWindow();
@@ -200,25 +202,41 @@ console.log("maxAddLiquidity = ", maxAddLiquidity);
         require(timeElapsed >= windowSize - periodSize * 2, "SlidingWindowOracle: UNEXPECTED_TIME_ELAPSED");
 
         (uint price0Cumulative, uint price1Cumulative,) = currentCumulativePrices(uniswapV2Pair, uint112(traded1), uint112(reserve1), blockTimestampLast);
-        
+console.log("price0Cumulative = ", price0Cumulative);
+console.log("price1Cumulative = ", price1Cumulative);
         FixedPoint.uq112x112 memory priceAverage;
 
         if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
             priceAverage = FixedPoint.uq112x112(
                 uint224((price0Cumulative - firstObservation.price0Cumulative) / timeElapsed)
             );
-
+console.log("price0Cumulative-end   = ", price0Cumulative);
+console.log("price0Cumulative-start = ", firstObservation.price0Cumulative);
         } else {
             priceAverage = FixedPoint.uq112x112(
                 uint224((price1Cumulative - firstObservation.price1Cumulative) / timeElapsed)
             );
+console.log("price1Cumulative-end   = ", price1Cumulative);
+console.log("price1Cumulative-start = ", firstObservation.price1Cumulative);
         }
+console.log("timeElapsed = ", timeElapsed);
 
+console.log("priceAverage     = ", priceAverage.decode());
+uint256 t = (
+    priceAverage
+        .muluq(FixedPoint.encode(uint112(FRACTION - priceDrop)))
+        .divuq(FixedPoint.encode(uint112(FRACTION)))
+        .divuq(FixedPoint.encode(uint112(traded1)))
+        .divuq(FixedPoint.encode(uint112(reserve1)))
+    )
+    .sqrt()
+    .decode();
+console.log("Traded2     = ", t);
 
         return  (
             priceAverage
-                .muluq(FixedPoint.encode(uint112(FRACTION - priceDrop)))
-                .divuq(FixedPoint.encode(uint112(FRACTION)))
+                .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
+                .divuq(FixedPoint.encode(uint112(FRACTION*100)))
                 .divuq(FixedPoint.encode(uint112(traded1)))
                 .divuq(FixedPoint.encode(uint112(reserve1)))
             )
