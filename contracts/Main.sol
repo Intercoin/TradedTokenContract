@@ -13,7 +13,7 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
@@ -94,14 +94,17 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
         
+        //create Pair
+        uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).createPair(tradedToken, reserveToken);
+        require(uniswapV2Pair != address(0), "can't create pair");
+
+        fillEmptyObservations();
     }
 
     // update the cumulative price for the observation at the current timestamp. each observation is updated at most
     // once per epoch period.
     function update() external {
-        actualizePairAddress();
-        fillEmptyObservations();
-        
+
         // get the observation for the current period
         uint8 observationIndex = observationIndexOf(block.timestamp);
 
@@ -167,15 +170,13 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         public 
         onlyOwner
     {
-        actualizePairAddress();
-        fillEmptyObservations();
-        
+
         (uint256 traded1, /*uint256 reserve1*/, /*uint256 priceTraded*/, /*uint256 priceReserved*/, /*uint32 blockTimestampLast*/) = uniswapPrices();
 
         uint256 traded2 = getTraded2();
         uint256 maxAddLiquidity = traded1 - traded2;
         
-
+console.log("maxAddLiquidity = ", maxAddLiquidity);
         require(tradedTokenAmount <= maxAddLiquidity, "maxAddLiquidity exceeded");
 
         // claim to address(this)
@@ -353,16 +354,6 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         }
     }
 
-
-    
-    function actualizePairAddress() internal {
-        if (uniswapV2Pair == address(0)) { //only for first call
-            uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
-        }
-        require(uniswapV2Pair != address(0), "can't find pair");
-
-    }
-
     function fillEmptyObservations() internal {
 
             // populate the array with empty observations (first call only)
@@ -404,11 +395,13 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
 
     function uniswapPrices(
     ) 
-        internal 
+        //internal  
+        public
         view 
         // reserveTraded, reserveReserved, priceTraded, priceReserved, blockTimestamp
         returns(uint256, uint256, uint256, uint256, uint32)
     {
+
         (uint256 reserve0, uint256 reserve1, uint32 blockTimestamp) = _uniswapPrices();
 
         if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
@@ -438,9 +431,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         // reserveTraded, reserveReserved, priceTraded, priceReserved
         returns(uint112, uint112, uint32)
     {
-
         (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(uniswapV2Pair).getReserves();
-
         require (reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
         return (reserve0, reserve1, blockTimestampLast);
     }
