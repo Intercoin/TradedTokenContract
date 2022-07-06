@@ -164,7 +164,7 @@ describe("itrV2", function () {
                 pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
 
                 await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
-                await itrv2.connect(owner).claim(ONE_ETH.mul(TEN));
+                await mainInstance.connect(owner).claim(ONE_ETH.mul(TEN));
 
                 await erc20ReservedToken.connect(owner).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
                 await itrv2.connect(owner).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
@@ -185,26 +185,28 @@ describe("itrV2", function () {
 
             });
 
-            xit("should update pair", async() => {
+            it("should update pair", async() => {
                 // update by owner
-                await itrv2.connect(owner).update();
+                await mainInstance.connect(owner).update();
                 // update by bob
-                await itrv2.connect(bob).update();
+                await mainInstance.connect(bob).update();
                 
             }); 
-            xit("should add liquidity", async() => {
+            it("should add liquidity", async() => {
                 await expect(
-                    itrv2.connect(owner).addLiquidity(ONE_ETH)
+                    mainInstance.connect(owner).addLiquidity(ONE_ETH)
                 ).to.be.revertedWith("MISSING_HISTORICAL_OBSERVATION");
 
-                await itrv2.connect(owner).update();
+                await mainInstance.connect(owner).update();
 
                 await ethers.provider.send('evm_increaseTime', [parseInt(ONE.mul(dayInSeconds))]);
                 await ethers.provider.send('evm_mine');
 
-await itrv2.connect(owner).update();
 
-                await itrv2.connect(owner).addLiquidity(ONE_ETH);
+                await mainInstance.connect(owner).update();
+
+
+                await mainInstance.connect(owner).addLiquidity(ONE_ETH);
                 
             }); 
         });

@@ -140,7 +140,8 @@ contract ITRv2 is Ownable, ERC777, IERC777Recipient {
         // UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
 
         // register interfaces
-        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777TokensRecipient"), address(this));
+        // _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777TokensRecipient"), address(this));
+        // _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777TokensSender"), address(this));
 
     }
     
@@ -163,13 +164,13 @@ contract ITRv2 is Ownable, ERC777, IERC777Recipient {
     @dev   … mints to caller
     */
     function claim(
-        
+        address account,
         uint256 tradedTokenAmount
     ) 
         public 
         onlyOwner
     {
-        _mint(msg.sender, tradedTokenAmount, "", "");
+        _mint(account, tradedTokenAmount, "", "");
     }
 
 

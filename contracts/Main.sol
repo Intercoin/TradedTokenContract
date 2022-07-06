@@ -2,12 +2,18 @@
 pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
+import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
+
+import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-import "hardhat/console.sol";
+
+
+//import "hardhat/console.sol";
 
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
@@ -17,7 +23,7 @@ import "./libs/FixedPoint.sol";
 
 import "./ITRv2.sol";
 
-contract Main is Ownable {
+contract Main is Ownable, IERC777Recipient, IERC777Sender {
     using FixedPoint for *;
 
     struct Observation {
@@ -25,6 +31,10 @@ contract Main is Ownable {
         uint price0Cumulative;
         uint price1Cumulative;
     }
+
+    IERC1820Registry internal constant _ERC1820_REGISTRY = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+    bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
+    bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
     address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
 
@@ -80,6 +90,9 @@ contract Main is Ownable {
         (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
         UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
 
+        // register interfaces
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
         
     }
 
@@ -93,7 +106,7 @@ contract Main is Ownable {
         uint8 observationIndex = observationIndexOf(block.timestamp);
 
         // we only want to commit updates once per period (i.e. windowSize / granularitySize)
-        uint timeElapsed = block.timestamp - pairObservation[claimobservationIndex].timestamp;
+        uint timeElapsed = block.timestamp - pairObservation[observationIndex].timestamp;
         if (timeElapsed > periodSize) {
 
             (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
@@ -104,6 +117,29 @@ contract Main is Ownable {
             pairObservation[observationIndex].price1Cumulative = price1Cumulative;
         }
     }
+    
+    function tokensReceived(
+        address operator,
+        address from,
+        address to,
+        uint256 amount,
+        bytes calldata userData,
+        bytes calldata operatorData
+    ) external {
+       
+    }
+
+    function tokensToSend(
+        address operator,
+        address from,
+        address to,
+        uint256 amount,
+        bytes calldata userData,
+        bytes calldata operatorData
+    ) external {
+
+    }
+
 
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
@@ -113,7 +149,6 @@ contract Main is Ownable {
     @dev   … mints to caller
     */
     function claim(
-        
         uint256 tradedTokenAmount
     ) 
         public 
@@ -144,7 +179,7 @@ contract Main is Ownable {
         require(tradedTokenAmount <= maxAddLiquidity, "maxAddLiquidity exceeded");
 
         // claim to address(this)
-        ITRv2(tradedToken).claim(tradedTokenAmount);
+        ITRv2(tradedToken).claim(address(this), tradedTokenAmount);
         _sellTradedAndStake(tradedTokenAmount);
     }
 
@@ -205,6 +240,7 @@ contract Main is Ownable {
             ) - rTraded; //    
         require(r3 > 0 && incomingTradedToken > r3, "BAD_AMOUNT");
         // remaining (r2-r3) we will exchange at uniswap to traded token
+
         uint256 amountReserveToken = doSwapOnUniswap(tradedToken, reserveToken, r3);
         uint256 amountTradedToken = incomingTradedToken - r3;
 
@@ -246,13 +282,17 @@ contract Main is Ownable {
             amountOut = amountIn;
         } else {
             require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
+
             address[] memory path = new address[](2);
             path[0] = address(tokenIn);
             path[1] = address(tokenOut);
             // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
+
+
             uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
                 amountIn, 0, path, address(this), block.timestamp
             );
+
             amountOut = outputAmounts[1];
         }
     }
