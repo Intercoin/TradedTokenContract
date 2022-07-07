@@ -67,6 +67,8 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     // this is redundant with granularitySize and windowSize, but stored for gas savings & informational purposes.
     uint public immutable periodSize;
 
+    bytes32 internal constant OWNER_ROLE = 0x4f574e4552000000000000000000000000000000000000000000000000000000;
+
     constructor(
         address reserveToken_, //” (USDC)
         uint8 granularitySize_,
@@ -100,6 +102,9 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         require(uniswapV2Pair != address(0), "can't create pair");
 
         fillEmptyObservations();
+
+        //grant sender owner role
+        ITRv2(tradedToken).grantRole(OWNER_ROLE, msg.sender);
     }
 
     // update the cumulative price for the observation at the current timestamp. each observation is updated at most
@@ -111,6 +116,10 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
 
         // we only want to commit updates once per period (i.e. windowSize / granularitySize)
         uint timeElapsed = block.timestamp - pairObservation[observationIndex].timestamp;
+
+        console.log("timeElapsed = ", timeElapsed);
+        console.log("periodSize = ", periodSize);
+
         if (timeElapsed > periodSize) {
 
             (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
@@ -172,12 +181,13 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         onlyOwner
     {
 
-        (uint256 traded1, /*uint256 reserve1*/, /*uint256 priceTraded*/, /*uint256 priceReserved*/, /*uint32 blockTimestampLast*/) = uniswapPrices();
+        (uint256 traded1, /*uint256 reserve1*/, /*uint256 priceTraded*/, /*uint256 priceReserved*/,,, /*uint32 blockTimestampLast*/) = uniswapPrices();
 
         uint256 traded2 = getTraded2();
         uint256 maxAddLiquidity = traded1 - traded2;
         
 console.log("maxAddLiquidity = ", maxAddLiquidity);
+console.log("tradedTokenAmount = ", tradedTokenAmount);
         require(tradedTokenAmount <= maxAddLiquidity, "maxAddLiquidity exceeded");
 
         // claim to address(this)
@@ -185,14 +195,34 @@ console.log("maxAddLiquidity = ", maxAddLiquidity);
         _sellTradedAndStake(tradedTokenAmount);
     }
 
+    function renounceOwnership() public virtual override onlyOwner {
+        transferOwnerRole(owner(), address(0));
+
+        super.renounceOwnership();
+        
+    }
+    
+    function transferOwnership(address newOwner) public virtual override onlyOwner {
+        transferOwnerRole(owner(), newOwner);
+        
+        super.transferOwnership(newOwner);
+        
+    }
 
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+    function transferOwnerRole(address from, address to) internal {
+        //revoke owner role from older role
+        ITRv2(tradedToken).revokeRole(OWNER_ROLE, from);
+
+        //grant owner role to newOwner
+        ITRv2(tradedToken).grantRole(OWNER_ROLE, to);
+    }
 
     function getTraded2() internal view returns(uint256) {
-console.log("===========getTraded2()=============");
-        (uint256 traded1, uint256 reserve1, /*uint256 priceTraded*/, /*uint256 priceReserved*/, uint32 blockTimestampLast) = uniswapPrices();
+
+        (uint256 traded1, uint256 reserve1, /*uint256 priceTraded*/, /*uint256 priceReserved*/,,, uint32 blockTimestampLast) = uniswapPrices();
         
         Observation storage firstObservation = getFirstObservationInWindow();
 
@@ -202,46 +232,50 @@ console.log("===========getTraded2()=============");
         require(timeElapsed >= windowSize - periodSize * 2, "SlidingWindowOracle: UNEXPECTED_TIME_ELAPSED");
 
         (uint price0Cumulative, uint price1Cumulative,) = currentCumulativePrices(uniswapV2Pair, uint112(traded1), uint112(reserve1), blockTimestampLast);
-console.log("price0Cumulative = ", price0Cumulative);
-console.log("price1Cumulative = ", price1Cumulative);
+
         FixedPoint.uq112x112 memory priceAverage;
 
         if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
             priceAverage = FixedPoint.uq112x112(
                 uint224((price0Cumulative - firstObservation.price0Cumulative) / timeElapsed)
             );
-console.log("price0Cumulative-end   = ", price0Cumulative);
-console.log("price0Cumulative-start = ", firstObservation.price0Cumulative);
+
         } else {
             priceAverage = FixedPoint.uq112x112(
                 uint224((price1Cumulative - firstObservation.price1Cumulative) / timeElapsed)
             );
-console.log("price1Cumulative-end   = ", price1Cumulative);
-console.log("price1Cumulative-start = ", firstObservation.price1Cumulative);
+
         }
-console.log("timeElapsed = ", timeElapsed);
 
-console.log("priceAverage     = ", priceAverage.decode());
-uint256 t = (
-    priceAverage
-        .muluq(FixedPoint.encode(uint112(FRACTION - priceDrop)))
-        .divuq(FixedPoint.encode(uint112(FRACTION)))
-        .divuq(FixedPoint.encode(uint112(traded1)))
-        .divuq(FixedPoint.encode(uint112(reserve1)))
-    )
-    .sqrt()
-    .decode();
-console.log("Traded2     = ", t);
+        
+        // Math.sqrt(lowestPrice * traded1 * reserve1)
+        // return  (
+        //     priceAverage
+        //         .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
+        //         .divuq(FixedPoint.encode(uint112(FRACTION*100)))
+        //         .muluq(FixedPoint.encode(uint112(traded1)))
+        //         .muluq(FixedPoint.encode(uint112(reserve1)))
+        //     )
+        //     .sqrt().decode();
 
-        return  (
-            priceAverage
-                .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
-                .divuq(FixedPoint.encode(uint112(FRACTION*100)))
-                .divuq(FixedPoint.encode(uint112(traded1)))
-                .divuq(FixedPoint.encode(uint112(reserve1)))
+        
+        // Note that (traded1 * reserve1) will overflow in uint112. so need to exlude from sqrt like this 
+        // Math.sqrt(lowestPrice * traded1 * reserve1) =  Math.sqrt(lowestPrice) * Math.sqrt(traded1) * Math.sqrt(reserve1)
+        return (
+            
+            FixedPoint.encode(uint112(traded1)).sqrt()
+            .muluq(
+                FixedPoint.encode(uint112(reserve1)).sqrt()
             )
-            .sqrt().decode();
-        //return sqrt(price2 / traded1 / reserve1);
+            .muluq(
+                (
+                    priceAverage
+                    .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
+                    .divuq(FixedPoint.encode(uint112(FRACTION*100)))
+                ).sqrt()
+            )
+        ).decode();
+        
     }
 
      function _sellTradedAndStake(
@@ -250,7 +284,7 @@ console.log("Traded2     = ", t);
         internal
     {
 
-        (uint256 rTraded, /*uint256 rReserved*/, /*uint256 priceTraded*/, /*uint256 priceReserved*/, /*uint32 blockTimestampLast*/) = uniswapPrices();
+        (uint256 rTraded, /*uint256 rReserved*/, /*uint256 priceTraded*/) = _uniswapPrices();
         
 
         uint256 r3 = 
@@ -269,7 +303,6 @@ console.log("Traded2     = ", t);
             && ERC777(reserveToken).approve(uniswapRouter, amountReserveToken),
             "APPROVE_FAILED"
         );
-
 
         (/*uint256 A*/, /*uint256 B*/, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
             tradedToken,
@@ -416,18 +449,38 @@ console.log("Traded2     = ", t);
         //internal  
         public
         view 
-        // reserveTraded, reserveReserved, priceTraded, priceReserved, blockTimestamp
-        returns(uint256, uint256, uint256, uint256, uint32)
+        // reserveTraded, reserveReserved, priceTraded, priceReserved, averagePriceTraded, averagePriceReserved, blockTimestamp
+        returns(uint256, uint256, uint256, uint256, uint256, uint256, uint32)
     {
 
         (uint256 reserve0, uint256 reserve1, uint32 blockTimestamp) = _uniswapPrices();
 
+
+
+        Observation storage firstObservation = getFirstObservationInWindow();
+
+        uint timeElapsed = block.timestamp - firstObservation.timestamp;
+        require(timeElapsed <= windowSize, "MISSING_HISTORICAL_OBSERVATION");
+        // should never happen.
+        require(timeElapsed >= windowSize - periodSize * 2, "SlidingWindowOracle: UNEXPECTED_TIME_ELAPSED");
+
+        (uint price0Cumulative, uint price1Cumulative,) = currentCumulativePrices(uniswapV2Pair, uint112(reserve0), uint112(reserve1), blockTimestamp);
+
+        FixedPoint.uq112x112 memory price0Average = FixedPoint.uq112x112(
+            uint224((price0Cumulative - firstObservation.price0Cumulative) / timeElapsed)
+        );
+        FixedPoint.uq112x112 memory price1Average = FixedPoint.uq112x112(
+            uint224((price1Cumulative - firstObservation.price1Cumulative) / timeElapsed)
+        );
+        
         if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
             return(
                 reserve0, 
                 reserve1, 
                 FRACTION * reserve0 / reserve1,
                 FRACTION * reserve1 / reserve0,
+                FRACTION * price0Average.decode(),
+                FRACTION * price1Average.decode(),
                 blockTimestamp
             );
         } else {
@@ -436,6 +489,8 @@ console.log("Traded2     = ", t);
                 reserve0, 
                 FRACTION * reserve1 / reserve0,
                 FRACTION * reserve0 / reserve1,
+                FRACTION * price1Average.decode(),
+                FRACTION * price0Average.decode(),
                 blockTimestamp
             );
         }

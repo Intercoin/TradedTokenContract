@@ -127,31 +127,20 @@ describe("itrV2", function () {
         });
 
         it("shouldnt `update` without liquidity", async() => {
-
-            let uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
-            await uniswapRouterFactoryInstance.createPair(erc20ReservedToken.address, itrv2.address);
-            
             await expect(
                 mainInstance.connect(bob).update()
             ).to.be.revertedWith("RESERVES_EMPTY");
         }); 
 
         it("shouldnt `addLiquidity` without liquidity", async() => {
-
-            let uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
-            await uniswapRouterFactoryInstance.createPair(erc20ReservedToken.address, itrv2.address);
-            
             await expect(
                 mainInstance.connect(owner).addLiquidity(ONE_ETH)
             ).to.be.revertedWith("RESERVES_EMPTY");
         }); 
-        
-        
-        
-        
+    
         describe("uniswap settings", function () {
             var uniswapRouterFactoryInstance, uniswapRouterInstance, pairInstance;
-            beforeEach("deploying", async() => {
+            beforeEach("adding liquidity", async() => {
                 uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
                 uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
             
@@ -167,7 +156,7 @@ describe("itrV2", function () {
 
                 const ts = await time.latest();
                 const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
-
+console.log("11111");
                 await uniswapRouterInstance.connect(owner).addLiquidity(
                     erc20ReservedToken.address,
                     itrv2.address,
@@ -178,10 +167,11 @@ describe("itrV2", function () {
                     owner.address,
                     timeUntil
                 );
-
+console.log("22222");
             });
 
             it("should update pair", async() => {
+
                 // update by owner
                 await mainInstance.connect(owner).update();
                 // update by bob
@@ -191,37 +181,88 @@ describe("itrV2", function () {
 
             it.only("should add liquidity", async() => {
 
-let printPrices = async function(str) {
-    ///return;
-    console.log(mainInstance.address);
-    let x1,x2,x3,x4,x5;
-    [x1,x2,x3,x4,x5] = await mainInstance.uniswapPrices();
-    console.log("======"+str+"============================");
-    console.log("reserveTraded  = ",x1.toString());
-    console.log("reserveReserved= ",x2.toString());
-    console.log("priceTraded    = ",x3.toString());
-    console.log("priceReserved  = ",x4.toString());
-    console.log("blockTimestamp = ",x5.toString());
+                let printPrices = async function(str) {
+                    ///return;
+                    console.log(mainInstance.address);
+                    let x1,x2,x3,x4,x5;
+                    [x1,x2,x3,x4,x5] = await mainInstance.uniswapPrices();
+                    console.log("======"+str+"============================");
+                    console.log("reserveTraded  = ",x1.toString());
+                    console.log("reserveReserved= ",x2.toString());
+                    console.log("priceTraded    = ",x3.toString());
+                    console.log("priceReserved  = ",x4.toString());
+                    console.log("blockTimestamp = ",x5.toString());
 
-}                
+                }                
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
                 ).to.be.revertedWith("MISSING_HISTORICAL_OBSERVATION");
 
-for(let i = 0; i < 2; i++) {
-console.log(i+" iteration");
-await printPrices("2before update");
-                await mainInstance.connect(owner).update();
-                await ethers.provider.send('evm_increaseTime', [parseInt(ONE.mul(dayInSeconds))]);
-                await ethers.provider.send('evm_mine');
-                await mainInstance.connect(owner).update();
+                for(let i = 0; i < 2; i++) {
+console.log(i+" iteration"+"start");
+                    if (i != 0) {await printPrices("2before update");}
+                    await mainInstance.connect(owner).update();
+console.log(i+" iteration"+"#1");
+                    await ethers.provider.send('evm_increaseTime', [parseInt(ONE.mul(dayInSeconds))]);
+                    await ethers.provider.send('evm_mine');
+                    await mainInstance.connect(owner).update();
+                    await ethers.provider.send('evm_increaseTime', [parseInt(ONE.mul(dayInSeconds))]);
+                    await ethers.provider.send('evm_mine');
+console.log(i+" iteration"+"#2");
+                    await printPrices("before add liquidity");                                
+console.log(i+" iteration"+"#3");
+                    await mainInstance.connect(owner).addLiquidity(ONE_ETH);
+                }
 
-await printPrices("before add liquidity");                                
-                await mainInstance.connect(owner).addLiquidity(ONE_ETH);
-}
-
-await printPrices("final");                                
+                await printPrices("final");                                
             }); 
+
+            describe("check update", function () {
+                it("should be the same if price does not changes", async() => {
+                    let x1,x2,x3,x4,x5,x6,x7;
+                    let priceTraded,averagePriceTraded;
+                    
+                    let prices = [];
+                    await mainInstance.connect(owner).update();
+                    await ethers.provider.send('evm_increaseTime', [parseInt(ONE.mul(dayInSeconds))]);
+                    await ethers.provider.send('evm_mine');
+                    await mainInstance.connect(owner).update();
+                    await ethers.provider.send('evm_increaseTime', [parseInt(ONE.mul(dayInSeconds))]);
+                    await ethers.provider.send('evm_mine');
+
+                    
+                    [x1,x2,priceTraded,x4,averagePriceTraded,x6,x7] = await mainInstance.uniswapPrices();
+                    prices.push([priceTraded,averagePriceTraded]);
+                    
+                    //-----------------------
+                    await ethers.provider.send('evm_increaseTime', [parseInt(ONE.mul(dayInSeconds))]);
+                    await ethers.provider.send('evm_mine');
+                    await mainInstance.connect(owner).update();
+                    [x1,x2,priceTraded,x4,averagePriceTraded,x6,x7] = await mainInstance.uniswapPrices();
+                    prices.push([priceTraded,averagePriceTraded]);
+                    //-----------------------
+                    await ethers.provider.send('evm_increaseTime', [parseInt(ONE.mul(dayInSeconds))]);
+                    await ethers.provider.send('evm_mine');
+                    await mainInstance.connect(owner).update();
+                    [x1,x2,priceTraded,x4,averagePriceTraded,x6,x7] = await mainInstance.uniswapPrices();
+                    prices.push([priceTraded,averagePriceTraded]);
+                    //-----------------------
+                    await ethers.provider.send('evm_increaseTime', [parseInt(ONE.mul(dayInSeconds))]);
+                    await ethers.provider.send('evm_mine');
+                    await mainInstance.connect(owner).update();
+                    [x1,x2,priceTraded,x4,averagePriceTraded,x6,x7] = await mainInstance.uniswapPrices();
+                    prices.push([priceTraded,averagePriceTraded]);
+
+                    for (let i = 1; i < prices.length; i++) {
+                        expect(prices[i][0]).to.be.eq(prices[i][1]);
+                        expect(prices[i-1][0]).to.be.eq(prices[i][0]);
+                    }
+                    
+
+                    
+                    
+                }); 
+            });
         });
           
 
