@@ -86,15 +86,15 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
 
         // owner - contract main
         // real owner User
-        console.log("======================");
-        console.log("                                   address               [isAdmin] [isOwner]");
-        console.log("operator       = ", operator, hasRole(DEFAULT_ADMIN_ROLE,operator), hasRole(OWNER_ROLE,operator));
-        console.log("from           = ", from, hasRole(DEFAULT_ADMIN_ROLE,from), hasRole(OWNER_ROLE,from));
-        console.log("to             = ", to, hasRole(DEFAULT_ADMIN_ROLE,to), hasRole(OWNER_ROLE,to));
-        console.log("----------------------");
-        console.log("address(this)  = ", address(this), hasRole(DEFAULT_ADMIN_ROLE,address(this)), hasRole(OWNER_ROLE,address(this)));
-        console.log("owner()        = ", owner(), hasRole(DEFAULT_ADMIN_ROLE,owner()), hasRole(OWNER_ROLE,owner()));
-        console.log("uniswapRouter  = ", uniswapRouter, hasRole(DEFAULT_ADMIN_ROLE,uniswapRouter), hasRole(OWNER_ROLE,uniswapRouter));
+        // console.log("======================");
+        // console.log("                                   address               [isAdmin] [isOwner]");
+        // console.log("operator       = ", operator, hasRole(DEFAULT_ADMIN_ROLE,operator), hasRole(OWNER_ROLE,operator));
+        // console.log("from           = ", from, hasRole(DEFAULT_ADMIN_ROLE,from), hasRole(OWNER_ROLE,from));
+        // console.log("to             = ", to, hasRole(DEFAULT_ADMIN_ROLE,to), hasRole(OWNER_ROLE,to));
+        // console.log("----------------------");
+        // console.log("address(this)  = ", address(this), hasRole(DEFAULT_ADMIN_ROLE,address(this)), hasRole(OWNER_ROLE,address(this)));
+        // console.log("owner()        = ", owner(), hasRole(DEFAULT_ADMIN_ROLE,owner()), hasRole(OWNER_ROLE,owner()));
+        // console.log("uniswapRouter  = ", uniswapRouter, hasRole(DEFAULT_ADMIN_ROLE,uniswapRouter), hasRole(OWNER_ROLE,uniswapRouter));
         
         if (
             // if minted

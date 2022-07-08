@@ -106,6 +106,10 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
 
         //grant sender owner role
         ITRv2(tradedToken).grantRole(OWNER_ROLE, msg.sender);
+
+
+        uint8 observationIndex = observationIndexOf(block.timestamp);
+
     }
 
     // update the cumulative price for the observation at the current timestamp. each observation is updated at most
@@ -114,14 +118,16 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
 
         // get the observation for the current period
         uint8 observationIndex = observationIndexOf(block.timestamp);
-console.log("update():observationIndex = ", observationIndex);
+        //console.log("update():observationIndex = ", observationIndex);
         // we only want to commit updates once per period (i.e. windowSize / granularitySize)
         uint timeElapsed = block.timestamp - pairObservation[observationIndex].timestamp;
 
-        console.log("update():timeElapsed = ", timeElapsed);
-        console.log("update():periodSize = ", periodSize);
-
-        if (timeElapsed > periodSize) {
+        Observation storage firstObservation = getFirstObservationInWindow();
+        if (
+            timeElapsed > periodSize ||
+            firstObservation.timestamp == 0
+        ) {
+            
 console.log("update():success");
             (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
 
@@ -129,6 +135,13 @@ console.log("update():success");
             pairObservation[observationIndex].timestamp = block.timestamp;
             pairObservation[observationIndex].price0Cumulative = price0Cumulative;
             pairObservation[observationIndex].price1Cumulative = price1Cumulative;
+
+            if (firstObservation.timestamp == 0) {
+                uint8 firstObservationIndex = (observationIndex + 1) % granularitySize;
+                pairObservation[firstObservationIndex].timestamp = block.timestamp;
+                pairObservation[firstObservationIndex].price0Cumulative = price0Cumulative;
+                pairObservation[firstObservationIndex].price1Cumulative = price1Cumulative;
+            }
         } else {
 console.log("update():passed");
         }
@@ -188,9 +201,7 @@ console.log("update():passed");
 
         uint256 traded2 = getTraded2(priceDrop);
         uint256 maxAddLiquidity = traded1 - traded2;
-        
-console.log("maxAddLiquidity = ", maxAddLiquidity);
-console.log("tradedTokenAmount = ", tradedTokenAmount);
+
         require(tradedTokenAmount <= maxAddLiquidity, "maxAddLiquidity exceeded");
 
         // claim to address(this)
@@ -229,10 +240,10 @@ console.log("tradedTokenAmount = ", tradedTokenAmount);
 
         uint timeElapsed = block.timestamp - firstObservation.timestamp;
 
-        console.log("getPriceAverage:firstObservation.timestamp=",firstObservation.timestamp);
-        console.log("getPriceAverage:block.timestamp=",block.timestamp);
-        console.log("getPriceAverage:windowSize=",windowSize);
-        console.log("getPriceAverage:timeElapsed=",timeElapsed);
+        // console.log("getPriceAverage:firstObservation.timestamp=",firstObservation.timestamp);
+        // console.log("getPriceAverage:block.timestamp=",block.timestamp);
+        // console.log("getPriceAverage:windowSize=",windowSize);
+        // console.log("getPriceAverage:timeElapsed=",timeElapsed);
         require(timeElapsed <= windowSize, "MISSING_HISTORICAL_OBSERVATION");
         // should never happen.
         require(timeElapsed >= windowSize - periodSize * 2, "SlidingWindowOracle: UNEXPECTED_TIME_ELAPSED");
@@ -473,8 +484,8 @@ console.log("tradedTokenAmount = ", tradedTokenAmount);
         Observation storage firstObservation = getFirstObservationInWindow();
 
         uint timeElapsed = block.timestamp - firstObservation.timestamp;
-console.log("uniswapPrices:timeElapsed = ", timeElapsed);
-console.log("uniswapPrices:windowSize = ", windowSize);
+// console.log("uniswapPrices:timeElapsed = ", timeElapsed);
+// console.log("uniswapPrices:windowSize = ", windowSize);
         require(timeElapsed <= windowSize, "MISSING_HISTORICAL_OBSERVATION");
         // should never happen.
         require(timeElapsed >= windowSize - periodSize * 2, "SlidingWindowOracle: UNEXPECTED_TIME_ELAPSED");
@@ -514,7 +525,7 @@ console.log("uniswapPrices:windowSize = ", windowSize);
 
     function _uniswapPrices(
     ) 
-        internal 
+        public 
         view 
         // reserveTraded, reserveReserved, priceTraded, priceReserved
         returns(uint112, uint112, uint32)
@@ -533,13 +544,13 @@ console.log("uniswapPrices:windowSize = ", windowSize);
     // returns the observation from the oldest epoch (at the beginning of the window) relative to the current time
     function getFirstObservationInWindow() private view returns (Observation storage firstObservation) {
         uint8 observationIndex = observationIndexOf(block.timestamp);
-console.log("getFirstObservationInWindow:observationIndex = ", observationIndex);
+// console.log("getFirstObservationInWindow:observationIndex = ", observationIndex);
         // no overflow issue. if observationIndex + 1 overflows, result is still zero.
         uint8 firstObservationIndex = (observationIndex + 1) % granularitySize;
         
-console.log("getFirstObservationInWindow:firstObservationIndex = ", firstObservationIndex);
+// console.log("getFirstObservationInWindow:firstObservationIndex = ", firstObservationIndex);
         firstObservation = pairObservation[firstObservationIndex];
-console.log("getFirstObservationInWindow:firstObservation.timestamp = ", firstObservation.timestamp);
+// console.log("getFirstObservationInWindow:firstObservation.timestamp = ", firstObservation.timestamp);
     }
 
 

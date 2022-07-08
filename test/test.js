@@ -151,13 +151,13 @@ describe("itrV2", function () {
             before("make snapshot", async() => {
                 // make snapshot before time manipulations
                 snapId = await ethers.provider.send('evm_snapshot', []);
-                console.log("make snapshot");
+                //console.log("make snapshot");
             });
 
             after("revert to snapshot", async() => {
                 // restore snapshot
                 await ethers.provider.send('evm_revert', [snapId]);
-                console.log("revert to snapshot");
+                //console.log("revert to snapshot");
             });
 
             beforeEach("adding liquidity", async() => {
@@ -191,9 +191,9 @@ describe("itrV2", function () {
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
                 ).to.be.revertedWith("MISSING_HISTORICAL_OBSERVATION");
-console.log("111");
+                //console.log("111");
                 await mainInstance.connect(owner).update();
-console.log("222");
+                //console.log("222");
             });
 
             it("should update pair", async() => {
@@ -205,12 +205,13 @@ console.log("222");
                 
             }); 
 
-            it.only("should add liquidity", async() => {
+            it("should add liquidity", async() => {
 
                 let getMaxLiquidity = async function() {
                     
                     let x1,x2,x3,x4,x5;
                     [traded1,x2,x3,x4,x5] = await mainInstance.uniswapPrices();
+                    //[traded1,x2,x3] = await mainInstance._uniswapPrices();
 
                     let traded2 = await mainInstance.getTraded2(priceDrop);
                     maxAddLiquidity = traded1 - traded2;
@@ -237,21 +238,21 @@ console.log("222");
 
                 let maxliquidity;
                 for(let i = 0; i < 10; i++) {
-console.log("! I = ", i);
+
                     await mainInstance.connect(owner).update();
-console.log("№1");
+
                     await mainInstance.connect(owner).update();
-console.log("№2");
+
                     await ethers.provider.send('evm_increaseTime', [parseInt(HOUR)]);
                     await ethers.provider.send('evm_mine');
-console.log("№3");  
+
 
                     maxliquidity = await getMaxLiquidity();
-console.log("№4");  
+
                     console.log("!MaxLiquidity = ", maxliquidity);
 
                     await mainInstance.connect(owner).addLiquidity(ONE.mul(maxliquidity).div(THOUSAND));
-console.log("№5");  
+
                 }
 
                 await printPrices("final");                                
