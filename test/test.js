@@ -50,7 +50,8 @@ describe("itrV2", function () {
     const granularitySize = TWO;
     const priceDrop = FRACTION.mul(ONE).div(TEN);// 10% = 0.1   (and multiple fraction)
     const windowSize = ONE.mul(dayInSeconds);
-
+// periodSize = windowSize_ / granularity_) * granularity_
+//range [now - [windowSize, windowSize - periodSize * 2], now]
     
     const lockupIntervalAmount = 365;
     
@@ -190,9 +191,9 @@ describe("itrV2", function () {
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
                 ).to.be.revertedWith("MISSING_HISTORICAL_OBSERVATION");
-
-                //await mainInstance.connect(owner).update();
-
+console.log("111");
+                await mainInstance.connect(owner).update();
+console.log("222");
             });
 
             it("should update pair", async() => {
@@ -209,7 +210,7 @@ describe("itrV2", function () {
                 let getMaxLiquidity = async function() {
                     
                     let x1,x2,x3,x4,x5;
-                    //[traded1,x2,x3,x4,x5] = await mainInstance.uniswapPrices();
+                    [traded1,x2,x3,x4,x5] = await mainInstance.uniswapPrices();
 
                     let traded2 = await mainInstance.getTraded2(priceDrop);
                     maxAddLiquidity = traded1 - traded2;
@@ -236,7 +237,7 @@ describe("itrV2", function () {
 
                 let maxliquidity;
                 for(let i = 0; i < 10; i++) {
-                    console.log("! I = ", i);
+console.log("! I = ", i);
                     await mainInstance.connect(owner).update();
 console.log("№1");
                     await mainInstance.connect(owner).update();
