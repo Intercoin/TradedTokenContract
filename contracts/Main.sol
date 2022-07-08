@@ -66,6 +66,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     uint8 public immutable granularitySize;
     // this is redundant with granularitySize and windowSize, but stored for gas savings & informational purposes.
     uint public immutable periodSize;
+    
 
     bytes32 internal constant OWNER_ROLE = 0x4f574e4552000000000000000000000000000000000000000000000000000000;
 
@@ -117,7 +118,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         // we only want to commit updates once per period (i.e. windowSize / granularitySize)
         uint timeElapsed = block.timestamp - pairObservation[observationIndex].timestamp;
 
-        console.log("timeElapsed = ", timeElapsed);
+        console.log("update():timeElapsed = ", timeElapsed);
         console.log("periodSize = ", periodSize);
 
         if (timeElapsed > periodSize) {
@@ -183,7 +184,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
 
         (uint256 traded1, /*uint256 reserve1*/, /*uint256 priceTraded*/, /*uint256 priceReserved*/,,, /*uint32 blockTimestampLast*/) = uniswapPrices();
 
-        uint256 traded2 = getTraded2();
+        uint256 traded2 = getTraded2(priceDrop);
         uint256 maxAddLiquidity = traded1 - traded2;
         
 console.log("maxAddLiquidity = ", maxAddLiquidity);
@@ -220,13 +221,15 @@ console.log("tradedTokenAmount = ", tradedTokenAmount);
         ITRv2(tradedToken).grantRole(OWNER_ROLE, to);
     }
 
-    function getTraded2() internal view returns(uint256) {
 
-        (uint256 traded1, uint256 reserve1, /*uint256 priceTraded*/, /*uint256 priceReserved*/,,, uint32 blockTimestampLast) = uniswapPrices();
-        
+    function getPriceAverage(uint256 traded1, uint256 reserve1, uint32 blockTimestampLast) internal view returns (FixedPoint.uq112x112 memory) {
         Observation storage firstObservation = getFirstObservationInWindow();
 
         uint timeElapsed = block.timestamp - firstObservation.timestamp;
+        console.log("firstObservation.timestamp=",firstObservation.timestamp);
+        console.log("block.timestamp=",block.timestamp);
+        console.log("windowSize=",windowSize);
+console.log("timeElapsed=",timeElapsed);
         require(timeElapsed <= windowSize, "MISSING_HISTORICAL_OBSERVATION");
         // should never happen.
         require(timeElapsed >= windowSize - periodSize * 2, "SlidingWindowOracle: UNEXPECTED_TIME_ELAPSED");
@@ -236,18 +239,27 @@ console.log("tradedTokenAmount = ", tradedTokenAmount);
         FixedPoint.uq112x112 memory priceAverage;
 
         if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
+
             priceAverage = FixedPoint.uq112x112(
                 uint224((price0Cumulative - firstObservation.price0Cumulative) / timeElapsed)
             );
 
         } else {
+
             priceAverage = FixedPoint.uq112x112(
                 uint224((price1Cumulative - firstObservation.price1Cumulative) / timeElapsed)
             );
 
         }
 
+        return priceAverage;
+
+    }
+    function getTraded2(uint256 priceDrop_) public view returns(uint256) {
+
+        (uint256 traded1, uint256 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
         
+        FixedPoint.uq112x112 memory priceAverage = getPriceAverage(traded1, reserve1, blockTimestampLast);
         // Math.sqrt(lowestPrice * traded1 * reserve1)
         // return  (
         //     priceAverage
@@ -270,7 +282,7 @@ console.log("tradedTokenAmount = ", tradedTokenAmount);
             .muluq(
                 (
                     priceAverage
-                    .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
+                    .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop_)))
                     .divuq(FixedPoint.encode(uint112(FRACTION*100)))
                 ).sqrt()
             )
@@ -285,7 +297,6 @@ console.log("tradedTokenAmount = ", tradedTokenAmount);
     {
 
         (uint256 rTraded, /*uint256 rReserved*/, /*uint256 priceTraded*/) = _uniswapPrices();
-        
 
         uint256 r3 = 
             sqrt(
@@ -296,7 +307,6 @@ console.log("tradedTokenAmount = ", tradedTokenAmount);
 
         uint256 amountReserveToken = doSwapOnUniswap(tradedToken, reserveToken, r3);
         uint256 amountTradedToken = incomingTradedToken - r3;
-
         
         require(
             ERC777(tradedToken).approve(uniswapRouter, amountTradedToken)
