@@ -96,27 +96,45 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
         // console.log("owner()        = ", owner(), hasRole(DEFAULT_ADMIN_ROLE,owner()), hasRole(OWNER_ROLE,owner()));
         // console.log("uniswapRouter  = ", uniswapRouter, hasRole(DEFAULT_ADMIN_ROLE,uniswapRouter), hasRole(OWNER_ROLE,uniswapRouter));
         
+
+        // locked up tokens
+        // it's happens in onyl one way. when admin claim(mint) to some1
         if (
             // if minted
-            (from == address(0)) ||
-            // or burnt itself
-            (from == address(this) && to == address(0)) ||
-            
-            // or transfer from owner to some1
-            hasRole(OWNER_ROLE, from) ||
-            // or send from main contract to some1
-            (from == owner()) ||
-            // or operator is uniswap router
-            (operator == uniswapRouter)
+            from == address(0) && 
+            (
+                //and minted to some1 user
+                to != owner() &&
+                to != uniswapRouter &&
+                hasRole(OWNER_ROLE, to) == false
+            )
         ) {
-            // skip minimums validations
-        } else {
-            uint256 balance = balanceOf(from);
-            uint256 locked = tokensLocked[from]._getMinimum();
-
-           // require(balance - locked >= amount, "insufficient amount");
+            tokensLocked[to]._minimumsAdd(amount, lockupIntervalAmount, LOCKUP_INTERVAL, true);
         }
 
+    
+        uint256 balance = balanceOf(from);
+        uint256 locked = tokensLocked[from]._getMinimum();
+
+        require(balance - locked >= amount, "insufficient amount");
+        
+
+
+        // if (
+
+        //     // if minted
+        //     (from == address(0)) ||
+        //     // or burnt itself
+        //     (from == address(this) && to == address(0)) ||
+            
+        //     // or transfer from owner to some1
+        //     hasRole(OWNER_ROLE, from) ||
+        //     // or send from main contract to some1
+        //     (from == owner()) ||
+        //     // or operator is uniswap router
+        //     (operator == uniswapRouter)
+        // ) {
+        
     }    
     
     

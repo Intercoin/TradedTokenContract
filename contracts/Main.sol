@@ -118,11 +118,12 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
 
         // get the observation for the current period
         uint8 observationIndex = observationIndexOf(block.timestamp);
-        //console.log("update():observationIndex = ", observationIndex);
+
         // we only want to commit updates once per period (i.e. windowSize / granularitySize)
         uint timeElapsed = block.timestamp - pairObservation[observationIndex].timestamp;
 
         Observation storage firstObservation = getFirstObservationInWindow();
+
         if (
             timeElapsed > periodSize ||
             firstObservation.timestamp == 0
@@ -184,6 +185,19 @@ console.log("update():passed");
         onlyOwner
     {
         ITRv2(tradedToken).claim(msg.sender, tradedTokenAmount);
+    }
+
+    /**
+    @dev   … mints to account
+    */
+    function claim(
+        address account,
+        uint256 tradedTokenAmount
+    ) 
+        public 
+        onlyOwner
+    {
+        ITRv2(tradedToken).claim(account, tradedTokenAmount);
     }
 
 
