@@ -59,8 +59,24 @@ describe("itrV2", function () {
     var mainInstance, itrv2, erc20ReservedToken;
     var MainFactory, ITRv2Factory, ERC20Factory;
     
+    
+    var printPrices = async function(str) {
+        //return;
+        console.log(mainInstance.address);
+        let x1,x2,x3,x4,x5;
+        [x1,x2,x3,x4,x5] = await mainInstance.uniswapPrices();
+        console.log("======"+str+"============================");
+        console.log("reserveTraded  = ",x1.toString());
+        console.log("reserveReserved= ",x2.toString());
+        console.log("priceTraded    = ",x3.toString());
+        console.log("priceReserved  = ",x4.toString());
+        console.log("blockTimestamp = ",x5.toString());
+
+    }                
+                
+
     beforeEach("deploying", async() => {
-        MainFactory = await ethers.getContractFactory("Main");
+        MainFactory = await ethers.getContractFactory("MainMock");
         ITRv2Factory = await ethers.getContractFactory("ITRv2");
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
     });
@@ -125,12 +141,37 @@ describe("itrV2", function () {
 
         it("should claim", async() => {
             await expect(
-                mainInstance.connect(bob).claim(ONE)
+                mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
             ).to.be.revertedWith("Ownable: caller is not the owner");
 
-            await mainInstance.connect(owner).claim(ONE);
-            expect(await itrv2.balanceOf(owner.address)).to.be.eq(ONE);
+            await expect(
+                mainInstance.connect(bob)["claim(uint256,address)"](ONE_ETH,bob.address)
+            ).to.be.revertedWith("Ownable: caller is not the owner");
+
+            await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
+            expect(await itrv2.balanceOf(owner.address)).to.be.eq(ONE_ETH);
         });
+
+        it("should locked up tokens after owner claim", async() => {
+            await mainInstance.connect(owner)["claim(uint256,address)"](ONE_ETH,bob.address);
+            expect(await itrv2.balanceOf(bob.address)).to.be.eq(ONE_ETH);
+
+            await expect(
+                itrv2.connect(bob).transfer(alice.address,ONE_ETH)
+            ).to.be.revertedWith("insufficient amount");
+        }); 
+
+        it("shouldnt locked up tokens if owner claim to himself", async() => {
+            await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
+            expect(await itrv2.balanceOf(owner.address)).to.be.eq(ONE_ETH);
+
+            await itrv2.connect(owner).transfer(alice.address,ONE_ETH);
+            expect(await itrv2.balanceOf(alice.address)).to.be.eq(ONE_ETH);
+
+            await itrv2.connect(alice).transfer(bob.address,ONE_ETH);
+            expect(await itrv2.balanceOf(bob.address)).to.be.eq(ONE_ETH);
+            
+        }); 
 
         it("shouldnt `update` without liquidity", async() => {
             await expect(
@@ -162,32 +203,35 @@ describe("itrV2", function () {
 
             beforeEach("adding liquidity", async() => {
 
-                uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
-                uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+                await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
+                await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
+
+                // uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
+                // uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
             
-                let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20ReservedToken.address, itrv2.address);
+                // let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20ReservedToken.address, itrv2.address);
 
-                pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
+                // pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
 
-                await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
-                await mainInstance.connect(owner).claim(ONE_ETH.mul(TEN));
+                // await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
+                // await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH.mul(TEN));
 
-                await erc20ReservedToken.connect(owner).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
-                await itrv2.connect(owner).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
+                // await erc20ReservedToken.connect(owner).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
+                // await itrv2.connect(owner).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
 
-                const ts = await time.latest();
-                const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+                // const ts = await time.latest();
+                // const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
 
-                await uniswapRouterInstance.connect(owner).addLiquidity(
-                    erc20ReservedToken.address,
-                    itrv2.address,
-                    ONE_ETH.mul(TEN),
-                    ONE_ETH.mul(TEN),
-                    0,
-                    0,
-                    owner.address,
-                    timeUntil
-                );
+                // await uniswapRouterInstance.connect(owner).addLiquidity(
+                //     erc20ReservedToken.address,
+                //     itrv2.address,
+                //     ONE_ETH.mul(TEN),
+                //     ONE_ETH.mul(TEN),
+                //     0,
+                //     0,
+                //     owner.address,
+                //     timeUntil
+                // );
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
                 ).to.be.revertedWith("MISSING_HISTORICAL_OBSERVATION");
@@ -207,35 +251,6 @@ describe("itrV2", function () {
 
             it("should add liquidity", async() => {
 
-                let getMaxLiquidity = async function() {
-                    
-                    let x1,x2,x3,x4,x5;
-                    [traded1,x2,x3,x4,x5] = await mainInstance.uniswapPrices();
-                    //[traded1,x2,x3] = await mainInstance._uniswapPrices();
-
-                    let traded2 = await mainInstance.getTraded2(priceDrop);
-                    maxAddLiquidity = traded1 - traded2;
-                    return maxAddLiquidity;
-                    
-                }                
-
-                let printPrices = async function(str) {
-                    //return;
-                    console.log(mainInstance.address);
-                    let x1,x2,x3,x4,x5;
-                    [x1,x2,x3,x4,x5] = await mainInstance.uniswapPrices();
-                    console.log("======"+str+"============================");
-                    console.log("reserveTraded  = ",x1.toString());
-                    console.log("reserveReserved= ",x2.toString());
-                    console.log("priceTraded    = ",x3.toString());
-                    console.log("priceReserved  = ",x4.toString());
-                    console.log("blockTimestamp = ",x5.toString());
-
-                }                
-                
-
-//                await printPrices("begin");
-
                 let maxliquidity;
                 for(let i = 0; i < 10; i++) {
 
@@ -247,7 +262,7 @@ describe("itrV2", function () {
                     await ethers.provider.send('evm_mine');
 
 
-                    maxliquidity = await getMaxLiquidity();
+                    maxliquidity = await mainInstance.maxAddLiquidity();
 
                     console.log("!MaxLiquidity = ", maxliquidity);
 
@@ -288,12 +303,9 @@ describe("itrV2", function () {
                     }
                     
 
-                    
-                    
                 }); 
 
-                it("", async() => {
-                }); 
+                
             });
         });
           
@@ -302,6 +314,9 @@ describe("itrV2", function () {
     });
 
     
+    
+
+
         // await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(TEN).mul(THOUSAND));
         // await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(FOUR).mul(TEN).mul(THOUSAND));
         // await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN).mul(THOUSAND));

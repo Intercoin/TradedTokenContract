@@ -11,9 +11,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-
-
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
@@ -35,14 +33,15 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     IERC1820Registry internal constant _ERC1820_REGISTRY = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
-
+    bytes32 internal constant OWNER_ROLE = 0x4f574e4552000000000000000000000000000000000000000000000000000000;
     address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
-
 	uint256 internal constant FRACTION = 100000;
     
     address public immutable tradedToken;
     address public immutable reserveToken;
     uint256 public immutable priceDrop;
+    uint256 public immutable minClaimPriceNum;
+    uint256 public immutable minClaimPriceDen;
     /**
     * @custom:shortd uniswap v2 pair
     * @notice uniswap v2 pair
@@ -52,7 +51,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     address internal uniswapRouterFactory;
     IUniswapV2Router02 internal UniswapV2Router02;
 
-    Observation[] pairObservation;
+    Observation[] internal pairObservation;
 
     // the desired amount of time over which the moving average should be computed, e.g. 24 hours
     uint public immutable windowSize;
@@ -68,14 +67,32 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     uint public immutable periodSize;
     
 
-    bytes32 internal constant OWNER_ROLE = 0x4f574e4552000000000000000000000000000000000000000000000000000000;
-
+    uint256 internal totalCumulativeClaimed;
+    
+    uint8 private runOnlyOnceFlag;
+    modifier runOnlyOnce() {
+        require(runOnlyOnceFlag < 1, "already called");
+        runOnlyOnceFlag = 1;
+        _;
+    }
+    /**
+    @param reserveToken_ reserve token address
+    @param granularitySize_ the number of observations
+    @param priceDrop_ price drop while add liquidity
+    @param windowSize_ the desired amount of time over which the moving average should be computed
+    @param lockupIntervalAmount_ interval amount in days (see minimum lib)
+    @param minClaimPriceNum_ (numerator) minimum claim price that should be after "sell all claimed tokens".
+    @param minClaimPriceDen_ (denominator) minimum claim price that should be after "sell all claimed tokens".
+    */
     constructor(
         address reserveToken_, //” (USDC)
         uint8 granularitySize_,
         uint256 priceDrop_,
         uint256 windowSize_,
-        uint64 lockupIntervalAmount
+        uint64 lockupIntervalAmount_,
+        uint256 minClaimPriceNum_,
+        uint256 minClaimPriceDen_
+        
     ) {
         require(granularitySize_ > 1, "granularitySize invalid");
         require(
@@ -86,9 +103,11 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         windowSize = windowSize_;
         granularitySize = granularitySize_;
 
-        tradedToken = address(new ITRv2("Intercoin Investor Token", "ITR", lockupIntervalAmount));
+        tradedToken = address(new ITRv2("Intercoin Investor Token", "ITR", lockupIntervalAmount_));
         reserveToken = reserveToken_;
         priceDrop = priceDrop_;
+        minClaimPriceNum = minClaimPriceNum_;
+        minClaimPriceDen = minClaimPriceDen_;
         
         // setup swap addresses
         (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
@@ -106,9 +125,6 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
 
         //grant sender owner role
         ITRv2(tradedToken).grantRole(OWNER_ROLE, msg.sender);
-
-
-        uint8 observationIndex = observationIndexOf(block.timestamp);
 
     }
 
@@ -129,7 +145,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
             firstObservation.timestamp == 0
         ) {
             
-console.log("update():success");
+//console.log("update():success");
             (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
 
             (uint price0Cumulative, uint price1Cumulative,) = currentCumulativePrices(uniswapV2Pair, reserve0, reserve1, blockTimestampLast);
@@ -144,7 +160,7 @@ console.log("update():success");
                 pairObservation[firstObservationIndex].price1Cumulative = price1Cumulative;
             }
         } else {
-console.log("update():passed");
+//console.log("update():passed");
         }
     }
     
@@ -174,6 +190,39 @@ console.log("update():passed");
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+    /**
+    * @dev adding initial liquidity. need to donate `amountReserveToken` of reserveToken into the contract. can be called once
+    * @param amountTradedToken amount of traded token which will be claimed into contract and adding as liquidity
+    * @param amountReserveToken amount of reserve token which must be donate into contract by user and adding as liquidity
+    */
+    function addInitialLiquidity(
+        uint256 amountTradedToken,
+        uint256 amountReserveToken
+    ) 
+        public 
+        runOnlyOnce
+    {
+
+        require(amountReserveToken <= ERC777(reserveToken).balanceOf(address(this)), "reserveAmount is insufficient");
+        _claim(amountTradedToken, address(this));
+
+        ERC777(tradedToken).approve(uniswapRouter, amountTradedToken);
+        ERC777(reserveToken).approve(uniswapRouter, amountReserveToken);
+
+        (/* uint256 A*/, /*uint256 B*/, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
+            tradedToken,
+            reserveToken,
+            amountTradedToken,
+            amountReserveToken,
+            0, // there may be some slippage
+            0, // there may be some slippage
+            address(this),
+            block.timestamp
+        );
+        // move lp tokens to dead address
+        ERC777(uniswapV2Pair).transfer(deadAddress, lpTokens);
+
+    }
 
     /**
     @dev   … mints to caller
@@ -184,20 +233,23 @@ console.log("update():passed");
         public 
         onlyOwner
     {
-        ITRv2(tradedToken).claim(msg.sender, tradedTokenAmount);
+        _validateClaim(tradedTokenAmount, msg.sender);
+        _claim(tradedTokenAmount, msg.sender);
+        
     }
 
     /**
     @dev   … mints to account
     */
     function claim(
-        address account,
-        uint256 tradedTokenAmount
+        uint256 tradedTokenAmount,
+        address account
     ) 
         public 
         onlyOwner
     {
-        ITRv2(tradedToken).claim(account, tradedTokenAmount);
+        _validateClaim(tradedTokenAmount, account);
+        _claim(tradedTokenAmount, account);
     }
 
 
@@ -211,35 +263,114 @@ console.log("update():passed");
         onlyOwner
     {
 
-        (uint256 traded1, /*uint256 reserve1*/, /*uint256 priceTraded*/, /*uint256 priceReserved*/,,, /*uint32 blockTimestampLast*/) = uniswapPrices();
-
-        uint256 traded2 = getTraded2(priceDrop);
-        uint256 maxAddLiquidity = traded1 - traded2;
-
-        require(tradedTokenAmount <= maxAddLiquidity, "maxAddLiquidity exceeded");
+        require(tradedTokenAmount <= maxAddLiquidity(), "maxAddLiquidity exceeded");
 
         // claim to address(this)
         ITRv2(tradedToken).claim(address(this), tradedTokenAmount);
-        _sellTradedAndStake(tradedTokenAmount);
+        // trade traed tokens and add liquidity
+        uint256 lpTokens = _sellTradedAndLiquidity(tradedTokenAmount);
+        // move lp tokens to dead address
+        ERC777(uniswapV2Pair).transfer(deadAddress, lpTokens);
     }
 
-    function renounceOwnership() public virtual override onlyOwner {
-        transferOwnerRole(owner(), address(0));
+    function maxAddLiquidity(
+    ) 
+        public 
+        view 
+        returns(uint256) 
+    {
 
-        super.renounceOwnership();
+        (uint256 traded1, uint256 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
+        
+        FixedPoint.uq112x112 memory priceAverage = getPriceAverage(traded1, reserve1, blockTimestampLast);
+        // Math.sqrt(lowestPrice * traded1 * reserve1)
+        // return  (
+        //     priceAverage
+        //         .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
+        //         .divuq(FixedPoint.encode(uint112(FRACTION*100)))
+        //         .muluq(FixedPoint.encode(uint112(traded1)))
+        //         .muluq(FixedPoint.encode(uint112(reserve1)))
+        //     )
+        //     .sqrt().decode();
+
+        
+        // Note that (traded1 * reserve1) will overflow in uint112. so need to exlude from sqrt like this 
+        // Math.sqrt(lowestPrice * traded1 * reserve1) =  Math.sqrt(lowestPrice) * Math.sqrt(traded1) * Math.sqrt(reserve1)
+
+        return traded1 - (
+            
+            FixedPoint.encode(uint112(traded1)).sqrt()
+            .muluq(
+                FixedPoint.encode(uint112(reserve1)).sqrt()
+            )
+            .muluq(
+                (
+                    priceAverage
+                    .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
+                    .divuq(FixedPoint.encode(uint112(FRACTION*100)))
+                ).sqrt()
+            )
+        ).decode();
         
     }
     
-    function transferOwnership(address newOwner) public virtual override onlyOwner {
+    function renounceOwnership(
+    ) 
+        public 
+        virtual 
+        override 
+        onlyOwner 
+    {
+        transferOwnerRole(owner(), address(0));
+        super.renounceOwnership();
+    }
+    
+    function transferOwnership(
+        address newOwner
+    ) 
+        public 
+        virtual 
+        override 
+        onlyOwner 
+    {
         transferOwnerRole(owner(), newOwner);
-        
         super.transferOwnership(newOwner);
-        
     }
 
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+
+    function _validateClaim(
+        uint256 tradedTokenAmount,
+        address account
+    ) 
+        internal
+    {
+        // TODO
+
+
+
+        // // simulate swap cumulativeClaim to reserve token and check price
+
+        // // price should be less than minClaimPrice
+        
+        // (uint256 rTraded, /*uint256 rReserved*/, /*uint256 priceTraded*/) = _uniswapPrices();
+        // require(totalCumulativeClaimed-tradedTokenAmount < rTraded);
+        
+    }
+
+    function _claim(
+        uint256 tradedTokenAmount,
+        address account
+    ) 
+        internal
+    {
+        totalCumulativeClaimed += tradedTokenAmount;
+        ITRv2(tradedToken).claim(account, tradedTokenAmount);
+    }
+
+
     function transferOwnerRole(address from, address to) internal {
         //revoke owner role from older role
         ITRv2(tradedToken).revokeRole(OWNER_ROLE, from);
@@ -248,8 +379,15 @@ console.log("update():passed");
         ITRv2(tradedToken).grantRole(OWNER_ROLE, to);
     }
 
-
-    function getPriceAverage(uint256 traded1, uint256 reserve1, uint32 blockTimestampLast) internal view returns (FixedPoint.uq112x112 memory) {
+    function getPriceAverage(
+        uint256 traded1, 
+        uint256 reserve1, 
+        uint32 blockTimestampLast
+    ) 
+        internal 
+        view 
+        returns (FixedPoint.uq112x112 memory) 
+    {
         Observation storage firstObservation = getFirstObservationInWindow();
 
         uint timeElapsed = block.timestamp - firstObservation.timestamp;
@@ -283,45 +421,117 @@ console.log("update():passed");
         return priceAverage;
 
     }
-    function getTraded2(uint256 priceDrop_) public view returns(uint256) {
 
-        (uint256 traded1, uint256 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
-        
-        FixedPoint.uq112x112 memory priceAverage = getPriceAverage(traded1, reserve1, blockTimestampLast);
-        // Math.sqrt(lowestPrice * traded1 * reserve1)
-        // return  (
-        //     priceAverage
-        //         .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
-        //         .divuq(FixedPoint.encode(uint112(FRACTION*100)))
-        //         .muluq(FixedPoint.encode(uint112(traded1)))
-        //         .muluq(FixedPoint.encode(uint112(reserve1)))
-        //     )
-        //     .sqrt().decode();
 
+/*
+    function expectedAmount(
+        address tokenFrom,
+        uint256 amount0,
+        address[][] memory swapPaths,
+        address forceTokenSwap,
+        uint256 subReserveFrom,
+        uint256 subReserveTo
+    )
+        internal
+        view
+        returns(
+            address,
+            uint256
+        )
+    {
+
+        if (forceTokenSwap == address(0)) {
+
+            address tokenFromTmp;
+            uint256 amount0Tmp;
         
-        // Note that (traded1 * reserve1) will overflow in uint112. so need to exlude from sqrt like this 
-        // Math.sqrt(lowestPrice * traded1 * reserve1) =  Math.sqrt(lowestPrice) * Math.sqrt(traded1) * Math.sqrt(reserve1)
-        return (
-            
-            FixedPoint.encode(uint112(traded1)).sqrt()
-            .muluq(
-                FixedPoint.encode(uint112(reserve1)).sqrt()
-            )
-            .muluq(
-                (
-                    priceAverage
-                    .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop_)))
-                    .divuq(FixedPoint.encode(uint112(FRACTION*100)))
-                ).sqrt()
-            )
-        ).decode();
-        
+            for(uint256 i = 0; i < swapPaths.length; i++) {
+                if (tokenFrom == swapPaths[i][swapPaths[i].length-1]) { // if tokenFrom is already destination token
+                    return (tokenFrom, amount0);
+                }
+
+                tokenFromTmp = tokenFrom;
+                amount0Tmp = amount0;
+                
+                for(uint256 j = 0; j < swapPaths[i].length; j++) {
+                
+                    (bool success, uint256 amountOut) = _swap(tokenFromTmp, swapPaths[i][j], amount0Tmp, subReserveFrom, subReserveTo);
+                    if (success) {
+                        //ret = amountOut;
+                    } else {
+                        break;
+                    }
+
+                    // if swap didn't brake before last iteration then we think that swap is done
+                    if (j == swapPaths[i].length-1) { 
+                        return (swapPaths[i][j], amountOut);
+                    } else {
+                        tokenFromTmp = swapPaths[i][j];
+                        amount0Tmp = amountOut;
+                    }
+                }
+            }
+            revert("paths invalid");
+        } else {
+            (bool success, uint256 amountOut) = _swap(tokenFrom, forceTokenSwap, amount0, subReserveFrom, subReserveTo);
+            if (success) {
+                return (forceTokenSwap, amountOut);
+            }
+            revert("force swap invalid");
+        }
     }
 
-     function _sellTradedAndStake(
+    function _swap(
+        address tokenFrom,
+        address tokenTo,
+        uint256 amountFrom,
+        uint256 subReserveFrom,
+        uint256 subReserveTo
+    )
+        internal
+        view 
+        returns (
+            bool success,
+            uint256 ret
+            //address pair
+        )
+    {
+        success = false;
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFrom, tokenTo);
+        
+        if (pair == address(0)) {
+            //break;
+            //revert("pair == address(0)");
+        } else {
+
+            (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(pair).getReserves();
+
+            if (_reserve0 == 0 || _reserve1 == 0) {
+                //break;
+            } else {
+                
+                (_reserve0, _reserve1) = (tokenFrom == IUniswapV2Pair(pair).token0()) ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
+                if (subReserveFrom >= _reserve0 || subReserveTo >= _reserve1) {
+                    //break;
+                } else {
+                    _reserve0 -= uint112(subReserveFrom);
+                    _reserve1 -= uint112(subReserveTo);
+                                                                            // amountin reservein reserveout
+                    ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amountFrom, _reserve0, _reserve1);
+
+                    if (ret != 0) {
+                        success = true;
+                    }
+                }
+            }
+        }
+    }
+*/
+    function _sellTradedAndLiquidity(
         uint256 incomingTradedToken
     )
         internal
+        returns(uint256)
     {
 
         (uint256 rTraded, /*uint256 rReserved*/, /*uint256 priceTraded*/) = _uniswapPrices();
@@ -354,7 +564,8 @@ console.log("update():passed");
         );
         require (lpTokens > 0, "NO_LIQUIDITY");
 
-        ERC777(uniswapV2Pair).transfer(deadAddress, lpTokens);
+        return lpTokens;
+        
         
 
     }
@@ -482,64 +693,9 @@ console.log("update():passed");
         }
     }
 
-    function uniswapPrices(
-    ) 
-        //internal  
-        public
-        view 
-        // reserveTraded, reserveReserved, priceTraded, priceReserved, averagePriceTraded, averagePriceReserved, blockTimestamp
-        returns(uint256, uint256, uint256, uint256, uint256, uint256, uint32)
-    {
-
-        (uint256 reserve0, uint256 reserve1, uint32 blockTimestamp) = _uniswapPrices();
-
-
-
-        Observation storage firstObservation = getFirstObservationInWindow();
-
-        uint timeElapsed = block.timestamp - firstObservation.timestamp;
-// console.log("uniswapPrices:timeElapsed = ", timeElapsed);
-// console.log("uniswapPrices:windowSize = ", windowSize);
-        require(timeElapsed <= windowSize, "MISSING_HISTORICAL_OBSERVATION");
-        // should never happen.
-        require(timeElapsed >= windowSize - periodSize * 2, "SlidingWindowOracle: UNEXPECTED_TIME_ELAPSED");
-
-        (uint price0Cumulative, uint price1Cumulative,) = currentCumulativePrices(uniswapV2Pair, uint112(reserve0), uint112(reserve1), blockTimestamp);
-
-        FixedPoint.uq112x112 memory price0Average = FixedPoint.uq112x112(
-            uint224((price0Cumulative - firstObservation.price0Cumulative) / timeElapsed)
-        );
-        FixedPoint.uq112x112 memory price1Average = FixedPoint.uq112x112(
-            uint224((price1Cumulative - firstObservation.price1Cumulative) / timeElapsed)
-        );
-        
-        if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
-            return(
-                reserve0, 
-                reserve1, 
-                FRACTION * reserve0 / reserve1,
-                FRACTION * reserve1 / reserve0,
-                FRACTION * price0Average.decode(),
-                FRACTION * price1Average.decode(),
-                blockTimestamp
-            );
-        } else {
-            return(
-                reserve1, 
-                reserve0, 
-                FRACTION * reserve1 / reserve0,
-                FRACTION * reserve0 / reserve1,
-                FRACTION * price1Average.decode(),
-                FRACTION * price0Average.decode(),
-                blockTimestamp
-            );
-        }
-
-    }
-
     function _uniswapPrices(
     ) 
-        public 
+        internal 
         view 
         // reserveTraded, reserveReserved, priceTraded, priceReserved
         returns(uint112, uint112, uint32)
@@ -550,13 +706,13 @@ console.log("update():passed");
     }
 
     // returns the index of the observation corresponding to the given timestamp
-    function observationIndexOf(uint timestamp) public view returns (uint8 index) {
+    function observationIndexOf(uint timestamp) internal view returns (uint8 index) {
         uint epochPeriod = timestamp / periodSize;
         return uint8(epochPeriod % granularitySize);
     }
 
     // returns the observation from the oldest epoch (at the beginning of the window) relative to the current time
-    function getFirstObservationInWindow() private view returns (Observation storage firstObservation) {
+    function getFirstObservationInWindow() internal view returns (Observation storage firstObservation) {
         uint8 observationIndex = observationIndexOf(block.timestamp);
 // console.log("getFirstObservationInWindow:observationIndex = ", observationIndex);
         // no overflow issue. if observationIndex + 1 overflows, result is still zero.

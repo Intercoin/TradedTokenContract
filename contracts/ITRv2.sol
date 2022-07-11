@@ -63,7 +63,11 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
         onlyOwner
     {
         _mint(account, tradedTokenAmount, "", "");
-        if (account != owner()) {
+        if (
+            account != owner() &&
+            //to != uniswapRouter &&
+            hasRole(OWNER_ROLE, account) == false
+        ) {    
             tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupIntervalAmount, LOCKUP_INTERVAL, true);
         }
     }
@@ -95,45 +99,23 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
         // console.log("address(this)  = ", address(this), hasRole(DEFAULT_ADMIN_ROLE,address(this)), hasRole(OWNER_ROLE,address(this)));
         // console.log("owner()        = ", owner(), hasRole(DEFAULT_ADMIN_ROLE,owner()), hasRole(OWNER_ROLE,owner()));
         // console.log("uniswapRouter  = ", uniswapRouter, hasRole(DEFAULT_ADMIN_ROLE,uniswapRouter), hasRole(OWNER_ROLE,uniswapRouter));
-        
 
-        // locked up tokens
-        // it's happens in onyl one way. when admin claim(mint) to some1
         if (
             // if minted
-            from == address(0) && 
-            (
-                //and minted to some1 user
-                to != owner() &&
-                to != uniswapRouter &&
-                hasRole(OWNER_ROLE, to) == false
-            )
+            (from == address(0)) ||
+            // or burnt itself
+            (from == address(this) && to == address(0))// ||
         ) {
-            tokensLocked[to]._minimumsAdd(amount, lockupIntervalAmount, LOCKUP_INTERVAL, true);
+            //skip validation
+        } else {
+
+            uint256 balance = balanceOf(from);
+            uint256 locked = tokensLocked[from]._getMinimum();
+            // console.log("balance = ",balance);
+            // console.log("locked  = ",locked);
+            // console.log("amount  = ",amount);
+            require(balance - locked >= amount, "insufficient amount");
         }
-
-    
-        uint256 balance = balanceOf(from);
-        uint256 locked = tokensLocked[from]._getMinimum();
-
-        require(balance - locked >= amount, "insufficient amount");
-        
-
-
-        // if (
-
-        //     // if minted
-        //     (from == address(0)) ||
-        //     // or burnt itself
-        //     (from == address(this) && to == address(0)) ||
-            
-        //     // or transfer from owner to some1
-        //     hasRole(OWNER_ROLE, from) ||
-        //     // or send from main contract to some1
-        //     (from == owner()) ||
-        //     // or operator is uniswap router
-        //     (operator == uniswapRouter)
-        // ) {
         
     }    
     
