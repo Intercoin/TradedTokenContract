@@ -12,11 +12,22 @@ contract MainMock is Main {
         uint8 granularitySize_,
         uint256 priceDrop_,
         uint256 windowSize_,
-        uint64 lockupIntervalAmount
-    ) Main(reserveToken_, granularitySize_, priceDrop_, windowSize_, lockupIntervalAmount)
+        uint64 lockupIntervalAmount,
+        PriceNumDen memory minClaimPrice_,
+        address externalToken_,
+        PriceNumDen memory externalTokenExchangePrice_
+    ) Main(reserveToken_, granularitySize_, priceDrop_, windowSize_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_)
     {
     }
 
+    function uniswapPricesSimple(
+    ) 
+        public 
+        view 
+        returns(uint256, uint256, uint256)
+    {
+        return _uniswapPrices();
+    }
     
     function uniswapPrices(
     ) 

@@ -29,6 +29,10 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         uint price0Cumulative;
         uint price1Cumulative;
     }
+    struct PriceNumDen{
+        uint256 numerator;
+        uint256 denominator;
+    }
 
     IERC1820Registry internal constant _ERC1820_REGISTRY = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
@@ -40,8 +44,12 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     address public immutable tradedToken;
     address public immutable reserveToken;
     uint256 public immutable priceDrop;
-    uint256 public immutable minClaimPriceNum;
-    uint256 public immutable minClaimPriceDen;
+    
+    PriceNumDen minClaimPrice;
+    address externalToken;
+    PriceNumDen externalTokenExchangePrice;
+
+    
     /**
     * @custom:shortd uniswap v2 pair
     * @notice uniswap v2 pair
@@ -68,6 +76,8 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     
 
     uint256 internal totalCumulativeClaimed;
+
+    
     
     uint8 private runOnlyOnceFlag;
     modifier runOnlyOnce() {
@@ -75,14 +85,20 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         runOnlyOnceFlag = 1;
         _;
     }
+    modifier canClaim() {
+
+        _;
+    }
+
     /**
     @param reserveToken_ reserve token address
     @param granularitySize_ the number of observations
     @param priceDrop_ price drop while add liquidity
     @param windowSize_ the desired amount of time over which the moving average should be computed
     @param lockupIntervalAmount_ interval amount in days (see minimum lib)
-    @param minClaimPriceNum_ (numerator) minimum claim price that should be after "sell all claimed tokens".
-    @param minClaimPriceDen_ (denominator) minimum claim price that should be after "sell all claimed tokens".
+    @param minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
+    @param externalToken_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
+    @param externalTokenExchangePrice_ (numerator,denominator) exchange price. used when user trying to excha external token to Traded
     */
     constructor(
         address reserveToken_, //” (USDC)
@@ -90,9 +106,9 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         uint256 priceDrop_,
         uint256 windowSize_,
         uint64 lockupIntervalAmount_,
-        uint256 minClaimPriceNum_,
-        uint256 minClaimPriceDen_
-        
+        PriceNumDen memory minClaimPrice_,
+        address externalToken_,
+        PriceNumDen memory externalTokenExchangePrice_
     ) {
         require(granularitySize_ > 1, "granularitySize invalid");
         require(
@@ -106,8 +122,13 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         tradedToken = address(new ITRv2("Intercoin Investor Token", "ITR", lockupIntervalAmount_));
         reserveToken = reserveToken_;
         priceDrop = priceDrop_;
-        minClaimPriceNum = minClaimPriceNum_;
-        minClaimPriceDen = minClaimPriceDen_;
+
+        minClaimPrice.numerator = minClaimPrice_.numerator;
+        minClaimPrice.denominator = minClaimPrice_.denominator;
+        externalToken = externalToken_;
+        externalTokenExchangePrice.numerator = externalTokenExchangePrice_.numerator;
+        externalTokenExchangePrice.denominator = externalTokenExchangePrice_.denominator;
+        
         
         // setup swap addresses
         (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
@@ -233,7 +254,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         public 
         onlyOwner
     {
-        _validateClaim(tradedTokenAmount, msg.sender);
+        _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, msg.sender);
         
     }
@@ -246,9 +267,26 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         address account
     ) 
         public 
-        onlyOwner
+        onlyOwner // or redeemer ?
     {
-        _validateClaim(tradedTokenAmount, account);
+        _validateClaim(tradedTokenAmount);
+        _claim(tradedTokenAmount, account);
+    }
+
+    function claimViaExternal(
+        uint256 externalTokenAmount,
+        address account
+    ) 
+        public 
+    {
+        require(externalToken != address(0), "externalToken is not set");
+        require(externalTokenAmount <= ERC777(externalToken).allowance(msg.sender, address(this)), "insufficient amount in allowance");
+
+        ERC777(externalToken).transferFrom(msg.sender, deadAddress, externalTokenAmount);
+
+        uint256 tradedTokenAmount = externalTokenAmount * externalTokenExchangePrice.numerator / externalTokenExchangePrice.denominator;
+
+        _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, account);
     }
 
@@ -342,22 +380,52 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     ////////////////////////////////////////////////////////////////////////
 
     function _validateClaim(
-        uint256 tradedTokenAmount,
-        address account
+        uint256 tradedTokenAmount
     ) 
         internal
+        view
     {
-        // TODO
+        // simulate swap totalCumulativeClaimed to reserve token and check price
+        // price should be less than minClaimPrice
 
+        (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(uniswapV2Pair).getReserves();
+                                                // amountin reservein reserveout
+        uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(totalCumulativeClaimed+tradedTokenAmount, _reserve0, _reserve1);
+// console.log("totalCumulativeClaimed = ",totalCumulativeClaimed);
+// console.log("tradedTokenAmount = ",tradedTokenAmount);
+// console.log("_reserve0 = ",_reserve0);
+// console.log("_reserve1 = ",_reserve1);
+// console.log("amountOut = ",amountOut);
 
+// console.log("price before   = ",uint256(FixedPoint.fraction(
+//                 _reserve1,
+//                 _reserve0
+//             )._x));
 
-        // // simulate swap cumulativeClaim to reserve token and check price
+// console.log("price after    = ",uint256(FixedPoint.fraction(
+//                 _reserve1-amountOut,
+//                 _reserve0+totalCumulativeClaimed+tradedTokenAmount
+//             )._x));
 
-        // // price should be less than minClaimPrice
+// console.log("min claim      = ",uint256(FixedPoint.fraction(
+//                 minClaimPrice.numerator,
+//                 minClaimPrice.denominator
+//             )._x));
+
+        require (amountOut > 0, "errors in claim validation");
         
-        // (uint256 rTraded, /*uint256 rReserved*/, /*uint256 priceTraded*/) = _uniswapPrices();
-        // require(totalCumulativeClaimed-tradedTokenAmount < rTraded);
-        
+        require(
+            FixedPoint.fraction(
+                _reserve1-amountOut,
+                _reserve0+totalCumulativeClaimed+tradedTokenAmount
+            )._x
+            > 
+            FixedPoint.fraction(
+                minClaimPrice.numerator,
+                minClaimPrice.denominator
+            )._x,
+            "price after claim is lower than minClaimPrice"
+        );
     }
 
     function _claim(
@@ -422,111 +490,6 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
 
     }
 
-
-/*
-    function expectedAmount(
-        address tokenFrom,
-        uint256 amount0,
-        address[][] memory swapPaths,
-        address forceTokenSwap,
-        uint256 subReserveFrom,
-        uint256 subReserveTo
-    )
-        internal
-        view
-        returns(
-            address,
-            uint256
-        )
-    {
-
-        if (forceTokenSwap == address(0)) {
-
-            address tokenFromTmp;
-            uint256 amount0Tmp;
-        
-            for(uint256 i = 0; i < swapPaths.length; i++) {
-                if (tokenFrom == swapPaths[i][swapPaths[i].length-1]) { // if tokenFrom is already destination token
-                    return (tokenFrom, amount0);
-                }
-
-                tokenFromTmp = tokenFrom;
-                amount0Tmp = amount0;
-                
-                for(uint256 j = 0; j < swapPaths[i].length; j++) {
-                
-                    (bool success, uint256 amountOut) = _swap(tokenFromTmp, swapPaths[i][j], amount0Tmp, subReserveFrom, subReserveTo);
-                    if (success) {
-                        //ret = amountOut;
-                    } else {
-                        break;
-                    }
-
-                    // if swap didn't brake before last iteration then we think that swap is done
-                    if (j == swapPaths[i].length-1) { 
-                        return (swapPaths[i][j], amountOut);
-                    } else {
-                        tokenFromTmp = swapPaths[i][j];
-                        amount0Tmp = amountOut;
-                    }
-                }
-            }
-            revert("paths invalid");
-        } else {
-            (bool success, uint256 amountOut) = _swap(tokenFrom, forceTokenSwap, amount0, subReserveFrom, subReserveTo);
-            if (success) {
-                return (forceTokenSwap, amountOut);
-            }
-            revert("force swap invalid");
-        }
-    }
-
-    function _swap(
-        address tokenFrom,
-        address tokenTo,
-        uint256 amountFrom,
-        uint256 subReserveFrom,
-        uint256 subReserveTo
-    )
-        internal
-        view 
-        returns (
-            bool success,
-            uint256 ret
-            //address pair
-        )
-    {
-        success = false;
-        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFrom, tokenTo);
-        
-        if (pair == address(0)) {
-            //break;
-            //revert("pair == address(0)");
-        } else {
-
-            (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(pair).getReserves();
-
-            if (_reserve0 == 0 || _reserve1 == 0) {
-                //break;
-            } else {
-                
-                (_reserve0, _reserve1) = (tokenFrom == IUniswapV2Pair(pair).token0()) ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
-                if (subReserveFrom >= _reserve0 || subReserveTo >= _reserve1) {
-                    //break;
-                } else {
-                    _reserve0 -= uint112(subReserveFrom);
-                    _reserve1 -= uint112(subReserveTo);
-                                                                            // amountin reservein reserveout
-                    ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amountFrom, _reserve0, _reserve1);
-
-                    if (ret != 0) {
-                        success = true;
-                    }
-                }
-            }
-        }
-    }
-*/
     function _sellTradedAndLiquidity(
         uint256 incomingTradedToken
     )

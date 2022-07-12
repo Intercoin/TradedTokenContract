@@ -20,24 +20,24 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">40.82% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>0/49</span>
+        <span class='fraction'>20/49</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">27.78% </span>
         <span class="quiet">Branches</span>
-        <span class='fraction'>0/36</span>
+        <span class='fraction'>10/36</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">50% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>0/2</span>
+        <span class='fraction'>1/2</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">40.43% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>0/47</span>
+        <span class='fraction'>19/47</span>
       </div>
     </div>
   </div>
@@ -135,37 +135,37 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">44×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">44×</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44×</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
+<span class="cline-any cline-yes">44×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">44×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -219,38 +219,38 @@ pragma solidity &gt;=0.8.0;
 library BitMath {
     // returns the 0 indexed position of the most significant bit of the input x
     // s.t. x &gt;= 2**msb and x &lt; 2**(msb+1)
-<span class="fstat-no" title="function not covered" >    function mostSignificantBit(uint256 x) internal pure returns (uint8 r) {</span>
-<span class="cstat-no" title="statement not covered" >        require(x &gt; 0, 'BitMath::mostSignificantBit: zero')</span>;
+    function mostSignificantBit(uint256 x) internal pure returns (uint8 r) {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(x &gt; 0, 'BitMath::mostSignificantBit: zero');
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        if (x &gt;= 0x100000000000000000000000000000000) {</span>
-<span class="cstat-no" title="statement not covered" >            x &gt;&gt;= 128</span>;
-<span class="cstat-no" title="statement not covered" >            r += 128</span>;
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (x &gt;= 0x100000000000000000000000000000000) {
+            x &gt;&gt;= 128;
+            r += 128;
         }
-<span class="cstat-no" title="statement not covered" >        if (x &gt;= 0x10000000000000000) {</span>
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (x &gt;= 0x10000000000000000) {
 <span class="cstat-no" title="statement not covered" >            x &gt;&gt;= 64</span>;
 <span class="cstat-no" title="statement not covered" >            r += 64</span>;
         }
-<span class="cstat-no" title="statement not covered" >        if (x &gt;= 0x100000000) {</span>
-<span class="cstat-no" title="statement not covered" >            x &gt;&gt;= 32</span>;
-<span class="cstat-no" title="statement not covered" >            r += 32</span>;
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (x &gt;= 0x100000000) {
+            x &gt;&gt;= 32;
+            r += 32;
         }
-<span class="cstat-no" title="statement not covered" >        if (x &gt;= 0x10000) {</span>
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (x &gt;= 0x10000) {
 <span class="cstat-no" title="statement not covered" >            x &gt;&gt;= 16</span>;
 <span class="cstat-no" title="statement not covered" >            r += 16</span>;
         }
-<span class="cstat-no" title="statement not covered" >        if (x &gt;= 0x100) {</span>
-<span class="cstat-no" title="statement not covered" >            x &gt;&gt;= 8</span>;
-<span class="cstat-no" title="statement not covered" >            r += 8</span>;
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (x &gt;= 0x100) {
+            x &gt;&gt;= 8;
+            r += 8;
         }
-<span class="cstat-no" title="statement not covered" >        if (x &gt;= 0x10) {</span>
-<span class="cstat-no" title="statement not covered" >            x &gt;&gt;= 4</span>;
-<span class="cstat-no" title="statement not covered" >            r += 4</span>;
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (x &gt;= 0x10) {
+            x &gt;&gt;= 4;
+            r += 4;
         }
-<span class="cstat-no" title="statement not covered" >        if (x &gt;= 0x4) {</span>
-<span class="cstat-no" title="statement not covered" >            x &gt;&gt;= 2</span>;
-<span class="cstat-no" title="statement not covered" >            r += 2</span>;
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (x &gt;= 0x4) {
+            x &gt;&gt;= 2;
+            r += 2;
         }
-<span class="cstat-no" title="statement not covered" >        if (x &gt;= 0x2) <span class="cstat-no" title="statement not covered" >r += 1</span>;</span>
+        if (x &gt;= 0x2) r += 1;
     }
 &nbsp;
     // returns the 0 indexed position of the least significant bit of the input x
@@ -304,7 +304,7 @@ library BitMath {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Jul 06 2022 14:12:31 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Tue Jul 12 2022 20:25:44 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../../prettify.js"></script>
