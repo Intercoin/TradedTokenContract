@@ -37,7 +37,7 @@ contract MainMock is Main {
         // reserveTraded, reserveReserved, priceTraded, priceReserved, averagePriceTraded, averagePriceReserved, blockTimestamp
         returns(uint256, uint256, uint256, uint256, uint256, uint256, uint32)
     {
-
+        // reserveTraded    reserveReserved
         (uint256 reserve0, uint256 reserve1, uint32 blockTimestamp) = _uniswapPrices();
 
         Observation storage firstObservation = getFirstObservationInWindow();
@@ -58,7 +58,7 @@ contract MainMock is Main {
             uint224((price1Cumulative - firstObservation.price1Cumulative) / timeElapsed)
         );
         
-        if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
+        //if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
             return(
                 reserve0, 
                 reserve1, 
@@ -68,17 +68,17 @@ contract MainMock is Main {
                 FRACTION * price1Average.decode(),
                 blockTimestamp
             );
-        } else {
-            return(
-                reserve1, 
-                reserve0, 
-                FRACTION * reserve1 / reserve0,
-                FRACTION * reserve0 / reserve1,
-                FRACTION * price1Average.decode(),
-                FRACTION * price0Average.decode(),
-                blockTimestamp
-            );
-        }
+        // } else {
+        //     return(
+        //         reserve1, 
+        //         reserve0, 
+        //         FRACTION * reserve1 / reserve0,
+        //         FRACTION * reserve0 / reserve1,
+        //         FRACTION * price1Average.decode(),
+        //         FRACTION * price0Average.decode(),
+        //         blockTimestamp
+        //     );
+        // }
 
     }
 

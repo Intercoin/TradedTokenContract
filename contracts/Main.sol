@@ -159,29 +159,29 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         // we only want to commit updates once per period (i.e. windowSize / granularitySize)
         uint timeElapsed = block.timestamp - pairObservation[observationIndex].timestamp;
 
-        Observation storage firstObservation = getFirstObservationInWindow();
+        //Observation storage firstObservation = getFirstObservationInWindow();
 
         if (
-            timeElapsed > periodSize ||
-            firstObservation.timestamp == 0
+            timeElapsed > periodSize/* ||
+            firstObservation.timestamp == 0*/
         ) {
             
-//console.log("update():success");
+console.log("update():success");
             (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
-
+console.log("observationIndex = ", observationIndex);
             (uint price0Cumulative, uint price1Cumulative,) = currentCumulativePrices(uniswapV2Pair, reserve0, reserve1, blockTimestampLast);
             pairObservation[observationIndex].timestamp = block.timestamp;
             pairObservation[observationIndex].price0Cumulative = price0Cumulative;
             pairObservation[observationIndex].price1Cumulative = price1Cumulative;
 
-            if (firstObservation.timestamp == 0) {
-                uint8 firstObservationIndex = (observationIndex + 1) % granularitySize;
-                pairObservation[firstObservationIndex].timestamp = block.timestamp;
-                pairObservation[firstObservationIndex].price0Cumulative = price0Cumulative;
-                pairObservation[firstObservationIndex].price1Cumulative = price1Cumulative;
-            }
+            // if (firstObservation.timestamp == 0) {
+            //     uint8 firstObservationIndex = (observationIndex + 1) % granularitySize;
+            //     pairObservation[firstObservationIndex].timestamp = block.timestamp;
+            //     pairObservation[firstObservationIndex].price0Cumulative = price0Cumulative;
+            //     pairObservation[firstObservationIndex].price1Cumulative = price1Cumulative;
+            // }
         } else {
-//console.log("update():passed");
+console.log("update():passed");
         }
     }
     
@@ -300,8 +300,13 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         public 
         onlyOwner
     {
-
-        require(tradedTokenAmount <= maxAddLiquidity(), "maxAddLiquidity exceeded");
+        uint256 tradedReserve1;
+        uint256 tradedReserve2;
+        (tradedReserve1, tradedReserve2) = maxAddLiquidity();
+        require(
+            tradedReserve1 > tradedReserve2 && tradedTokenAmount <= (tradedReserve1 - tradedReserve2), 
+            "maxAddLiquidity exceeded"
+        );
 
         // claim to address(this)
         ITRv2(tradedToken).claim(address(this), tradedTokenAmount);
@@ -315,12 +320,14 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     ) 
         public 
         view 
-        returns(uint256) 
+        //      traded1 -> traded2
+        returns(uint256, uint256) 
     {
-
+console.log("solidity:maxAddL:#1");
         (uint256 traded1, uint256 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
-        
+console.log("solidity:maxAddL:#2");
         FixedPoint.uq112x112 memory priceAverage = getPriceAverage(traded1, reserve1, blockTimestampLast);
+console.log("solidity:maxAddL:#3");
         // Math.sqrt(lowestPrice * traded1 * reserve1)
         // return  (
         //     priceAverage
@@ -330,12 +337,12 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         //         .muluq(FixedPoint.encode(uint112(reserve1)))
         //     )
         //     .sqrt().decode();
-
+console.log("solidity:PriceAverage = ", priceAverage._x);
         
         // Note that (traded1 * reserve1) will overflow in uint112. so need to exlude from sqrt like this 
         // Math.sqrt(lowestPrice * traded1 * reserve1) =  Math.sqrt(lowestPrice) * Math.sqrt(traded1) * Math.sqrt(reserve1)
-
-        return traded1 - (
+console.log("solidity:traded1 = ", traded1);
+console.log("solidity:traded2 = ", (
             
             FixedPoint.encode(uint112(traded1)).sqrt()
             .muluq(
@@ -348,7 +355,25 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
                     .divuq(FixedPoint.encode(uint112(FRACTION*100)))
                 ).sqrt()
             )
-        ).decode();
+        ).decode());
+
+        return (
+            traded1, 
+            (
+                
+                FixedPoint.encode(uint112(traded1)).sqrt()
+                .muluq(
+                    FixedPoint.encode(uint112(reserve1)).sqrt()
+                )
+                .muluq(
+                    (
+                        priceAverage
+                        .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
+                        .divuq(FixedPoint.encode(uint112(FRACTION*100)))
+                    ).sqrt()
+                )
+            ).decode()
+        );
         
     }
     
@@ -447,6 +472,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         ITRv2(tradedToken).grantRole(OWNER_ROLE, to);
     }
 
+    // price for traded token
     function getPriceAverage(
         uint256 traded1, 
         uint256 reserve1, 
@@ -479,7 +505,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
             );
 
         } else {
-
+            
             priceAverage = FixedPoint.uq112x112(
                 uint224((price1Cumulative - firstObservation.price1Cumulative) / timeElapsed)
             );
@@ -665,7 +691,13 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     {
         (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(uniswapV2Pair).getReserves();
         require (reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
-        return (reserve0, reserve1, blockTimestampLast);
+        if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
+            return (reserve0, reserve1, blockTimestampLast);
+        } else {
+            return (reserve1, reserve0, blockTimestampLast);
+            
+        }
+        
     }
 
     // returns the index of the observation corresponding to the given timestamp
@@ -677,13 +709,13 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     // returns the observation from the oldest epoch (at the beginning of the window) relative to the current time
     function getFirstObservationInWindow() internal view returns (Observation storage firstObservation) {
         uint8 observationIndex = observationIndexOf(block.timestamp);
-// console.log("getFirstObservationInWindow:observationIndex = ", observationIndex);
+console.log("getFirstObservationInWindow:observationIndex = ", observationIndex);
         // no overflow issue. if observationIndex + 1 overflows, result is still zero.
         uint8 firstObservationIndex = (observationIndex + 1) % granularitySize;
         
-// console.log("getFirstObservationInWindow:firstObservationIndex = ", firstObservationIndex);
+console.log("getFirstObservationInWindow:firstObservationIndex = ", firstObservationIndex);
         firstObservation = pairObservation[firstObservationIndex];
-// console.log("getFirstObservationInWindow:firstObservation.timestamp = ", firstObservation.timestamp);
+console.log("getFirstObservationInWindow:firstObservation.timestamp = ", firstObservation.timestamp);
     }
 
 

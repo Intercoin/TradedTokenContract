@@ -37,8 +37,9 @@ describe("itrV2", function () {
     const commissionReceiver = accounts[4];
     const liquidityHolder = accounts[5];
 
-    const HOUR = 60*60; // * interval: DAY in seconds
-    const dayInSeconds = 24*HOUR; // * interval: DAY in seconds
+    const HOUR = 60*60; // * interval: HOUR in seconds
+    const DAY = 24*HOUR; // * interval: DAY in seconds
+    const dayInSeconds = DAY; // * interval: DAY in seconds
     const lockupIntervalAmount = 365; // year in days(dayInSeconds)
 
     const tokenName = "Intercoin Investor Token";
@@ -375,6 +376,10 @@ describe("itrV2", function () {
                 //console.log("111");
                 await mainInstance.connect(owner).update();
                 //console.log("222");
+                await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
+                await ethers.provider.send('evm_mine');
+                await mainInstance.connect(owner).update();
+                await mainInstance.connect(owner).update();
 
                 
                 //uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
@@ -411,8 +416,8 @@ console.log("x2 =",x2);
                 }); 
 
                 it("should add liquidity(10 times). maxAddLiquidity grow down. ", async() => {
-console.log("erc20ReservedToken.address = ", erc20ReservedToken.address);
-console.log("itrv2.address              = ", itrv2.address);
+// console.log("erc20ReservedToken.address = ", erc20ReservedToken.address);
+// console.log("itrv2.address              = ", itrv2.address);
                     let maxliquidity;
                     let maxliquidities = [];
                     for(let i = 0; i < 10; i++) {
@@ -430,11 +435,15 @@ console.log("itrv2.address              = ", itrv2.address);
                         //console.log("!MaxLiquidity = ", maxliquidity);
                         // try to add (maxliquidity - maxliquidity/1000) to avoid js accuracy
                         await mainInstance.connect(owner).addLiquidity(maxliquidity.sub(maxliquidity.div(THOUSAND)));
+// console.log("==============");
+// [x1,x2,x3] = await mainInstance.uniswapPricesSimple();
+// console.log("x1 =",x1);
+// console.log("x2 =",x2);
 
                     }
 
 
-console.log(maxliquidities);
+//console.log(maxliquidities);
                     for (let i = 1; i < maxliquidities.length; i++) {
                         expect(maxliquidities[i-1]).to.be.gt(maxliquidities[i]);
                     }
@@ -442,31 +451,39 @@ console.log(maxliquidities);
                     //await printPrices("final");                                
                 }); 
 
-                it("maxAddLiquidity should grow up, when users swaping Reserve token to Traded token.", async() => {
+                it.only("maxAddLiquidity should grow up, when users swaping Reserve token to Traded token.", async() => {
 
-                    let maxliquidity;
+                    let maxliquidity,tradedReserve1,tradedReserve2;
                     let maxliquidities = [];
                     for(let i = 0; i < 3; i++) {
-
+console.log("==============");
+[x1,x2,x3] = await mainInstance.uniswapPricesSimple();
+console.log("x1 =",x1);
+console.log("x2 =",x2);
+console.log("up№1");
                         await mainInstance.connect(owner).update();
-
+console.log("up№2");
                         await mainInstance.connect(owner).update();
-
-                        await ethers.provider.send('evm_increaseTime', [parseInt(HOUR)]);
+console.log("up№3");
+                        await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
                         await ethers.provider.send('evm_mine');
+                        await mainInstance.connect(owner).update();
+                        await mainInstance.connect(owner).update();
 
-
-                        maxliquidity = await mainInstance.connect(owner).maxAddLiquidity();
+console.log("maxAddL№1");
+                        [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
+console.log("maxAddL№2");
+                        maxliquidity = tradedReserve1 - tradedReserve2;
                         maxliquidities.push(maxliquidity);
 
                         await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH);
 
                         await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH);
 
-                        
+
                         const ts = await time.latest();
                         const timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*dayInSeconds);
-
+console.log("№1");
                         await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                             ONE_ETH, //uint amountIn,
                             0, //uint amountOutMin,
@@ -475,6 +492,7 @@ console.log(maxliquidities);
                             timeUntil //uint deadline   
                             
                         );
+console.log("№2");                        
 
                     }
 
