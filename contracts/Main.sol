@@ -25,9 +25,11 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     using FixedPoint for *;
 
     struct Observation {
-        uint timestamp;
-        uint price0Cumulative;
-        uint price1Cumulative;
+        uint64 timestampLast;
+        uint price0CumulativeLast;
+        uint price1CumulativeLast;
+        FixedPoint.uq112x112 price0Average;
+        FixedPoint.uq112x112 price1Average;
     }
     struct PriceNumDen{
         uint256 numerator;
@@ -39,7 +41,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
     bytes32 internal constant OWNER_ROLE = 0x4f574e4552000000000000000000000000000000000000000000000000000000;
     address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
-	uint256 internal constant FRACTION = 100000;
+	uint256 internal constant FRACTION = 10000;
     
     address public immutable tradedToken;
     address public immutable reserveToken;
@@ -59,25 +61,11 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     address internal uniswapRouterFactory;
     IUniswapV2Router02 internal UniswapV2Router02;
 
-    Observation[] internal pairObservation;
-
+    Observation public pairObservation;
     // the desired amount of time over which the moving average should be computed, e.g. 24 hours
     uint public immutable windowSize;
-    // the number of observations stored for pair, i.e. how many price observations are stored for the window.
-    // as granularitySize increases from 1, more frequent updates are needed, but moving averages become more precise.
-    // averages are computed over intervals with sizes in the range:
-    //   [windowSize - (windowSize / granularitySize) * 2, windowSize]
-    // e.g. if the window size is 24 hours, and the granularitySize is 24, the oracle will return the average price for
-    //   the period:
-    //   [now - [22 hours, 24 hours], now]
-    uint8 public immutable granularitySize;
-    // this is redundant with granularitySize and windowSize, but stored for gas savings & informational purposes.
-    uint public immutable periodSize;
-    
 
     uint256 internal totalCumulativeClaimed;
-
-    
     
     uint8 private runOnlyOnceFlag;
     modifier runOnlyOnce() {
@@ -85,14 +73,10 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         runOnlyOnceFlag = 1;
         _;
     }
-    modifier canClaim() {
-
-        _;
-    }
+  
 
     /**
     @param reserveToken_ reserve token address
-    @param granularitySize_ the number of observations
     @param priceDrop_ price drop while add liquidity
     @param windowSize_ the desired amount of time over which the moving average should be computed
     @param lockupIntervalAmount_ interval amount in days (see minimum lib)
@@ -102,7 +86,6 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     */
     constructor(
         address reserveToken_, //” (USDC)
-        uint8 granularitySize_,
         uint256 priceDrop_,
         uint256 windowSize_,
         uint64 lockupIntervalAmount_,
@@ -110,14 +93,12 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         address externalToken_,
         PriceNumDen memory externalTokenExchangePrice_
     ) {
-        require(granularitySize_ > 1, "granularitySize invalid");
         require(
-            (periodSize = windowSize_ / granularitySize_) * granularitySize_ == windowSize_,
-            "window not evenly divisible"
+            windowSize_ > 0,
+            "windowSize incorrect"
         );
         require(reserveToken_ != address(0), "reserveToken invalid");
         windowSize = windowSize_;
-        granularitySize = granularitySize_;
 
         tradedToken = address(new ITRv2("Intercoin Investor Token", "ITR", lockupIntervalAmount_));
         reserveToken = reserveToken_;
@@ -142,47 +123,54 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
         uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).createPair(tradedToken, reserveToken);
         require(uniswapV2Pair != address(0), "can't create pair");
 
-        fillEmptyObservations();
-
         //grant sender owner role
         ITRv2(tradedToken).grantRole(OWNER_ROLE, msg.sender);
 
     }
 
-    // update the cumulative price for the observation at the current timestamp. each observation is updated at most
-    // once per epoch period.
-    function update() external {
-
-        // get the observation for the current period
-        uint8 observationIndex = observationIndexOf(block.timestamp);
-
-        // we only want to commit updates once per period (i.e. windowSize / granularitySize)
-        uint timeElapsed = block.timestamp - pairObservation[observationIndex].timestamp;
-
-        //Observation storage firstObservation = getFirstObservationInWindow();
-
-        if (
-            timeElapsed > periodSize/* ||
-            firstObservation.timestamp == 0*/
-        ) {
+    
+    function update() public {
+        
+        if (pairObservation.timestampLast == 0) {
+            console.log("!!!!!!!!!");
+            console.log(IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast());
+            //force sync
+            IUniswapV2Pair(uniswapV2Pair).sync();
+            console.log(IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast());
             
-console.log("update():success");
-            (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
-console.log("observationIndex = ", observationIndex);
-            (uint price0Cumulative, uint price1Cumulative,) = currentCumulativePrices(uniswapV2Pair, reserve0, reserve1, blockTimestampLast);
-            pairObservation[observationIndex].timestamp = block.timestamp;
-            pairObservation[observationIndex].price0Cumulative = price0Cumulative;
-            pairObservation[observationIndex].price1Cumulative = price1Cumulative;
-
-            // if (firstObservation.timestamp == 0) {
-            //     uint8 firstObservationIndex = (observationIndex + 1) % granularitySize;
-            //     pairObservation[firstObservationIndex].timestamp = block.timestamp;
-            //     pairObservation[firstObservationIndex].price0Cumulative = price0Cumulative;
-            //     pairObservation[firstObservationIndex].price1Cumulative = price1Cumulative;
-            // }
-        } else {
-console.log("update():passed");
         }
+
+
+console.log("solidity:update()");
+        uint64 blockTimestamp = currentBlockTimestamp();
+        uint price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+        uint price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
+console.log("solidity:update():#2");
+console.log("solidity:update():price0Cumulative = ", price0Cumulative);
+console.log("solidity:update():price0Cumulative = ", price1Cumulative);
+
+        uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
+console.log("solidity:update():timeElapsed = ", timeElapsed);
+        // ensure that at least one full period has passed since the last update
+        require(timeElapsed >= windowSize || pairObservation.timestampLast == 0, "PERIOD_NOT_ELAPSED");
+
+        // overflow is desired, casting never truncates
+        // cumulative price is in (uq112x112 price * seconds) units so we simply wrap it after division by time elapsed
+        // pairObservation.price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - pairObservation.price0CumulativeLast) / timeElapsed));
+        // pairObservation.price1Average = FixedPoint.uq112x112(uint224((price1Cumulative - pairObservation.price1CumulativeLast) / timeElapsed));
+        if (pairObservation.timestampLast == 0) {
+            pairObservation.price0Average = FixedPoint.uq112x112(uint224((price0Cumulative)));
+            pairObservation.price1Average = FixedPoint.uq112x112(uint224((price1Cumulative)));
+            pairObservation.price0CumulativeLast = price0Cumulative;
+            pairObservation.price1CumulativeLast = price1Cumulative;
+        } else {
+            pairObservation.price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - pairObservation.price0CumulativeLast) / timeElapsed));
+            pairObservation.price1Average = FixedPoint.uq112x112(uint224((price1Cumulative - pairObservation.price1CumulativeLast) / timeElapsed));
+            pairObservation.price0CumulativeLast = price0Cumulative;
+            pairObservation.price1CumulativeLast = price1Cumulative;
+        }
+        
+        pairObservation.timestampLast = blockTimestamp;
     }
     
     function tokensReceived(
@@ -242,6 +230,19 @@ console.log("update():passed");
         );
         // move lp tokens to dead address
         ERC777(uniswapV2Pair).transfer(deadAddress, lpTokens);
+
+console.log("force sync start");
+
+        //force sync
+        IUniswapV2Pair(uniswapV2Pair).sync();
+
+console.log("force sync end");
+//         pairObservation.timestampLast = currentBlockTimestamp();
+//         pairObservation.price0CumulativeLast = uint(FixedPoint.encode(uint112(amountReserveToken)).divuq(FixedPoint.encode(uint112(amountTradedToken)))._x);//IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+//         pairObservation.price1CumulativeLast = uint(FixedPoint.encode(uint112(amountTradedToken)).divuq(FixedPoint.encode(uint112(amountReserveToken)))._x);//IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
+// console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+// console.log(pairObservation.price0CumulativeLast);
+// console.log(pairObservation.price1CumulativeLast);
 
     }
 
@@ -325,9 +326,10 @@ console.log("update():passed");
     {
 console.log("solidity:maxAddL:#1");
         (uint256 traded1, uint256 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
+console.log("solidity:traded1 = ", traded1);
+console.log("solidity:reserve1 = ", reserve1);
 console.log("solidity:maxAddL:#2");
-        FixedPoint.uq112x112 memory priceAverage = getPriceAverage(traded1, reserve1, blockTimestampLast);
-console.log("solidity:maxAddL:#3");
+        
         // Math.sqrt(lowestPrice * traded1 * reserve1)
         // return  (
         //     priceAverage
@@ -337,28 +339,39 @@ console.log("solidity:maxAddL:#3");
         //         .muluq(FixedPoint.encode(uint112(reserve1)))
         //     )
         //     .sqrt().decode();
-console.log("solidity:PriceAverage = ", priceAverage._x);
+console.log("solidity:PriceAverage0 = ", pairObservation.price0Average._x);
+console.log("solidity:PriceAverage1 = ", pairObservation.price1Average._x);
         
         // Note that (traded1 * reserve1) will overflow in uint112. so need to exlude from sqrt like this 
         // Math.sqrt(lowestPrice * traded1 * reserve1) =  Math.sqrt(lowestPrice) * Math.sqrt(traded1) * Math.sqrt(reserve1)
 console.log("solidity:traded1 = ", traded1);
-console.log("solidity:traded2 = ", (
-            
-            FixedPoint.encode(uint112(traded1)).sqrt()
-            .muluq(
-                FixedPoint.encode(uint112(reserve1)).sqrt()
-            )
-            .muluq(
-                (
-                    priceAverage
-                    .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
-                    .divuq(FixedPoint.encode(uint112(FRACTION*100)))
-                ).sqrt()
-            )
-        ).decode());
+console.log("solidity:X1 = ", FixedPoint.encode(uint112(reserve1))._x);
+console.log("solidity:X2 = ", FixedPoint.encode(uint112(FRACTION*100))._x);
+
+console.log("solidity:traded2 = ", 
+            (
+                FixedPoint.encode(uint112(traded1)).sqrt()
+                .muluq(
+                    (
+                        FixedPoint.encode(uint112(reserve1))
+                //        .divuq(FixedPoint.encode(uint112(FRACTION*100)))
+                    ).sqrt()
+                )
+                .muluq(
+                    (
+                        pairObservation.price0Average
+                        .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
+                        
+                    ).sqrt()
+                )
+                // .divuq(
+                //     FixedPoint.encode(uint112(FRACTION*100)).sqrt()
+                // )
+            ).decode()/1000
+);
 
         return (
-            traded1, 
+            //traded1, 
             (
                 
                 FixedPoint.encode(uint112(traded1)).sqrt()
@@ -367,12 +380,13 @@ console.log("solidity:traded2 = ", (
                 )
                 .muluq(
                     (
-                        priceAverage
+                        pairObservation.price0Average
                         .muluq(FixedPoint.encode(uint112(FRACTION*100 - priceDrop)))
-                        .divuq(FixedPoint.encode(uint112(FRACTION*100)))
+                        
                     ).sqrt()
                 )
-            ).decode()
+            ).decode()/1000,    /// .divuq(FixedPoint.encode(uint112(FRACTION*100))).sqrt() === 1000
+            traded1
         );
         
     }
@@ -472,49 +486,6 @@ console.log("solidity:traded2 = ", (
         ITRv2(tradedToken).grantRole(OWNER_ROLE, to);
     }
 
-    // price for traded token
-    function getPriceAverage(
-        uint256 traded1, 
-        uint256 reserve1, 
-        uint32 blockTimestampLast
-    ) 
-        internal 
-        view 
-        returns (FixedPoint.uq112x112 memory) 
-    {
-        Observation storage firstObservation = getFirstObservationInWindow();
-
-        uint timeElapsed = block.timestamp - firstObservation.timestamp;
-
-        // console.log("getPriceAverage:firstObservation.timestamp=",firstObservation.timestamp);
-        // console.log("getPriceAverage:block.timestamp=",block.timestamp);
-        // console.log("getPriceAverage:windowSize=",windowSize);
-        // console.log("getPriceAverage:timeElapsed=",timeElapsed);
-        require(timeElapsed <= windowSize, "MISSING_HISTORICAL_OBSERVATION");
-        // should never happen.
-        require(timeElapsed >= windowSize - periodSize * 2, "SlidingWindowOracle: UNEXPECTED_TIME_ELAPSED");
-
-        (uint price0Cumulative, uint price1Cumulative,) = currentCumulativePrices(uniswapV2Pair, uint112(traded1), uint112(reserve1), blockTimestampLast);
-
-        FixedPoint.uq112x112 memory priceAverage;
-
-        if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
-
-            priceAverage = FixedPoint.uq112x112(
-                uint224((price0Cumulative - firstObservation.price0Cumulative) / timeElapsed)
-            );
-
-        } else {
-            
-            priceAverage = FixedPoint.uq112x112(
-                uint224((price1Cumulative - firstObservation.price1Cumulative) / timeElapsed)
-            );
-
-        }
-
-        return priceAverage;
-
-    }
 
     function _sellTradedAndLiquidity(
         uint256 incomingTradedToken
@@ -643,44 +614,35 @@ console.log("solidity:traded2 = ", (
         }
     }
 
-    function fillEmptyObservations() internal {
-
-            // populate the array with empty observations (first call only)
-            for (uint i = pairObservation.length; i < granularitySize; i++) {
-                pairObservation.push();
-            }
-
+    // helper function that returns the current block timestamp within the range of uint32, i.e. [0, 2**64 - 1]
+    function currentBlockTimestamp() internal view returns (uint64) {
+        return uint64(block.timestamp % 2 ** 64);
     }
 
-    // helper function that returns the current block timestamp within the range of uint32, i.e. [0, 2**32 - 1]
-    function currentBlockTimestamp() internal view returns (uint32) {
-        return uint32(block.timestamp % 2 ** 32);
-    }
+    // // produces the cumulative price using counterfactuals to save gas and avoid a call to sync.
+    // function currentCumulativePrices(
+    //     address pair,
+    //     uint112 reserve0, 
+    //     uint112 reserve1, 
+    //     uint32 blockTimestampLast
+    // ) internal view returns (uint price0Cumulative, uint price1Cumulative, uint32 blockTimestamp) {
+    //     blockTimestamp = currentBlockTimestamp();
+    //     price0Cumulative = IUniswapV2Pair(pair).price0CumulativeLast();
+    //     price1Cumulative = IUniswapV2Pair(pair).price1CumulativeLast();
 
-    // produces the cumulative price using counterfactuals to save gas and avoid a call to sync.
-    function currentCumulativePrices(
-        address pair,
-        uint112 reserve0, 
-        uint112 reserve1, 
-        uint32 blockTimestampLast
-    ) internal view returns (uint price0Cumulative, uint price1Cumulative, uint32 blockTimestamp) {
-        blockTimestamp = currentBlockTimestamp();
-        price0Cumulative = IUniswapV2Pair(pair).price0CumulativeLast();
-        price1Cumulative = IUniswapV2Pair(pair).price1CumulativeLast();
+    //     // if time has elapsed since the last update on the pair, mock the accumulated price values
+    //     //(uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
 
-        // if time has elapsed since the last update on the pair, mock the accumulated price values
-        //(uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
-
-        if (blockTimestampLast != blockTimestamp) {
-            // subtraction overflow is desired
-            uint32 timeElapsed = blockTimestamp - blockTimestampLast;
-            // addition overflow is desired
-            // counterfactual
-            price0Cumulative += uint(FixedPoint.fraction(reserve1, reserve0)._x) * timeElapsed;
-            // counterfactual
-            price1Cumulative += uint(FixedPoint.fraction(reserve0, reserve1)._x) * timeElapsed;
-        }
-    }
+    //     if (blockTimestampLast != blockTimestamp) {
+    //         // subtraction overflow is desired
+    //         uint32 timeElapsed = blockTimestamp - blockTimestampLast;
+    //         // addition overflow is desired
+    //         // counterfactual
+    //         price0Cumulative += uint(FixedPoint.fraction(reserve1, reserve0)._x) * timeElapsed;
+    //         // counterfactual
+    //         price1Cumulative += uint(FixedPoint.fraction(reserve0, reserve1)._x) * timeElapsed;
+    //     }
+    // }
 
     function _uniswapPrices(
     ) 
@@ -699,24 +661,5 @@ console.log("solidity:traded2 = ", (
         }
         
     }
-
-    // returns the index of the observation corresponding to the given timestamp
-    function observationIndexOf(uint timestamp) internal view returns (uint8 index) {
-        uint epochPeriod = timestamp / periodSize;
-        return uint8(epochPeriod % granularitySize);
-    }
-
-    // returns the observation from the oldest epoch (at the beginning of the window) relative to the current time
-    function getFirstObservationInWindow() internal view returns (Observation storage firstObservation) {
-        uint8 observationIndex = observationIndexOf(block.timestamp);
-console.log("getFirstObservationInWindow:observationIndex = ", observationIndex);
-        // no overflow issue. if observationIndex + 1 overflows, result is still zero.
-        uint8 firstObservationIndex = (observationIndex + 1) % granularitySize;
-        
-console.log("getFirstObservationInWindow:firstObservationIndex = ", firstObservationIndex);
-        firstObservation = pairObservation[firstObservationIndex];
-console.log("getFirstObservationInWindow:firstObservation.timestamp = ", firstObservation.timestamp);
-    }
-
 
 }

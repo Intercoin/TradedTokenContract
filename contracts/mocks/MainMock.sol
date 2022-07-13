@@ -9,14 +9,13 @@ contract MainMock is Main {
     
     constructor(
         address reserveToken_, //” (USDC)
-        uint8 granularitySize_,
         uint256 priceDrop_,
         uint256 windowSize_,
         uint64 lockupIntervalAmount,
         PriceNumDen memory minClaimPrice_,
         address externalToken_,
         PriceNumDen memory externalTokenExchangePrice_
-    ) Main(reserveToken_, granularitySize_, priceDrop_, windowSize_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_)
+    ) Main(reserveToken_, priceDrop_, windowSize_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_)
     {
     }
 
@@ -39,24 +38,6 @@ contract MainMock is Main {
     {
         // reserveTraded    reserveReserved
         (uint256 reserve0, uint256 reserve1, uint32 blockTimestamp) = _uniswapPrices();
-
-        Observation storage firstObservation = getFirstObservationInWindow();
-
-        uint timeElapsed = block.timestamp - firstObservation.timestamp;
-// console.log("uniswapPrices:timeElapsed = ", timeElapsed);
-// console.log("uniswapPrices:windowSize = ", windowSize);
-        require(timeElapsed <= windowSize, "MISSING_HISTORICAL_OBSERVATION");
-        // should never happen.
-        require(timeElapsed >= windowSize - periodSize * 2, "SlidingWindowOracle: UNEXPECTED_TIME_ELAPSED");
-
-        (uint price0Cumulative, uint price1Cumulative,) = currentCumulativePrices(uniswapV2Pair, uint112(reserve0), uint112(reserve1), blockTimestamp);
-
-        FixedPoint.uq112x112 memory price0Average = FixedPoint.uq112x112(
-            uint224((price0Cumulative - firstObservation.price0Cumulative) / timeElapsed)
-        );
-        FixedPoint.uq112x112 memory price1Average = FixedPoint.uq112x112(
-            uint224((price1Cumulative - firstObservation.price1Cumulative) / timeElapsed)
-        );
         
         //if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
             return(
@@ -64,8 +45,8 @@ contract MainMock is Main {
                 reserve1, 
                 FRACTION * reserve0 / reserve1,
                 FRACTION * reserve1 / reserve0,
-                FRACTION * price0Average.decode(),
-                FRACTION * price1Average.decode(),
+                pairObservation.price0Average.decode(),
+                pairObservation.price1Average.decode(),
                 blockTimestamp
             );
         // } else {

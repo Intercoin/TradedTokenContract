@@ -23,7 +23,7 @@ const THOUSAND = BigNumber.from('1000');
 
 const ONE_ETH = TEN.pow(BigNumber.from('18'));
 
-const FRACTION = BigNumber.from('100000');
+const FRACTION = BigNumber.from('10000');
 
 chai.use(require('chai-bignumber')());
 
@@ -39,7 +39,7 @@ describe("itrV2", function () {
 
     const HOUR = 60*60; // * interval: HOUR in seconds
     const DAY = 24*HOUR; // * interval: DAY in seconds
-    const dayInSeconds = DAY; // * interval: DAY in seconds
+
     const lockupIntervalAmount = 365; // year in days(dayInSeconds)
 
     const tokenName = "Intercoin Investor Token";
@@ -48,9 +48,8 @@ describe("itrV2", function () {
     // const initialSupply = TEN.mul(TEN.pow(SIX)).mul(TENIN18); // 10kk * 10^18
     // const maxTotalSupply = TEN.mul(TEN.pow(NINE)).mul(TENIN18); // 10kkk * 10^18
     const reserveToken = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; //” (USDC)
-    const granularitySize = TWO;
     const priceDrop = FRACTION.mul(ONE).div(TEN);// 10% = 0.1   (and multiple fraction)
-    const windowSize = ONE.mul(dayInSeconds);
+    const windowSize = DAY;
 // periodSize = windowSize_ / granularity_) * granularity_
 //range [now - [windowSize, windowSize - periodSize * 2], now]
     
@@ -91,7 +90,6 @@ describe("itrV2", function () {
 
         mainInstance = await MainFactory.connect(owner).deploy(
             erc20ReservedToken.address, //” (USDC)
-            granularitySize,
             priceDrop,
             windowSize,
             lockupIntervalAmount,
@@ -118,7 +116,6 @@ describe("itrV2", function () {
 
         mainInstance = await MainFactory.connect(owner).deploy(
             erc20ReservedToken.address, //” (USDC)
-            granularitySize,
             priceDrop,
             windowSize,
             lockupIntervalAmount,
@@ -156,41 +153,11 @@ describe("itrV2", function () {
 
 
     describe("validate params", function () {
-        it("should correct granularitySize", async() => {
-            await expect(
-                MainFactory.connect(owner).deploy(
-                    reserveToken, //” (USDC)
-                    ZERO,
-                    priceDrop,
-                    windowSize,
-                    lockupIntervalAmount,
-                    [minClaimPriceNumerator, minClaimPriceDenominator],
-                    ZERO_ADDRESS,
-                    [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator]
-                )
-            ).to.be.revertedWith("granularitySize invalid");
-        });
-
-        it("should correct window interval", async() => {
-            await expect(
-                MainFactory.connect(owner).deploy(
-                    reserveToken, //” (USDC)
-                    THREE,//granularitySize,
-                    priceDrop,
-                    HUN,//windowSize
-                    lockupIntervalAmount,
-                    [minClaimPriceNumerator, minClaimPriceDenominator],
-                    ZERO_ADDRESS,
-                    [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator]
-                )
-            ).to.be.revertedWith("window not evenly divisible");
-        });
-
+       
         it("should correct reserveToken", async() => {
             await expect(
                 MainFactory.connect(owner).deploy(
                     ZERO_ADDRESS, //” (USDC)
-                    granularitySize,//granularitySize,
                     priceDrop,
                     windowSize,//windowSize
                     lockupIntervalAmount,
@@ -210,7 +177,6 @@ describe("itrV2", function () {
 
             mainInstance = await MainFactory.connect(owner).deploy(
                 erc20ReservedToken.address, //” (USDC)
-                granularitySize,
                 priceDrop,
                 windowSize,
                 lockupIntervalAmount,
@@ -368,19 +334,25 @@ describe("itrV2", function () {
             beforeEach("adding liquidity", async() => {
 
                 await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
+console.log("JS::adding liquidity:#1");
                 await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
-
-                await expect(
-                    mainInstance.connect(owner).addLiquidity(ONE_ETH)
-                ).to.be.revertedWith("MISSING_HISTORICAL_OBSERVATION");
-                //console.log("111");
-                await mainInstance.connect(owner).update();
-                //console.log("222");
-                await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
-                await ethers.provider.send('evm_mine');
-                await mainInstance.connect(owner).update();
-                await mainInstance.connect(owner).update();
-
+console.log("JS::adding liquidity:#2");
+//                 await expect(
+//                     mainInstance.connect(owner).update()
+//                 ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
+// console.log("JS::adding liquidity:#3");
+//                 //console.log("111");
+//                 ;
+// console.log("JS::adding liquidity:#4");
+//                 //console.log("222");
+//                 await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
+//                 await ethers.provider.send('evm_mine');
+// console.log("JS::adding liquidity:#5");
+//                 await mainInstance.connect(owner).update();
+//                 await expect(
+//                     mainInstance.connect(owner).update()
+//                 ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
+// console.log("JS::adding liquidity:#6");
                 
                 //uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
                 uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
@@ -390,7 +362,7 @@ describe("itrV2", function () {
             describe("checks", function () {
                 var snapId;
                 beforeEach("make snapshot", async() => {
-                    
+console.log("make snapshot");
 let x1,x2,x3;
 [x1,x2,x3] = await mainInstance.uniswapPricesSimple();
 console.log("x1 =",x1);
@@ -451,29 +423,38 @@ console.log("x2 =",x2);
                     //await printPrices("final");                                
                 }); 
 
-                it.only("maxAddLiquidity should grow up, when users swaping Reserve token to Traded token.", async() => {
+                it.only("maxAddLiquidity should grow up, when users swaping Reserve token to Traded token. (traded reserve decreasing)", async() => {
 
                     let maxliquidity,tradedReserve1,tradedReserve2;
                     let maxliquidities = [];
-                    for(let i = 0; i < 3; i++) {
+                    let tmp = [];
+                    for(let i = 0; i < 8; i++) {
 console.log("==============");
 [x1,x2,x3] = await mainInstance.uniswapPricesSimple();
 console.log("x1 =",x1);
 console.log("x2 =",x2);
+let pairObservation = await  mainInstance.pairObservation();
+console.log("price0Average=", pairObservation.price0Average._x);
+console.log("price1Average=", pairObservation.price1Average._x);
 console.log("up№1");
-                        await mainInstance.connect(owner).update();
+                        // await expect(
+                        //     mainInstance.connect(owner).update()
+                        // ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
 console.log("up№2");
-                        await mainInstance.connect(owner).update();
+                        
 console.log("up№3");
                         await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
                         await ethers.provider.send('evm_mine');
                         await mainInstance.connect(owner).update();
-                        await mainInstance.connect(owner).update();
+                        // await expect(
+                        //     mainInstance.connect(owner).update()
+                        // ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
 
 console.log("maxAddL№1");
                         [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
 console.log("maxAddL№2");
-                        maxliquidity = tradedReserve1 - tradedReserve2;
+tmp.push([tradedReserve1,tradedReserve2]);
+                        maxliquidity = tradedReserve1.sub(tradedReserve2);
                         maxliquidities.push(maxliquidity);
 
                         await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH);
@@ -482,7 +463,7 @@ console.log("maxAddL№2");
 
 
                         const ts = await time.latest();
-                        const timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*dayInSeconds);
+                        const timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
 console.log("№1");
                         await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                             ONE_ETH, //uint amountIn,
@@ -495,6 +476,8 @@ console.log("№1");
 console.log("№2");                        
 
                     }
+console.log(tmp);
+console.log(maxliquidities);
 
                     for (let i = 1; i < maxliquidities.length; i++) {
                         expect(maxliquidities[i-1]).to.be.lt(maxliquidities[i]);
