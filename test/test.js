@@ -357,6 +357,65 @@ console.log("JS::adding liquidity:#2");
                 //uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
                 uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
 
+///////////////////////////////////////////////
+                let ts,timeUntil;
+//                 await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.mul(TWO));
+//                 await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.mul(TWO));
+//                 ts = await time.latest();
+//                 timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+//                 await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+//                     ONE_ETH.mul(TWO), //uint amountIn,
+//                     0, //uint amountOutMin,
+//                     [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
+//                     bob.address, //address to,
+//                     timeUntil //uint deadline   
+                
+//                 );
+//                 await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
+//                 await ethers.provider.send('evm_mine');
+
+// await mainInstance.connect(owner).update();
+                // await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.mul(TWO));
+                // await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.mul(TWO));
+                // ts = await time.latest();
+                // timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+                // await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                //     ONE_ETH.mul(TWO), //uint amountIn,
+                //     0, //uint amountOutMin,
+                //     [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
+                //     bob.address, //address to,
+                //     timeUntil //uint deadline   
+                
+                // );
+// await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
+//                 await ethers.provider.send('evm_mine');
+                
+//                 await mainInstance.connect(owner).update();
+
+await mainInstance.connect(owner).forceSync();
+//for(let i =0; i<1; i++) {
+    await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
+    await ethers.provider.send('evm_mine');
+    await mainInstance.connect(owner).update(); 
+
+    await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.div(2));
+    await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.div(2));
+    ts = await time.latest();
+    timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+    await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+        ONE_ETH.div(2), //uint amountIn,
+        0, //uint amountOutMin,
+        [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
+        bob.address, //address to,
+        timeUntil //uint deadline   
+    
+    );
+    
+  
+//}
+
+
+
             });
             
             describe("checks", function () {
@@ -443,6 +502,7 @@ console.log("up№1");
 console.log("up№2");
                         
 console.log("up№3");
+//await mainInstance.connect(owner).forceSync();
                         await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
                         await ethers.provider.send('evm_mine');
                         await mainInstance.connect(owner).update();
@@ -475,6 +535,9 @@ console.log("№1");
                         );
 console.log("№2");                        
 
+// console.log(tmp);
+// console.log(maxliquidities);
+// return;
                     }
 console.log(tmp);
 console.log(maxliquidities);

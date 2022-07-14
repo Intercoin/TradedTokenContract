@@ -131,14 +131,14 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender {
     
     function update() public {
         
-        if (pairObservation.timestampLast == 0) {
-            console.log("!!!!!!!!!");
-            console.log(IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast());
-            //force sync
-            IUniswapV2Pair(uniswapV2Pair).sync();
-            console.log(IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast());
+        // if (pairObservation.timestampLast == 0) {
+        //     console.log("!!!!!!!!!");
+        //     console.log(IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast());
+        //     //force sync
+        //     IUniswapV2Pair(uniswapV2Pair).sync();
+        //     console.log(IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast());
             
-        }
+        // }
 
 
 console.log("solidity:update()");
@@ -152,23 +152,19 @@ console.log("solidity:update():price0Cumulative = ", price1Cumulative);
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
 console.log("solidity:update():timeElapsed = ", timeElapsed);
         // ensure that at least one full period has passed since the last update
-        require(timeElapsed >= windowSize || pairObservation.timestampLast == 0, "PERIOD_NOT_ELAPSED");
+        require(timeElapsed >= windowSize, "PERIOD_NOT_ELAPSED");
+        require(price0Cumulative != 0 && price1Cumulative != 0, "CUMULATIVE_PRICE_IS_EMPTY");
 
         // overflow is desired, casting never truncates
         // cumulative price is in (uq112x112 price * seconds) units so we simply wrap it after division by time elapsed
         // pairObservation.price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - pairObservation.price0CumulativeLast) / timeElapsed));
         // pairObservation.price1Average = FixedPoint.uq112x112(uint224((price1Cumulative - pairObservation.price1CumulativeLast) / timeElapsed));
-        if (pairObservation.timestampLast == 0) {
-            pairObservation.price0Average = FixedPoint.uq112x112(uint224((price0Cumulative)));
-            pairObservation.price1Average = FixedPoint.uq112x112(uint224((price1Cumulative)));
-            pairObservation.price0CumulativeLast = price0Cumulative;
-            pairObservation.price1CumulativeLast = price1Cumulative;
-        } else {
-            pairObservation.price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - pairObservation.price0CumulativeLast) / timeElapsed));
-            pairObservation.price1Average = FixedPoint.uq112x112(uint224((price1Cumulative - pairObservation.price1CumulativeLast) / timeElapsed));
-            pairObservation.price0CumulativeLast = price0Cumulative;
-            pairObservation.price1CumulativeLast = price1Cumulative;
-        }
+
+        pairObservation.price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - pairObservation.price0CumulativeLast) / timeElapsed));
+        pairObservation.price1Average = FixedPoint.uq112x112(uint224((price1Cumulative - pairObservation.price1CumulativeLast) / timeElapsed));
+        pairObservation.price0CumulativeLast = price0Cumulative;
+        pairObservation.price1CumulativeLast = price1Cumulative;
+
         
         pairObservation.timestampLast = blockTimestamp;
     }
@@ -231,12 +227,12 @@ console.log("solidity:update():timeElapsed = ", timeElapsed);
         // move lp tokens to dead address
         ERC777(uniswapV2Pair).transfer(deadAddress, lpTokens);
 
-console.log("force sync start");
+// console.log("force sync start");
 
-        //force sync
-        IUniswapV2Pair(uniswapV2Pair).sync();
+//         //force sync
+         IUniswapV2Pair(uniswapV2Pair).sync();
 
-console.log("force sync end");
+// console.log("force sync end");
 //         pairObservation.timestampLast = currentBlockTimestamp();
 //         pairObservation.price0CumulativeLast = uint(FixedPoint.encode(uint112(amountReserveToken)).divuq(FixedPoint.encode(uint112(amountTradedToken)))._x);//IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
 //         pairObservation.price1CumulativeLast = uint(FixedPoint.encode(uint112(amountTradedToken)).divuq(FixedPoint.encode(uint112(amountReserveToken)))._x);//IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
@@ -246,6 +242,9 @@ console.log("force sync end");
 
     }
 
+function forceSync() public {
+    IUniswapV2Pair(uniswapV2Pair).sync();
+}
     /**
     @dev   … mints to caller
     */
