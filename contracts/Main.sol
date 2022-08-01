@@ -310,7 +310,7 @@ function forceSync() public {
 
         // claim to address(this)
         ITRv2(tradedToken).claim(address(this), tradedTokenAmount);
-        // trade traed tokens and add liquidity
+        // trade trade tokens and add liquidity
         uint256 lpTokens = _sellTradedAndLiquidity(tradedTokenAmount);
         // move lp tokens to dead address
         ERC777(uniswapV2Pair).transfer(deadAddress, lpTokens);
@@ -323,11 +323,11 @@ function forceSync() public {
         //      traded1 -> traded2
         returns(uint256, uint256) 
     {
-console.log("solidity:maxAddL:#1");
+// console.log("solidity:maxAddL:#1");
         (uint256 traded1, uint256 reserve1, uint32 blockTimestampLast) = _uniswapPrices();
-console.log("solidity:traded1 = ", traded1);
-console.log("solidity:reserve1 = ", reserve1);
-console.log("solidity:maxAddL:#2");
+// console.log("solidity:traded1 = ", traded1);
+// console.log("solidity:reserve1 = ", reserve1);
+// console.log("solidity:maxAddL:#2");
         
         // Math.sqrt(lowestPrice * traded1 * reserve1)
         // return  (
@@ -341,11 +341,11 @@ console.log("solidity:maxAddL:#2");
 console.log("solidity:PriceAverage0 = ", pairObservation.price0Average._x);
 console.log("solidity:PriceAverage1 = ", pairObservation.price1Average._x);
         
-        // Note that (traded1 * reserve1) will overflow in uint112. so need to exlude from sqrt like this 
-        // Math.sqrt(lowestPrice * traded1 * reserve1) =  Math.sqrt(lowestPrice) * Math.sqrt(traded1) * Math.sqrt(reserve1)
-console.log("solidity:traded1 = ", traded1);
-console.log("solidity:X1 = ", FixedPoint.encode(uint112(reserve1))._x);
-console.log("solidity:X2 = ", FixedPoint.encode(uint112(FRACTION*100))._x);
+//         // Note that (traded1 * reserve1) will overflow in uint112. so need to exlude from sqrt like this 
+//         // Math.sqrt(lowestPrice * traded1 * reserve1) =  Math.sqrt(lowestPrice) * Math.sqrt(traded1) * Math.sqrt(reserve1)
+// console.log("solidity:traded1 = ", traded1);
+// console.log("solidity:X1 = ", FixedPoint.encode(uint112(reserve1))._x);
+// console.log("solidity:X2 = ", FixedPoint.encode(uint112(FRACTION*100))._x);
 
 console.log("solidity:traded2 = ", 
             (
@@ -370,7 +370,7 @@ console.log("solidity:traded2 = ",
 );
 
         return (
-            //traded1, 
+            traded1, 
             (
                 
                 FixedPoint.encode(uint112(traded1)).sqrt()
@@ -384,8 +384,8 @@ console.log("solidity:traded2 = ",
                         
                     ).sqrt()
                 )
-            ).decode()/1000,    /// .divuq(FixedPoint.encode(uint112(FRACTION*100))).sqrt() === 1000
-            traded1
+            ).decode()/1000    /// .divuq(FixedPoint.encode(uint112(FRACTION*100))).sqrt() === 1000
+            
         );
         
     }
