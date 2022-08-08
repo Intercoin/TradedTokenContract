@@ -48,10 +48,11 @@ describe("itrV2", function () {
     // const initialSupply = TEN.mul(TEN.pow(SIX)).mul(TENIN18); // 10kk * 10^18
     // const maxTotalSupply = TEN.mul(TEN.pow(NINE)).mul(TENIN18); // 10kkk * 10^18
     const reserveToken = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; //” (USDC)
-    const priceDrop = FRACTION.mul(ONE).div(TEN);// 10% = 0.1   (and multiple fraction)
+    const pricePercentsDrop = 10;// 10% = 0.1   (and multiple fraction)
+    const priceDrop = FRACTION.mul(pricePercentsDrop).div(HUN);// 10% = 0.1   (and multiple fraction)
     const windowSize = DAY;
-// periodSize = windowSize_ / granularity_) * granularity_
-//range [now - [windowSize, windowSize - periodSize * 2], now]
+    // periodSize = windowSize_ / granularity_) * granularity_
+    //range [now - [windowSize, windowSize - periodSize * 2], now]
     
     const minClaimPriceNumerator = 1;
     const minClaimPriceDenominator = 1000;
@@ -130,8 +131,6 @@ describe("itrV2", function () {
         await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
         await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
 
-        await mainInstance.connect(owner).update();
-
         await externalToken.connect(owner).mint(bob.address, ONE_ETH);
         let bobExternalTokenBalanceBefore = await externalToken.balanceOf(bob.address);
         let mainInstanceExternalTokenBalanceBefore = await externalToken.balanceOf(mainInstance.address);
@@ -199,12 +198,6 @@ describe("itrV2", function () {
             expect(await itrv2.symbol()).to.be.equal(tokenSymbol);
         });
 
-        it("shouldnt `update` without liquidity", async() => {
-            await expect(
-                mainInstance.connect(bob).update()
-            ).to.be.revertedWith("RESERVES_EMPTY");
-        }); 
-
         it("shouldnt `addLiquidity` without liquidity", async() => {
             await expect(
                 mainInstance.connect(owner).addLiquidity(ONE_ETH)
@@ -219,9 +212,9 @@ describe("itrV2", function () {
 
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
-                ).to.be.revertedWith("MISSING_HISTORICAL_OBSERVATION");
+                ).to.be.revertedWith("maxAddLiquidity exceeded");
+                //"MISSING_HISTORICAL_OBSERVATION"
                 
-                await mainInstance.connect(owner).update();
             });
 
             describe("internal", function () {
@@ -327,273 +320,273 @@ describe("itrV2", function () {
 
         describe("uniswap settings", function () {
             var uniswapRouterFactoryInstance, uniswapRouterInstance, pairInstance;
-            var snapId;
-
-           
-
+            
             beforeEach("adding liquidity", async() => {
 
                 await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
-console.log("JS::adding liquidity:#1");
+                console.log("JS::adding liquidity:#1");
                 await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
-console.log("JS::adding liquidity:#2");
-//                 await expect(
-//                     mainInstance.connect(owner).update()
-//                 ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
-// console.log("JS::adding liquidity:#3");
-//                 //console.log("111");
-//                 ;
-// console.log("JS::adding liquidity:#4");
-//                 //console.log("222");
-//                 await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
-//                 await ethers.provider.send('evm_mine');
-// console.log("JS::adding liquidity:#5");
-//                 await mainInstance.connect(owner).update();
-//                 await expect(
-//                     mainInstance.connect(owner).update()
-//                 ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
-// console.log("JS::adding liquidity:#6");
+                console.log("JS::adding liquidity:#2");
                 
                 //uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
                 uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
 
-///////////////////////////////////////////////
-                let ts,timeUntil;
-//                 await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.mul(TWO));
-//                 await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.mul(TWO));
-//                 ts = await time.latest();
-//                 timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
-//                 await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-//                     ONE_ETH.mul(TWO), //uint amountIn,
-//                     0, //uint amountOutMin,
-//                     [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
-//                     bob.address, //address to,
-//                     timeUntil //uint deadline   
-                
-//                 );
-//                 await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
-//                 await ethers.provider.send('evm_mine');
-
-// await mainInstance.connect(owner).update();
-                // await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.mul(TWO));
-                // await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.mul(TWO));
-                // ts = await time.latest();
-                // timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
-                // await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-                //     ONE_ETH.mul(TWO), //uint amountIn,
-                //     0, //uint amountOutMin,
-                //     [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
-                //     bob.address, //address to,
-                //     timeUntil //uint deadline   
-                
-                // );
-// await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
-//                 await ethers.provider.send('evm_mine');
-                
-//                 await mainInstance.connect(owner).update();
-
-/* imitation */
-await mainInstance.connect(owner).forceSync();
-
-// pass period.  otherwise will get "PERIOD_NOY_ELAPSED" error
-await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
-await ethers.provider.send('evm_mine');
-await mainInstance.connect(owner).update(); 
-
-// pass period.  otherwise will get "PERIOD_NOY_ELAPSED" error
-await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
-await ethers.provider.send('evm_mine');
-await mainInstance.connect(owner).update(); 
-
-// make first swap
-await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.div(2));
-await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.div(2));
-ts = await time.latest();
-timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
-await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-    ONE_ETH.div(2), //uint amountIn,
-    0, //uint amountOutMin,
-    [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
-    bob.address, //address to,
-    timeUntil //uint deadline   
-
-);
-
-
-/*    */
-
+                /*    */
 
             });
-            
-            describe("checks", function () {
-                var snapId;
+            describe("with first swap", function () {
                 beforeEach("make snapshot", async() => {
-console.log("make snapshot");
-let x1,x2,x3;
-[x1,x2,x3] = await mainInstance.uniswapPricesSimple();
-console.log("x1 =",x1);
-console.log("x2 =",x2);
-                    // make snapshot before time manipulations
-                    snapId = await ethers.provider.send('evm_snapshot', []);
-                    console.log("make snapshot `"+snapId+"`");
+                    /////////////////////////////
+                
+                    await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.div(2));
+                    await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.div(2));
+                    let ts = await time.latest();
+                    let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+                    await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                        ONE_ETH.div(2), //uint amountIn,
+                        0, //uint amountOutMin,
+                        [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+
+                    );
+                    /////////////////////////////
                 });
+                
+                describe("Adding liquidity", function () {
+                    var snapId;
+                    beforeEach("make snapshot", async() => {
+                        // make snapshot before time manipulations
+                        snapId = await ethers.provider.send('evm_snapshot', []);
+                    });
 
-                afterEach("revert to snapshot", async() => {
-                    // restore snapshot
-                    await ethers.provider.send('evm_revert', [snapId]);
-                    console.log("revert to snapshot `"+snapId+"`");
-                });
+                    afterEach("revert to snapshot", async() => {
+                        // restore snapshot
+                        await ethers.provider.send('evm_revert', [snapId]);
+                    });
 
-                it("should update pair", async() => {
+                    it("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & immediately]", async() => {
+                        
+                        let tradedReserve1,tradedReserve2;
+                        let maxliquidity;
 
-                    // update by owner
-                    await mainInstance.connect(owner).update();
-                    // update by bob
-                    await mainInstance.connect(bob).update();
-                    
-                }); 
+                        let frac = 1000000;
+                        let priceStart, r1Start, r2Start;                        
+                        let priceEnd, r1End, r2End;  
 
-                it.only("should add liquidity(10 times). maxAddLiquidity grow down. ", async() => {
-// console.log("erc20ReservedToken.address = ", erc20ReservedToken.address);
-// console.log("itrv2.address              = ", itrv2.address);
-                    let tradedReserve1,tradedReserve2;
-                    let maxliquidity;
-                    let maxliquidities = [];
-                    for(let i = 0; i < 10; i++) {
-console.log("iteration#", i);
-                        // await mainInstance.connect(owner).update();
-
-                        // await mainInstance.connect(owner).update();
-
-                        await ethers.provider.send('evm_increaseTime', [parseInt(HOUR)]);
-                        await ethers.provider.send('evm_mine');
+                        // save initial reserves
+                        [r1Start,r2Start] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        priceStart = r2Start.mul(frac).div(r1Start);
 
                         [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
-                        console.log("tradedReserve1=", tradedReserve1.toString());
-                        console.log("tradedReserve2=", tradedReserve2.toString());
-
-if (tradedReserve1 > tradedReserve2) {
-                        maxliquidity = tradedReserve1.sub(tradedReserve2);
-                        //maxliquidity = tradedReserve1 > tradedReserve2 ? tradedReserve1.sub(tradedReserve2) : tradedReserve2.sub(tradedReserve1);
-
-                        maxliquidities.push(maxliquidity);
+                        
+                        // if (tradedReserve2.gt(tradedReserve1)) { .. }
+                        // no matter what we send with transaction, contract should avoid adding liquidity if tradedReserve2.lt(tradedReserve1).
+                        // and here we take modulo(tradedReserve2-tradedReserve1) to avoid tx error with negative numbers
+                        maxliquidity = tradedReserve2.sub(tradedReserve1);
                         console.log("!MaxLiquidity = ", maxliquidity);
-                        // try to add (maxliquidity - maxliquidity/1000) to avoid js accuracy
-                        await mainInstance.connect(owner).addLiquidity(maxliquidity.sub(BigNumber.from(maxliquidity).div(THOUSAND)));
-} else {
-    console.log("max liquidity skipped");
-}
+                        await mainInstance.connect(owner).addLiquidity(maxliquidity.abs());
 
-// console.log("==============");
-// [x1,x2,x3] = await mainInstance.uniswapPricesSimple();
-// console.log("x1 =",x1);
-// console.log("x2 =",x2);
+                        [r1End,r2End] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        priceEnd = r2End.mul(frac).div(r1End);
 
-                    }
+                        expect(100 - Math.floor(priceEnd*100/priceStart)).to.be.eq(pricePercentsDrop);
+                        expect(r2Start).to.be.eq(r2End);
+                        expect(priceEnd).to.be.lt(priceStart);
 
+                        console.log('==Price drop will be==', Math.floor(priceEnd*100/priceStart));
 
-//console.log(maxliquidities);
-                    for (let i = 1; i < maxliquidities.length; i++) {
-                        expect(maxliquidities[i-1]).to.be.gt(maxliquidities[i]);
-                    }
-
-                    //await printPrices("final");                                
-                }); 
-
-                it("maxAddLiquidity should grow up, when users swaping Reserve token to Traded token. (tradedtoken(itr) reserve decreasing)", async() => {
-
-                    let maxliquidity,tradedReserve1,tradedReserve2;
-                    let maxliquidities = [];
-                    let tmp = [];
-                    for(let i = 0; i < 8; i++) {
-console.log("=== iteration:"+i+"===========");
-[x1,x2,x3] = await mainInstance.uniswapPricesSimple();
-console.log("x1 =",x1);
-console.log("x2 =",x2);
-let pairObservation = await  mainInstance.pairObservation();
-console.log("price0Average=", pairObservation.price0Average._x);
-console.log("price1Average=", pairObservation.price1Average._x);
-console.log("up№1");
-                        // await expect(
-                        //     mainInstance.connect(owner).update()
-                        // ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
-//console.log("up№2");
+                        //await printPrices("final");                                
+                    }); 
+                    it("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & One hour passed]", async() => {
                         
-//console.log("up№3");
-//await mainInstance.connect(owner).forceSync();
-                        await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
-                        await ethers.provider.send('evm_mine');
-                        await mainInstance.connect(owner).update();
-                        // await expect(
-                        //     mainInstance.connect(owner).update()
-                        // ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
+                        let tradedReserve1,tradedReserve2;
+                        let maxliquidity;
 
-console.log("maxAddL№1");
-                        [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
-console.log("maxAddL№2");
-console.log("tradedReserve1=", tradedReserve1.toString());
-console.log("tradedReserve2=", tradedReserve2.toString());
-tmp.push([tradedReserve1,tradedReserve2]);
-                        maxliquidity = tradedReserve1.sub(tradedReserve2);
-                        maxliquidities.push(maxliquidity);
+                        let frac = 1000000;
+                        let priceStart, r1Start, r2Start;                        
+                        let priceEnd, r1End, r2End;  
 
-                        await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH);
-                        await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH);
-                        const ts = await time.latest();
-                        const timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
-                        await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-                            ONE_ETH, //uint amountIn,
-                            0, //uint amountOutMin,
-                            [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
-                            bob.address, //address to,
-                            timeUntil //uint deadline   
-                        );
+                        // save initial reserves
+                        [r1Start,r2Start] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        priceStart = r2Start.mul(frac).div(r1Start);
 
-
-// console.log(tmp);
-// console.log(maxliquidities);
-// return;
-                    }
-console.log("final");                    
-console.log(tmp);
-console.log(maxliquidities);
-
-                    for (let i = 1; i < maxliquidities.length; i++) {
-                        expect(maxliquidities[i-1]).to.be.lt(maxliquidities[i]);
-                    }
-
-                }); 
-
-                it("price should be the same when call update only", async() => {
-
-                    let x1,x2,x3,x4,x5,x6,x7;
-                    let priceTraded,averagePriceTraded;
-                    
-                    let prices = [];
-
-                    for(var i = 0; i < 5; i++){
-                        
-                        await mainInstance.connect(owner).update();
-                        await mainInstance.connect(owner).update();
                         await ethers.provider.send('evm_increaseTime', [parseInt(HOUR)]);
                         await ethers.provider.send('evm_mine');
 
+                        [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
+                        
+                        // if (tradedReserve2.gt(tradedReserve1)) { .. }
+                        // no matter what we send with transaction, contract should avoid adding liquidity if tradedReserve2.lt(tradedReserve1).
+                        // and here we take modulo(tradedReserve2-tradedReserve1) to avoid tx error with negative numbers
+                        maxliquidity = tradedReserve2.sub(tradedReserve1);
+                        console.log("!MaxLiquidity = ", maxliquidity);
+                        await mainInstance.connect(owner).addLiquidity(maxliquidity.abs());
+
+                        [r1End,r2End] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        priceEnd = r2End.mul(frac).div(r1End);
+
+                        expect(100 - Math.floor(priceEnd*100/priceStart)).to.be.eq(pricePercentsDrop);
+                        expect(r2Start).to.be.eq(r2End);
+                        expect(priceEnd).to.be.lt(priceStart);
+
+                        console.log('==Price drop will be==', Math.floor(priceEnd*100/priceStart));
+
+                        //await printPrices("final");                                
+                    }); 
+                    it.only("should add liquidity. price should be grow down not more then priceDrop.[10 iterations]", async() => {
+                        let iterationsCount = 2;
+                        let tradedReserve1,tradedReserve2;
+                        let maxliquidity;
+
+                        let frac = 1000000;
+                        let priceStart, r1Start, r2Start;                        
+                        let priceEnd, r1End, r2End;  
+
+                        // save initial reserves
+                        [r1Start,r2Start] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        priceStart = r2Start.mul(frac).div(r1Start);
+                        console.log("r1Start = ", r1Start.toString());
+                        console.log("r2Start = ", r2Start.toString());
+
+                        await ethers.provider.send('evm_increaseTime', [parseInt(HOUR)]);
+                        await ethers.provider.send('evm_mine');
+
+
+                        // we've expected that first iteration will drop price at value `PriceDrop` and any further reverted with message "maxAddLiquidity exceeded"
+                        // in the end price will hold not more than PricePercentDrop
+                        for(let i=0; i<iterationsCount; i++) {
+                            console.log("---------------------------------------------------------------");
+                            console.log("iteration # "+i);
+                            [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
+                            maxliquidity = tradedReserve2.sub(tradedReserve1);
+                            console.log("!MaxLiquidity = ", maxliquidity);
+
+                            if (tradedReserve2.gt(tradedReserve1)) {
+                                await mainInstance.connect(owner).addLiquidity(maxliquidity.abs());
+                            } else {
+                                await expect(mainInstance.connect(owner).addLiquidity(maxliquidity.abs())).to.be.revertedWith("maxAddLiquidity exceeded");
+                            }
+
+                            [r1End,r2End] = await mainInstance.connect(owner).uniswapPricesSimple();
+                            priceEnd = r2End.mul(frac).div(r1End);
+                            console.log("r1 = ", r1End.toString());
+                            console.log("r2 = ", r2End.toString());
+                            console.log("drop = ", 100 - Math.floor(priceEnd*100/priceStart));
+
+                            await ethers.provider.send('evm_increaseTime', [parseInt(HOUR)]);
+                            await ethers.provider.send('evm_mine');
+                            
+                        }
+                        [r1End,r2End] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        priceEnd = r2End.mul(frac).div(r1End);
+
+                        expect(100 - Math.floor(priceEnd*100/priceStart)).to.be.eq(pricePercentsDrop);
+                        expect(r2Start).to.be.eq(r2End);
+                        expect(priceEnd).to.be.lt(priceStart);
+
+                        console.log('after '+iterationsCount+' iterations Price drop will be==', Math.floor(priceEnd*100/priceStart));
+
+                        //await printPrices("final");                                
+                    }); 
+
+                    it("maxAddLiquidity should grow up, when users swaping Reserve token to Traded token. (tradedtoken(itr) reserve decreasing)", async() => {
+
+                        let maxliquidity,tradedReserve1,tradedReserve2;
+                        let maxliquidities = [];
+                        let tmp = [];
+                        for(let i = 0; i < 8; i++) {
+                            console.log("=== iteration:"+i+"===========");
+                            [x1,x2,x3] = await mainInstance.uniswapPricesSimple();
+                            console.log("x1 =",x1);
+                            console.log("x2 =",x2);
+                            let pairObservation = await  mainInstance.pairObservation();
+                            console.log("price0Average=", pairObservation.price0Average._x);
+                            console.log("price1Average=", pairObservation.price1Average._x);
+                            console.log("up№1");
+                            // await expect(
+                            //     mainInstance.connect(owner).update()
+                            // ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
+                            //console.log("up№2");
+                                                    
+                            //console.log("up№3");
+                            //await mainInstance.connect(owner).forceSync();
+                            await ethers.provider.send('evm_increaseTime', [parseInt(DAY)]);
+                            await ethers.provider.send('evm_mine');
+                            await mainInstance.connect(owner).update();
+                            // await expect(
+                            //     mainInstance.connect(owner).update()
+                            // ).to.be.revertedWith("PERIOD_NOT_ELAPSED");
+
+                            console.log("maxAddL№1");
+                                                    [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
+                            console.log("maxAddL№2");
+                            console.log("tradedReserve1=", tradedReserve1.toString());
+                            console.log("tradedReserve2=", tradedReserve2.toString());
+                            tmp.push([tradedReserve1,tradedReserve2]);
+
+                            maxliquidity = tradedReserve1.sub(tradedReserve2);
+                            maxliquidities.push(maxliquidity);
+
+                            await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH);
+                            await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH);
+                            const ts = await time.latest();
+                            const timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+                            await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                                ONE_ETH, //uint amountIn,
+                                0, //uint amountOutMin,
+                                [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
+                                bob.address, //address to,
+                                timeUntil //uint deadline   
+                            );
+
+
+                        // console.log(tmp);
+                        // console.log(maxliquidities);
+                        // return;
+                                            }
+                        console.log("final");                    
+                        console.log(tmp);
+                        console.log(maxliquidities);
+
+                        for (let i = 1; i < maxliquidities.length; i++) {
+                            expect(maxliquidities[i-1]).to.be.lt(maxliquidities[i]);
+                        }
+
+                    }); 
+
+                    it("price should be the same when call update only", async() => {
+
+                        let x1,x2,x3,x4,x5,x6,x7;
+                        let priceTraded,averagePriceTraded;
+                        
+                        let prices = [];
+
+                        for(var i = 0; i < 5; i++){
+                            
+                            await mainInstance.connect(owner).update();
+                            await mainInstance.connect(owner).update();
+                            await ethers.provider.send('evm_increaseTime', [parseInt(HOUR)]);
+                            await ethers.provider.send('evm_mine');
+
+                            [x1,x2,priceTraded,x4,averagePriceTraded,x6,x7] = await mainInstance.uniswapPrices();
+                            prices.push([priceTraded,averagePriceTraded]);
+                        }
+
+                        
+                        
                         [x1,x2,priceTraded,x4,averagePriceTraded,x6,x7] = await mainInstance.uniswapPrices();
                         prices.push([priceTraded,averagePriceTraded]);
-                    }
 
-                    
-                    
-                    [x1,x2,priceTraded,x4,averagePriceTraded,x6,x7] = await mainInstance.uniswapPrices();
-                    prices.push([priceTraded,averagePriceTraded]);
+                        for (let i = 1; i < prices.length; i++) {
+                            expect(prices[i][0]).to.be.eq(prices[i][1]);
+                            expect(prices[i-1][0]).to.be.eq(prices[i][0]);
+                        }
+                        
 
-                    for (let i = 1; i < prices.length; i++) {
-                        expect(prices[i][0]).to.be.eq(prices[i][1]);
-                        expect(prices[i-1][0]).to.be.eq(prices[i][0]);
-                    }
-                    
-
+                    });
                 });
+            
             });
              
         });

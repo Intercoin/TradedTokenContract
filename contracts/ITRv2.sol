@@ -12,9 +12,11 @@ import "hardhat/console.sol";
 import "./libs/SwapSettingsLib.sol";
 
 import "./minimums/libs/MinimumsLib.sol";
+import "./OraclePrice.sol";
 
+import "./ExecuteManager.sol";
 
-contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
+contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient, OraclePrice, ExecuteManager {
     using MinimumsLib for MinimumsLib.UserStruct;
     
 
@@ -23,7 +25,8 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
 
     uint64 internal lockupIntervalAmount;
 	//uint256 internal constant FRACTION = 100000;
-    
+    uint256 public totalCumulativeClaimed;
+
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
     address immutable uniswapRouter;
@@ -34,7 +37,9 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
         string memory name,
         string memory symbol,
         uint64 lockupDuration
-    ) ERC777(name, symbol, new address[](0)) {
+    ) 
+        ERC777(name, symbol, new address[](0)) 
+    {
 
         lockupIntervalAmount = lockupDuration;
         (uniswapRouter, /*uniswapRouterFactory*/) = SwapSettingsLib.netWorkSettings();
@@ -53,7 +58,7 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
     }
 
     /**
-    @dev   … mints to caller
+    @dev   … mints to account
     */
     function claim(
         address account,
@@ -62,6 +67,8 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
         public 
         onlyOwner
     {
+        totalCumulativeClaimed += tradedTokenAmount;
+
         _mint(account, tradedTokenAmount, "", "");
         if (
             account != owner() &&
@@ -72,10 +79,22 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
         }
     }
 
+    function startupInit(
+        address uniswapV2Pair,
+        uint256 priceDrop, 
+        uint64 averagePriceWindow,
+        uint64 fraction
+    ) 
+        external 
+        onlyOwner
+        runOnlyOnce
+    {
+        oracleInit(uniswapV2Pair, priceDrop, averagePriceWindow, fraction);
+    }
+
     // ////////////////////////////////////////////////////////////////////////
     // // internal section ////////////////////////////////////////////////////
     // ////////////////////////////////////////////////////////////////////////
-
 
     function _beforeTokenTransfer(
         address operator,
@@ -116,16 +135,19 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient {
             // console.log("amount  = ",amount);
             require(balance - locked >= amount, "insufficient amount");
         }
+
+        //make update when pair send some1 tokens. there are swap happens
+        if (
+            uniswapV2Pair == operator || 
+            uniswapV2Pair == from || 
+            uniswapV2Pair == to
+        ) {
+            console.log("====_beforeTokenTransfer::_update=====");
+            update();
+        }
+
+
         
     }    
-    
-    
-    
-
-   
-    
-    
-   
-
 
 }
