@@ -10,34 +10,48 @@ contract MainMock is Main {
     constructor(
         address reserveToken_, //” (USDC)
         uint256 priceDrop_,
-        uint256 windowSize_,
         uint64 lockupIntervalAmount,
         PriceNumDen memory minClaimPrice_,
         address externalToken_,
         PriceNumDen memory externalTokenExchangePrice_
-    ) Main(reserveToken_, priceDrop_, windowSize_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_)
+    ) Main(reserveToken_, priceDrop_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_)
     {
     }
 
    
-    function uniswapPricesSimple(
+    function uniswapReservesSimple(
     ) 
         public 
         view 
         returns(uint256, uint256, uint256)
     {
-        return _uniswapPrices();
+        return _uniswapReserves();
     }
 
-    function maxAddLiquidity(
+    function totalInfo(
 
     )
         public 
         view
-        returns(uint256, uint256)
+        returns(
+            uint112 r0, uint112 r1, uint32 blockTimestamp,
+            uint price0Cumulative, uint price1Cumulative,
+            uint64 timestampLast, uint price0CumulativeLast, uint price1CumulativeLast, uint224 price0Average, uint224 price1Average
+        )
     {
-        return ITRv2(tradedToken).maxAddLiquidity(); 
+        (r0, r1, blockTimestamp) = _uniswapReserves();
+        price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+        price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
+
+        timestampLast = pairObservation.timestampLast;
+        price0CumulativeLast = pairObservation.price0CumulativeLast;
+        price1CumulativeLast = pairObservation.price1CumulativeLast;
+        price0Average = pairObservation.price0Average._x;
+        price1Average = pairObservation.price1Average._x;
     }
+
+
+    
     
     // function uniswapPrices(
     // ) 

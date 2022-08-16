@@ -12,11 +12,10 @@ import "hardhat/console.sol";
 import "./libs/SwapSettingsLib.sol";
 
 import "./minimums/libs/MinimumsLib.sol";
-import "./OraclePrice.sol";
 
 import "./ExecuteManager.sol";
 
-contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient, OraclePrice, ExecuteManager {
+contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient, ExecuteManager {
     using MinimumsLib for MinimumsLib.UserStruct;
     
 
@@ -79,18 +78,18 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient, OraclePrice,
         }
     }
 
-    function startupInit(
-        address uniswapV2Pair,
-        uint256 priceDrop, 
-        uint64 averagePriceWindow,
-        uint64 fraction
-    ) 
-        external 
-        onlyOwner
-        runOnlyOnce
-    {
-        oracleInit(uniswapV2Pair, priceDrop, averagePriceWindow, fraction);
-    }
+    // function startupInit(
+    //     address uniswapV2Pair,
+    //     uint256 priceDrop, 
+    //     uint64 averagePriceWindow,
+    //     uint64 fraction
+    // ) 
+    //     external 
+    //     onlyOwner
+    //     runOnlyOnce
+    // {
+        
+    // }
 
     // ////////////////////////////////////////////////////////////////////////
     // // internal section ////////////////////////////////////////////////////
@@ -136,18 +135,6 @@ contract ITRv2 is Ownable, ERC777, AccessControl, IERC777Recipient, OraclePrice,
             require(balance - locked >= amount, "insufficient amount");
         }
 
-        //make update when pair send some1 tokens. there are swap happens
-        if (
-            uniswapV2Pair == operator || 
-            uniswapV2Pair == from || 
-            uniswapV2Pair == to
-        ) {
-            console.log("====_beforeTokenTransfer::_update=====");
-            update();
-        }
-
-
-        
     }    
 
 }

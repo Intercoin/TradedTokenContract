@@ -50,9 +50,6 @@ describe("itrV2", function () {
     const reserveToken = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; //” (USDC)
     const pricePercentsDrop = 10;// 10% = 0.1   (and multiple fraction)
     const priceDrop = FRACTION.mul(pricePercentsDrop).div(HUN);// 10% = 0.1   (and multiple fraction)
-    const windowSize = DAY;
-    // periodSize = windowSize_ / granularity_) * granularity_
-    //range [now - [windowSize, windowSize - periodSize * 2], now]
     
     const minClaimPriceNumerator = 1;
     const minClaimPriceDenominator = 1000;
@@ -92,7 +89,6 @@ describe("itrV2", function () {
         mainInstance = await MainFactory.connect(owner).deploy(
             erc20ReservedToken.address, //” (USDC)
             priceDrop,
-            windowSize,
             lockupIntervalAmount,
             [minClaimPriceNumerator, minClaimPriceDenominator],
             ZERO_ADDRESS, //externalToken.address,
@@ -118,7 +114,6 @@ describe("itrV2", function () {
         mainInstance = await MainFactory.connect(owner).deploy(
             erc20ReservedToken.address, //” (USDC)
             priceDrop,
-            windowSize,
             lockupIntervalAmount,
             [minClaimPriceNumerator, minClaimPriceDenominator],
             externalToken.address,
@@ -150,7 +145,6 @@ describe("itrV2", function () {
         await ethers.provider.send('evm_revert', [snapId]);
     });
 
-
     describe("validate params", function () {
        
         it("should correct reserveToken", async() => {
@@ -158,7 +152,6 @@ describe("itrV2", function () {
                 MainFactory.connect(owner).deploy(
                     ZERO_ADDRESS, //” (USDC)
                     priceDrop,
-                    windowSize,//windowSize
                     lockupIntervalAmount,
                     [minClaimPriceNumerator, minClaimPriceDenominator],
                     ZERO_ADDRESS,
@@ -177,7 +170,6 @@ describe("itrV2", function () {
             mainInstance = await MainFactory.connect(owner).deploy(
                 erc20ReservedToken.address, //” (USDC)
                 priceDrop,
-                windowSize,
                 lockupIntervalAmount,
                 [minClaimPriceNumerator, minClaimPriceDenominator],
                 externalToken.address,
@@ -203,12 +195,31 @@ describe("itrV2", function () {
                 mainInstance.connect(owner).addLiquidity(ONE_ETH)
             ).to.be.revertedWith("RESERVES_EMPTY");
         }); 
-
+    
         describe("claim", function () {
             beforeEach("adding liquidity", async() => {
 
                 await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
+
+let uniswapV2Pair = await mainInstance.uniswapV2Pair();
+pair = await ethers.getContractAt("IUniswapV2Pair",uniswapV2Pair);
+let tmp;
+tmp = await pair.getReserves();
+console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
+console.log("js::pair:blockTimestampLast = ", tmp[2]);  
+console.log("js   addInitialLiquidity ");  
                 await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
+tmp = await pair.getReserves();
+console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
+console.log("js::pair:blockTimestampLast = ", tmp[2]);  
+                //await pair.sync();
+                await mainInstance.forceSync();
+console.log("js::pair:price0CumulativeLast(2) = ", await pair.price0CumulativeLast());
+tmp = await pair.getReserves();
+console.log("js::pair:blockTimestampLast = ", tmp[2]);  
+//let t_recipe = await t.wait();
+//for (let i =0; i<t_recipe.events; i++) {}
+//console.log(t_recipe.events);
 
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
@@ -242,7 +253,7 @@ describe("itrV2", function () {
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
                     expect(await itrv2.balanceOf(owner.address)).to.be.eq(ONE_ETH);
                 });
-
+/*
                 it("shouldnt `claim` if the price has become lower than minClaimPrice", async() => {
                     await expect(
                         mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
@@ -276,8 +287,9 @@ describe("itrV2", function () {
                     expect(await itrv2.balanceOf(bob.address)).to.be.eq(ONE_ETH);
                     
                 }); 
+                */
             }); 
-
+/*
             describe("external", function () {
                 before("make snapshot", async() => {
                     // make snapshot before time manipulations
@@ -316,22 +328,47 @@ describe("itrV2", function () {
                 });
 
             }); 
+            */
         });
-
+/*
         describe("uniswap settings", function () {
             var uniswapRouterFactoryInstance, uniswapRouterInstance, pairInstance;
-            
+            var printTotalInfo = async () => {
+                let r0, r1, blockTimestamp, price0Cumulative, price1Cumulative, timestampLast, price0CumulativeLast, price1CumulativeLast, price0Average, price1Average;
+                [r0, r1, blockTimestamp, price0Cumulative, price1Cumulative, timestampLast, price0CumulativeLast, price1CumulativeLast, price0Average, price1Average] = await mainInstance.connect(owner).totalInfo();
+                let maxAddLiquidityR0, maxAddLiquidityR1;
+                [maxAddLiquidityR0, maxAddLiquidityR1] = await mainInstance.connect(owner).maxAddLiquidity();
+                console.log(" ============== totalInfo ============== ");
+                console.log("r0                  = ", r0.toString());
+                console.log("r1                  = ", r1.toString());
+                console.log("blockTimestamp      = ", blockTimestamp.toString());
+                console.log("         ------ observed --------         ");
+                console.log("price0Cumulative    = ", price0Cumulative.toString());
+                console.log("price1Cumulative    = ", price1Cumulative.toString());
+                console.log("timestampLast       = ", timestampLast.toString());
+                console.log("price0CumulativeLast= ", price0CumulativeLast.toString());
+                console.log("price1CumulativeLast= ", price1CumulativeLast.toString());
+                console.log("price0Average       = ", price0Average.toString());
+                console.log("price1Average       = ", price1Average.toString());
+                console.log("      ------ max liquidity --------      ");
+                console.log("maxAddLiquidityR0       = ", maxAddLiquidityR0.toString());
+                console.log("maxAddLiquidityR1       = ", maxAddLiquidityR1.toString());
+                console.log(" --------------------------------------  ");
+
+                
+            };
             beforeEach("adding liquidity", async() => {
 
                 await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
                 console.log("JS::adding liquidity:#1");
                 await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
                 console.log("JS::adding liquidity:#2");
+                await printTotalInfo();
                 
                 //uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
                 uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
 
-                /*    */
+                
 
             });
             describe("with first swap", function () {
@@ -350,6 +387,7 @@ describe("itrV2", function () {
                         timeUntil //uint deadline   
 
                     );
+                    await printTotalInfo();
                     /////////////////////////////
                 });
                 
@@ -375,7 +413,7 @@ describe("itrV2", function () {
                         let priceEnd, r1End, r2End;  
 
                         // save initial reserves
-                        [r1Start,r2Start] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        [r1Start,r2Start] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceStart = r2Start.mul(frac).div(r1Start);
 
                         [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
@@ -387,7 +425,7 @@ describe("itrV2", function () {
                         console.log("!MaxLiquidity = ", maxliquidity);
                         await mainInstance.connect(owner).addLiquidity(maxliquidity.abs());
 
-                        [r1End,r2End] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        [r1End,r2End] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceEnd = r2End.mul(frac).div(r1End);
 
                         expect(100 - Math.floor(priceEnd*100/priceStart)).to.be.eq(pricePercentsDrop);
@@ -408,7 +446,7 @@ describe("itrV2", function () {
                         let priceEnd, r1End, r2End;  
 
                         // save initial reserves
-                        [r1Start,r2Start] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        [r1Start,r2Start] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceStart = r2Start.mul(frac).div(r1Start);
 
                         await ethers.provider.send('evm_increaseTime', [parseInt(HOUR)]);
@@ -423,7 +461,7 @@ describe("itrV2", function () {
                         console.log("!MaxLiquidity = ", maxliquidity);
                         await mainInstance.connect(owner).addLiquidity(maxliquidity.abs());
 
-                        [r1End,r2End] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        [r1End,r2End] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceEnd = r2End.mul(frac).div(r1End);
 
                         expect(100 - Math.floor(priceEnd*100/priceStart)).to.be.eq(pricePercentsDrop);
@@ -444,7 +482,7 @@ describe("itrV2", function () {
                         let priceEnd, r1End, r2End;  
 
                         // save initial reserves
-                        [r1Start,r2Start] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        [r1Start,r2Start] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceStart = r2Start.mul(frac).div(r1Start);
                         console.log("r1Start = ", r1Start.toString());
                         console.log("r2Start = ", r2Start.toString());
@@ -468,17 +506,20 @@ describe("itrV2", function () {
                                 await expect(mainInstance.connect(owner).addLiquidity(maxliquidity.abs())).to.be.revertedWith("maxAddLiquidity exceeded");
                             }
 
-                            [r1End,r2End] = await mainInstance.connect(owner).uniswapPricesSimple();
+                            [r1End,r2End] = await mainInstance.connect(owner).uniswapReservesSimple();
                             priceEnd = r2End.mul(frac).div(r1End);
+                            console.log("drop check");
                             console.log("r1 = ", r1End.toString());
                             console.log("r2 = ", r2End.toString());
                             console.log("drop = ", 100 - Math.floor(priceEnd*100/priceStart));
+
+                            await printTotalInfo();
 
                             await ethers.provider.send('evm_increaseTime', [parseInt(HOUR)]);
                             await ethers.provider.send('evm_mine');
                             
                         }
-                        [r1End,r2End] = await mainInstance.connect(owner).uniswapPricesSimple();
+                        [r1End,r2End] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceEnd = r2End.mul(frac).div(r1End);
 
                         expect(100 - Math.floor(priceEnd*100/priceStart)).to.be.eq(pricePercentsDrop);
@@ -497,7 +538,7 @@ describe("itrV2", function () {
                         let tmp = [];
                         for(let i = 0; i < 8; i++) {
                             console.log("=== iteration:"+i+"===========");
-                            [x1,x2,x3] = await mainInstance.uniswapPricesSimple();
+                            [x1,x2,x3] = await mainInstance.uniswapReservesSimple();
                             console.log("x1 =",x1);
                             console.log("x2 =",x2);
                             let pairObservation = await  mainInstance.pairObservation();
@@ -590,5 +631,7 @@ describe("itrV2", function () {
             });
              
         });
+        */
     });
+    
 });
