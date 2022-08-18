@@ -12,7 +12,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
@@ -158,7 +158,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
-        
+
         //create Pair
         uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).createPair(tradedToken, reserveToken);
         require(uniswapV2Pair != address(0), "can't create pair");
@@ -180,7 +180,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         // but can do if use ternary operator :)
         token01 = (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) ? true : false;
 
-        IUniswapV2Pair(uniswapV2Pair).sync();
+        // IUniswapV2Pair(uniswapV2Pair).sync(); !!!! not created yet
 
         internalLiquidity = new Liquidity(tradedToken, reserveToken_, uniswapRouter);
 

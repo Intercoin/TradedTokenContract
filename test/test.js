@@ -27,7 +27,7 @@ const FRACTION = BigNumber.from('10000');
 
 chai.use(require('chai-bignumber')());
 
-describe("itrV2", function () {
+describe("mainInstance", function () {
     const accounts = waffle.provider.getWallets();
 
     const owner = accounts[0];                     
@@ -58,8 +58,8 @@ describe("itrV2", function () {
     const externalTokenExchangePriceDenominator = 1;
 
     // vars
-    var mainInstance, itrv2, erc20ReservedToken;
-    var MainFactory, ITRv2Factory, ERC20Factory;
+    var mainInstance, erc20ReservedToken;
+    var MainFactory, ERC20Factory;
     
     
     var printPrices = async function(str) {
@@ -79,7 +79,7 @@ describe("itrV2", function () {
 
     beforeEach("deploying", async() => {
         MainFactory = await ethers.getContractFactory("MainMock");
-        ITRv2Factory = await ethers.getContractFactory("ITRv2");
+        
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
     });
 
@@ -87,12 +87,16 @@ describe("itrV2", function () {
         var erc20ReservedToken  = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
 
         mainInstance = await MainFactory.connect(owner).deploy(
+            "Intercoin Investor Token",
+            "ITR",
             erc20ReservedToken.address, //” (USDC)
             priceDrop,
             lockupIntervalAmount,
             [minClaimPriceNumerator, minClaimPriceDenominator],
             ZERO_ADDRESS, //externalToken.address,
-            [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator]
+            [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+            0,
+            0
         );
 
         await expect(
@@ -112,16 +116,17 @@ describe("itrV2", function () {
         const customExternalTokenExchangePriceDenominator = 2;
 
         mainInstance = await MainFactory.connect(owner).deploy(
+            "Intercoin Investor Token",
+            "ITR",
             erc20ReservedToken.address, //” (USDC)
             priceDrop,
             lockupIntervalAmount,
             [minClaimPriceNumerator, minClaimPriceDenominator],
             externalToken.address,
-            [customExternalTokenExchangePriceNumerator, customExternalTokenExchangePriceDenominator]
+            [customExternalTokenExchangePriceNumerator, customExternalTokenExchangePriceDenominator],
+            0,
+            0
         );
-
-        let erc777 = await mainInstance.tradedToken();
-        itrv2 = await ethers.getContractAt("ITRv2",erc777);
         
         await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
         await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
@@ -137,7 +142,7 @@ describe("itrV2", function () {
         let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);
         let mainInstanceExternalTokenBalanceAfter = await externalToken.balanceOf(mainInstance.address);
 
-        expect(await itrv2.balanceOf(bob.address)).to.be.eq(ONE_ETH.mul(customExternalTokenExchangePriceNumerator).div(customExternalTokenExchangePriceDenominator));
+        expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH.mul(customExternalTokenExchangePriceNumerator).div(customExternalTokenExchangePriceDenominator));
         expect(bobExternalTokenBalanceBefore.sub(bobExternalTokenBalanceAfter)).to.be.eq(ONE_ETH);
         expect(mainInstanceExternalTokenBalanceAfter.sub(mainInstanceExternalTokenBalanceBefore)).to.be.eq(ZERO);
 
@@ -150,12 +155,16 @@ describe("itrV2", function () {
         it("should correct reserveToken", async() => {
             await expect(
                 MainFactory.connect(owner).deploy(
+                    "Intercoin Investor Token",
+                    "ITR",
                     ZERO_ADDRESS, //” (USDC)
                     priceDrop,
                     lockupIntervalAmount,
                     [minClaimPriceNumerator, minClaimPriceDenominator],
                     ZERO_ADDRESS,
-                    [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator]
+                    [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                    0,
+                    0
                 )
             ).to.be.revertedWith("reserveToken invalid");
         });
@@ -168,26 +177,30 @@ describe("itrV2", function () {
             externalToken       = await ERC20Factory.deploy("ERC20 External Token", "ERC20-EXT");
 
             mainInstance = await MainFactory.connect(owner).deploy(
+                "Intercoin Investor Token",
+                "ITR",
                 erc20ReservedToken.address, //” (USDC)
                 priceDrop,
                 lockupIntervalAmount,
                 [minClaimPriceNumerator, minClaimPriceDenominator],
                 externalToken.address,
-                [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator]
+                [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                0,
+                0
             );
 
-            let erc777 = await mainInstance.tradedToken();
-            itrv2 = await ethers.getContractAt("ITRv2",erc777);
+            // let erc777 = await mainInstance.tradedToken();
+            // itrv2 = await ethers.getContractAt("ITRv2",erc777);
 
             
         });
 
-        it("should correct token name", async() => {
-            expect(await itrv2.name()).to.be.equal(tokenName);
+        it("should correct Intercoin Investor Token", async() => {
+            expect(await mainInstance.name()).to.be.equal(tokenName);
         });
 
-        it("should correct token symbol", async() => {
-            expect(await itrv2.symbol()).to.be.equal(tokenSymbol);
+        it("should correct ITR", async() => {
+            expect(await mainInstance.symbol()).to.be.equal(tokenSymbol);
         });
 
         it("shouldnt `addLiquidity` without liquidity", async() => {
@@ -259,7 +272,7 @@ describe("itrV2", function () {
                     ).to.be.revertedWith("Ownable: caller is not the owner");
 
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
-                    expect(await itrv2.balanceOf(owner.address)).to.be.eq(ONE_ETH);
+                    expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
                 });
 
                 it("shouldnt `claim` if the price has become lower than minClaimPrice", async() => {
@@ -272,27 +285,27 @@ describe("itrV2", function () {
                     ).to.be.revertedWith("Ownable: caller is not the owner");
 
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
-                    expect(await itrv2.balanceOf(owner.address)).to.be.eq(ONE_ETH);
+                    expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
                 });
 
                 it("should locked up tokens after owner claim", async() => {
                     await mainInstance.connect(owner)["claim(uint256,address)"](ONE_ETH,bob.address);
-                    expect(await itrv2.balanceOf(bob.address)).to.be.eq(ONE_ETH);
+                    expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH);
 
                     await expect(
-                        itrv2.connect(bob).transfer(alice.address,ONE_ETH)
+                        mainInstance.connect(bob).transfer(alice.address,ONE_ETH)
                     ).to.be.revertedWith("insufficient amount");
                 }); 
 
                 it("shouldnt locked up tokens if owner claim to himself", async() => {
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
-                    expect(await itrv2.balanceOf(owner.address)).to.be.eq(ONE_ETH);
+                    expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
 
-                    await itrv2.connect(owner).transfer(alice.address,ONE_ETH);
-                    expect(await itrv2.balanceOf(alice.address)).to.be.eq(ONE_ETH);
+                    await mainInstance.connect(owner).transfer(alice.address,ONE_ETH);
+                    expect(await mainInstance.balanceOf(alice.address)).to.be.eq(ONE_ETH);
 
-                    await itrv2.connect(alice).transfer(bob.address,ONE_ETH);
-                    expect(await itrv2.balanceOf(bob.address)).to.be.eq(ONE_ETH);
+                    await mainInstance.connect(alice).transfer(bob.address,ONE_ETH);
+                    expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH);
                     
                 }); 
 
@@ -330,7 +343,7 @@ describe("itrV2", function () {
                     let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);
                     let mainInstanceExternalTokenBalanceAfter = await externalToken.balanceOf(mainInstance.address);
 
-                    expect(await itrv2.balanceOf(bob.address)).to.be.eq(ONE_ETH);
+                    expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH);
                     expect(bobExternalTokenBalanceBefore.sub(bobExternalTokenBalanceAfter)).to.be.eq(ONE_ETH);
                     expect(mainInstanceExternalTokenBalanceAfter.sub(mainInstanceExternalTokenBalanceBefore)).to.be.eq(ZERO);
                 });
@@ -392,7 +405,7 @@ describe("itrV2", function () {
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                         ONE_ETH.div(2), //uint amountIn,
                         0, //uint amountOutMin,
-                        [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
+                        [erc20ReservedToken.address, mainInstance.address], //address[] calldata path,
                         bob.address, //address to,
                         timeUntil //uint deadline   
 
@@ -415,7 +428,7 @@ describe("itrV2", function () {
                         await ethers.provider.send('evm_revert', [snapId]);
                     });
 
-                    it.only("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & immediately]", async() => {
+                    it("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & immediately]", async() => {
                         
                         let tradedReserve1,tradedReserve2;
                         let maxliquidity;
@@ -615,7 +628,7 @@ console.log("js::getTradedAveragePrice After = ",(averagePriceEnd)._x);
                             await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                                 ONE_ETH, //uint amountIn,
                                 0, //uint amountOutMin,
-                                [erc20ReservedToken.address, itrv2.address], //address[] calldata path,
+                                [erc20ReservedToken.address, mainInstance.address], //address[] calldata path,
                                 bob.address, //address to,
                                 timeUntil //uint deadline   
                             );

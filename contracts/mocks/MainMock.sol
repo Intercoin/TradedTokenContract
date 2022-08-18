@@ -8,13 +8,17 @@ contract MainMock is Main {
     using FixedPoint for *;
  
     constructor(
+        string memory tokenName_,
+        string memory tokenSymbol_,
         address reserveToken_, //” (USDC)
         uint256 priceDrop_,
         uint64 lockupIntervalAmount,
         PriceNumDen memory minClaimPrice_,
         address externalToken_,
-        PriceNumDen memory externalTokenExchangePrice_
-    ) Main(reserveToken_, priceDrop_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_)
+        PriceNumDen memory externalTokenExchangePrice_,
+        uint256 buyTaxMax_,
+        uint256 sellTaxMax_
+    ) Main(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_, buyTaxMax_, sellTaxMax_)
     {
     }
 
