@@ -201,29 +201,37 @@ describe("itrV2", function () {
 
                 await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
 
-let uniswapV2Pair = await mainInstance.uniswapV2Pair();
-pair = await ethers.getContractAt("IUniswapV2Pair",uniswapV2Pair);
-let tmp;
-tmp = await pair.getReserves();
-console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
-console.log("js::pair:blockTimestampLast = ", tmp[2]);  
-console.log("js   addInitialLiquidity ");  
-                await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
-tmp = await pair.getReserves();
-console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
-console.log("js::pair:blockTimestampLast = ", tmp[2]);  
-                //await pair.sync();
-                await mainInstance.forceSync();
-console.log("js::pair:price0CumulativeLast(2) = ", await pair.price0CumulativeLast());
-tmp = await pair.getReserves();
-console.log("js::pair:blockTimestampLast = ", tmp[2]);  
-//let t_recipe = await t.wait();
-//for (let i =0; i<t_recipe.events; i++) {}
-//console.log(t_recipe.events);
+                // let uniswapV2Pair = await mainInstance.uniswapV2Pair();
+                // pair = await ethers.getContractAt("IUniswapV2Pair",uniswapV2Pair);
+                // let tmp;
+                // tmp = await pair.getReserves();
+                // console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
+                // console.log("js::pair:blockTimestampLast = ", tmp[2]);  
+                // console.log("js   addInitialLiquidity ");  
 
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
-                ).to.be.revertedWith("maxAddLiquidity exceeded");
+                ).to.be.revertedWith("RESERVES_EMPTY");
+
+                await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
+
+                // tmp = await pair.getReserves();
+                // console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
+                // console.log("js::pair:blockTimestampLast = ", tmp[2]);  
+
+                //await pair.sync();
+                await mainInstance.forceSync();
+
+                // console.log("js::pair:price0CumulativeLast(2) = ", await pair.price0CumulativeLast());
+                // tmp = await pair.getReserves();
+                // console.log("js::pair:blockTimestampLast = ", tmp[2]);  
+                // //let t_recipe = await t.wait();
+                // //for (let i =0; i<t_recipe.events; i++) {}
+                // //console.log(t_recipe.events);
+
+                // await expect(
+                //     mainInstance.connect(owner).addLiquidity(ONE_ETH)
+                // ).to.be.revertedWith("maxAddLiquidity exceeded");
                 //"MISSING_HISTORICAL_OBSERVATION"
                 
             });
@@ -253,7 +261,7 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
                     expect(await itrv2.balanceOf(owner.address)).to.be.eq(ONE_ETH);
                 });
-/*
+
                 it("shouldnt `claim` if the price has become lower than minClaimPrice", async() => {
                     await expect(
                         mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
@@ -287,9 +295,9 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
                     expect(await itrv2.balanceOf(bob.address)).to.be.eq(ONE_ETH);
                     
                 }); 
-                */
+
             }); 
-/*
+
             describe("external", function () {
                 before("make snapshot", async() => {
                     // make snapshot before time manipulations
@@ -328,9 +336,9 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
                 });
 
             }); 
-            */
+
         });
-/*
+
         describe("uniswap settings", function () {
             var uniswapRouterFactoryInstance, uniswapRouterInstance, pairInstance;
             var printTotalInfo = async () => {
@@ -360,10 +368,11 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
             beforeEach("adding liquidity", async() => {
 
                 await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
-                console.log("JS::adding liquidity:#1");
+                
                 await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
-                console.log("JS::adding liquidity:#2");
-                await printTotalInfo();
+                //await mainInstance.forceSync();
+                
+                //await printTotalInfo();
                 
                 //uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
                 uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
@@ -372,13 +381,14 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
 
             });
             describe("with first swap", function () {
-                beforeEach("make snapshot", async() => {
+                beforeEach("prepare", async() => {
                     /////////////////////////////
                 
                     await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.div(2));
                     await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.div(2));
                     let ts = await time.latest();
                     let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                         ONE_ETH.div(2), //uint amountIn,
                         0, //uint amountOutMin,
@@ -387,7 +397,9 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
                         timeUntil //uint deadline   
 
                     );
+
                     await printTotalInfo();
+
                     /////////////////////////////
                 });
                 
@@ -403,32 +415,57 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
                         await ethers.provider.send('evm_revert', [snapId]);
                     });
 
-                    it("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & immediately]", async() => {
+                    it.only("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & immediately]", async() => {
                         
                         let tradedReserve1,tradedReserve2;
                         let maxliquidity;
 
                         let frac = 1000000;
-                        let priceStart, r1Start, r2Start;                        
-                        let priceEnd, r1End, r2End;  
+                        let priceStart, r1Start, r2Start, averagePriceStart;
+                        let priceEnd, r1End, r2End, averagePriceEnd;  
 
                         // save initial reserves
                         [r1Start,r2Start] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceStart = r2Start.mul(frac).div(r1Start);
 
-                        [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
+                        // [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
                         
-                        // if (tradedReserve2.gt(tradedReserve1)) { .. }
-                        // no matter what we send with transaction, contract should avoid adding liquidity if tradedReserve2.lt(tradedReserve1).
-                        // and here we take modulo(tradedReserve2-tradedReserve1) to avoid tx error with negative numbers
-                        maxliquidity = tradedReserve2.sub(tradedReserve1);
-                        console.log("!MaxLiquidity = ", maxliquidity);
-                        await mainInstance.connect(owner).addLiquidity(maxliquidity.abs());
+                        // // if (tradedReserve2.gt(tradedReserve1)) { .. }
+                        // // no matter what we send with transaction, contract should avoid adding liquidity if tradedReserve2.lt(tradedReserve1).
+                        // // and here we take modulo(tradedReserve2-tradedReserve1) to avoid tx error with negative numbers
+                        // maxliquidity = tradedReserve2.sub(tradedReserve1);
+                        // console.log("!MaxLiquidity = ", maxliquidity);
+                        // //await mainInstance.connect(owner).addLiquidity(maxliquidity.abs());
+averagePriceStart = await mainInstance.connect(owner).getTradedAveragePrice();
+console.log("js::getTradedAveragePrice Before= ",(averagePriceStart)._x);
 
+                        let tx = await mainInstance.connect(owner).addLiquidity(0);
+                        
+                        let receipt = await tx.wait();
+                        console.log(receipt.blockNumber);
+                        console.log(receipt.blockNumber-1);
+
+
+var iface = new ethers.Interface(abi);
+//var info = iface.functions.methodName();
+var info = MainFactory.functions.getTradedAveragePrice();
+var tx2 = {
+    from: owner.address,
+    to: mainInstance.address,
+    data: info.data
+};
+ethers.provider.call(tx2, receipt.blockNumber).then((result) => {
+    console.log(result);
+});
+//                         averagePriceStart = await mainInstance.connect(owner).getTradedAveragePrice({blockNumber:receipt.blockNumber-1});
+// console.log("js::getTradedAveragePrice Before(B)= ",(averagePriceStart)._x);
+                        //--------------------
+averagePriceEnd = await mainInstance.connect(owner).getTradedAveragePrice();
+console.log("js::getTradedAveragePrice After = ",(averagePriceEnd)._x);
                         [r1End,r2End] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceEnd = r2End.mul(frac).div(r1End);
 
-                        expect(100 - Math.floor(priceEnd*100/priceStart)).to.be.eq(pricePercentsDrop);
+                        expect(100 - Math.floor(averagePriceEnd._x*100/averagePriceStart._x)).to.be.eq(pricePercentsDrop);
                         expect(r2Start).to.be.eq(r2End);
                         expect(priceEnd).to.be.lt(priceStart);
 
@@ -436,6 +473,7 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
 
                         //await printPrices("final");                                
                     }); 
+/*
                     it("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & One hour passed]", async() => {
                         
                         let tradedReserve1,tradedReserve2;
@@ -472,7 +510,8 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
 
                         //await printPrices("final");                                
                     }); 
-                    it.only("should add liquidity. price should be grow down not more then priceDrop.[10 iterations]", async() => {
+
+                    it("should add liquidity. price should be grow down not more then priceDrop.[10 iterations]", async() => {
                         let iterationsCount = 2;
                         let tradedReserve1,tradedReserve2;
                         let maxliquidity;
@@ -626,12 +665,13 @@ console.log("js::pair:blockTimestampLast = ", tmp[2]);
                         
 
                     });
+*/
                 });
             
             });
              
         });
-        */
+        
     });
     
 });
