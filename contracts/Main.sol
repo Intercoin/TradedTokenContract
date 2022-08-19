@@ -12,7 +12,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 //import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
@@ -103,6 +103,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
     uint256 buyTax;
     uint256 sellTax;
 
+    event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
 
 
     /**
@@ -143,6 +144,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
 
         reserveToken = reserveToken_;
         priceDrop = priceDrop_;
+        lockupIntervalAmount = lockupIntervalAmount_;
 
         minClaimPrice.numerator = minClaimPrice_.numerator;
         minClaimPrice.denominator = minClaimPrice_.denominator;
@@ -182,7 +184,8 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
 
         // IUniswapV2Pair(uniswapV2Pair).sync(); !!!! not created yet
 
-        internalLiquidity = new Liquidity(tradedToken, reserveToken_, uniswapRouter);
+
+        internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapRouter);
 
     }
 
@@ -245,29 +248,17 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         public 
         runOnlyOnce
     {
+        
 
         require(amountReserveToken <= ERC777(reserveToken).balanceOf(address(this)), "reserveAmount is insufficient");
         _claim(amountTradedToken, address(this));
 
-        ERC777(tradedToken).approve(uniswapRouter, amountTradedToken);
-        ERC777(reserveToken).approve(uniswapRouter, amountReserveToken);
-
-
+        ERC777(tradedToken).transfer(address(internalLiquidity), amountTradedToken);
+        ERC777(reserveToken).transfer(address(internalLiquidity), amountReserveToken);
+        
+        internalLiquidity.addLiquidity();
         
         
-        (/* uint256 A*/, /*uint256 B*/, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
-            tradedToken,
-            reserveToken,
-            amountTradedToken,
-            amountReserveToken,
-            0, // there may be some slippage
-            0, // there may be some slippage
-            address(0), //address(this),
-            block.timestamp
-        );
-        // move lp tokens to dead address
-        ERC777(uniswapV2Pair).transfer(deadAddress, lpTokens);
-
         // console.log("force sync start");
 
 // //force sync
@@ -324,6 +315,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         uint256 tradedTokenAmount = externalTokenAmount * externalTokenExchangePrice.numerator / externalTokenExchangePrice.denominator;
 
         _validateClaim(tradedTokenAmount);
+
         _claim(tradedTokenAmount, account);
     }
     // need to run immedialety after adding liquidity tx and sync cumulativePrice. BUT i's can't applicable if do in the same trasaction with addInitialLiquidity.
@@ -352,7 +344,10 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
 
         uint256 tradedReserve1;
         uint256 tradedReserve2;
-        (tradedReserve1, tradedReserve2) = maxAddLiquidity();
+        uint256 priceAverageData; // it's fixed point uint224 
+
+        (tradedReserve1, tradedReserve2, priceAverageData) = maxAddLiquidity();
+//console.log('priceAverageData._x Before = ',priceAverageData);
         // console.log("TradedToken(tradedToken).maxAddLiquidity()");
         // console.log("solidity::addLiquidity::tradedReserve1 =",tradedReserve1);
         // console.log("solidity::addLiquidity::tradedReserve2 =",tradedReserve2);
@@ -370,8 +365,13 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
        
         // trade trade tokens and add liquidity
         _sellTradedAndLiquidity(tradedTokenAmount);
-        
+
+        emit AddedLiquidity(tradedTokenAmount, priceAverageData);
+
         update();
+// (tradedReserve1, tradedReserve2, priceAverageData) = maxAddLiquidity();
+// console.log('priceAverageData._x After  = ',priceAverageData);
+
     }
 
     function maxAddLiquidity(
@@ -379,7 +379,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         public 
         view 
         //      traded1 -> traded2
-        returns(uint256, uint256) 
+        returns(uint256, uint256, uint256) 
     {
         // tradedNew = Math.sqrt(@tokenPair.r0 * @tokenPair.r1 / (average_price*(1-@price_drop)))
 
@@ -393,9 +393,12 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
 // console.log("solidity::maxAddLiquidity::reserve1 =",reserve1);
         FixedPoint.uq112x112 memory priceAverageData = getTradedAveragePrice();
 // console.log(6);
-// console.log("priceAverageData=",priceAverageData._x);
+
+// console.log("solidity::   price0Average=",priceAverageData._x);
+// console.log("solidity::priceAverageData=",priceAverageData._x);
         FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(sqrt(reserve0)));
         FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(sqrt(reserve1)));
+//console.log("solidity::priceCurrentData=",(q2.divuq(q1))._x);
         FixedPoint.uq112x112 memory q3 = (priceAverageData.muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)))).sqrt();
 // console.log("q3=",q3._x);
         FixedPoint.uq112x112 memory q4 = FixedPoint.encode(uint112(1)).divuq(q3);
@@ -414,13 +417,14 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
                     uint112(1)
                 )
                 .divuq(q3)
+                
             )
         ).decode();
         
         // console.log("solidity:traded1 = ", reserve0);
         // console.log("solidity:traded2 = ", reserve0New);
 
-        return (reserve0, reserve0New);
+        return (reserve0, reserve0New, priceAverageData._x);
         
     }
     
@@ -573,6 +577,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         totalCumulativeClaimed += tradedTokenAmount;
 
         _mint(account, tradedTokenAmount, "", "");
+
         if (
             _msgSender() != owner() && 
             _msgSender() != address(this)
@@ -663,7 +668,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         uint64 windowSize = (blockTimestamp - startupTimestamp)*averagePriceWindow/FRACTION;
 //console.log("4");
         if (timeElapsed > windowSize && timeElapsed>0) {
-            // console.log("5");
+            // console.log("timeElapsed > windowSize && timeElapsed>0");
             // console.log("price0Cumulative                       =", price0Cumulative);
             // console.log("pairObservation.price0CumulativeLast   =", pairObservation.price0CumulativeLast);
             // console.log("timeElapsed                            =", timeElapsed);

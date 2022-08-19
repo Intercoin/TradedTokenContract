@@ -128,7 +128,9 @@ describe("mainInstance", function () {
             0
         );
         
-        await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(TEN));
+        await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
+        await erc20ReservedToken.connect(owner).transfer(mainInstance.address, ONE_ETH.mul(TEN));
+
         await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
 
         await externalToken.connect(owner).mint(bob.address, ONE_ETH);
@@ -288,13 +290,27 @@ describe("mainInstance", function () {
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
                 });
 
-                it("should locked up tokens after owner claim", async() => {
-                    await mainInstance.connect(owner)["claim(uint256,address)"](ONE_ETH,bob.address);
-                    expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH);
+                it("shouldnt locked up tokens after owner claim", async() => {
 
-                    await expect(
-                        mainInstance.connect(bob).transfer(alice.address,ONE_ETH)
-                    ).to.be.revertedWith("insufficient amount");
+                    const bobTokensBefore = await mainInstance.balanceOf(bob.address);
+                    const aliceTokensBefore = await mainInstance.balanceOf(alice.address);
+
+                    await mainInstance.connect(owner)["claim(uint256,address)"](ONE_ETH,bob.address);
+
+                    const bobTokensAfterClaim = await mainInstance.balanceOf(bob.address);
+                    const aliceTokensAfterClaim = await mainInstance.balanceOf(alice.address);
+
+                    expect(bobTokensAfterClaim.sub(bobTokensBefore)).to.be.eq(ONE_ETH);
+                    expect(aliceTokensAfterClaim.sub(aliceTokensBefore)).to.be.eq(ZERO);
+
+                    await mainInstance.connect(bob).transfer(alice.address,ONE_ETH)
+
+                    const bobTokensAfterTransfer = await mainInstance.balanceOf(bob.address);
+                    const aliceTokensAfterTransfer = await mainInstance.balanceOf(alice.address);
+
+                    expect(bobTokensAfterTransfer.sub(bobTokensBefore)).to.be.eq(ZERO);
+                    expect(aliceTokensAfterTransfer.sub(aliceTokensAfterClaim)).to.be.eq(ONE_ETH);
+
                 }); 
 
                 it("shouldnt locked up tokens if owner claim to himself", async() => {
@@ -428,7 +444,7 @@ describe("mainInstance", function () {
                         await ethers.provider.send('evm_revert', [snapId]);
                     });
 
-                    it("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & immediately]", async() => {
+                    xit("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & immediately]", async() => {
                         
                         let tradedReserve1,tradedReserve2;
                         let maxliquidity;
@@ -449,36 +465,45 @@ describe("mainInstance", function () {
                         // maxliquidity = tradedReserve2.sub(tradedReserve1);
                         // console.log("!MaxLiquidity = ", maxliquidity);
                         // //await mainInstance.connect(owner).addLiquidity(maxliquidity.abs());
-averagePriceStart = await mainInstance.connect(owner).getTradedAveragePrice();
-console.log("js::getTradedAveragePrice Before= ",(averagePriceStart)._x);
+
+                        // tmp = await mainInstance.connect(owner).getTradedAveragePrice()
+                        // averagePriceStart = tmp._x;
+                        // console.log("js::getTradedAveragePrice Before= ",averagePriceStart);
+
+                        tmp = await mainInstance.connect(owner).getTradedAveragePrice();
+                        console.log("js::averagePriceStart #1 = ",tmp._x);
 
                         let tx = await mainInstance.connect(owner).addLiquidity(0);
                         
                         let receipt = await tx.wait();
-                        console.log(receipt.blockNumber);
-                        console.log(receipt.blockNumber-1);
+
+                        let findEvent = (receipt, eventName) => {
+                            for (let element of receipt.events) {
+                                    if (element.event == eventName) {
+                                        return element.args;
+                                    }
+                            }
+                            return [];
+                        }
+                        let eventsArgs = findEvent(receipt, 'AddedLiquidity');
+
+                        averagePriceStart = eventsArgs.priceAverageData;;
+                        console.log("js::averagePriceStart= ",averagePriceStart);
+                        
+                        //console.log(receipt);
+                        
+                        //                         averagePriceStart = await mainInstance.connect(owner).getTradedAveragePrice({blockNumber:receipt.blockNumber-1});
+                        // console.log("js::getTradedAveragePrice Before(B)= ",(averagePriceStart)._x);
+                                                //--------------------
+                        tmp = await mainInstance.connect(owner).getTradedAveragePrice();
+                        averagePriceEnd = tmp._x;
+                        console.log("js::averagePriceEnd = ",averagePriceEnd);
 
 
-var iface = new ethers.Interface(abi);
-//var info = iface.functions.methodName();
-var info = MainFactory.functions.getTradedAveragePrice();
-var tx2 = {
-    from: owner.address,
-    to: mainInstance.address,
-    data: info.data
-};
-ethers.provider.call(tx2, receipt.blockNumber).then((result) => {
-    console.log(result);
-});
-//                         averagePriceStart = await mainInstance.connect(owner).getTradedAveragePrice({blockNumber:receipt.blockNumber-1});
-// console.log("js::getTradedAveragePrice Before(B)= ",(averagePriceStart)._x);
-                        //--------------------
-averagePriceEnd = await mainInstance.connect(owner).getTradedAveragePrice();
-console.log("js::getTradedAveragePrice After = ",(averagePriceEnd)._x);
                         [r1End,r2End] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceEnd = r2End.mul(frac).div(r1End);
 
-                        expect(100 - Math.floor(averagePriceEnd._x*100/averagePriceStart._x)).to.be.eq(pricePercentsDrop);
+                        expect(100 - Math.floor(averagePriceEnd*100/averagePriceStart)).to.be.eq(pricePercentsDrop);
                         expect(r2Start).to.be.eq(r2End);
                         expect(priceEnd).to.be.lt(priceStart);
 
@@ -486,8 +511,8 @@ console.log("js::getTradedAveragePrice After = ",(averagePriceEnd)._x);
 
                         //await printPrices("final");                                
                     }); 
-/*
-                    it("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & One hour passed]", async() => {
+
+                    xit("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & One hour passed]", async() => {
                         
                         let tradedReserve1,tradedReserve2;
                         let maxliquidity;
@@ -524,7 +549,7 @@ console.log("js::getTradedAveragePrice After = ",(averagePriceEnd)._x);
                         //await printPrices("final");                                
                     }); 
 
-                    it("should add liquidity. price should be grow down not more then priceDrop.[10 iterations]", async() => {
+                    xit("should add liquidity. price should be grow down not more then priceDrop.[10 iterations]", async() => {
                         let iterationsCount = 2;
                         let tradedReserve1,tradedReserve2;
                         let maxliquidity;
@@ -583,7 +608,7 @@ console.log("js::getTradedAveragePrice After = ",(averagePriceEnd)._x);
                         //await printPrices("final");                                
                     }); 
 
-                    it("maxAddLiquidity should grow up, when users swaping Reserve token to Traded token. (tradedtoken(itr) reserve decreasing)", async() => {
+                    xit("maxAddLiquidity should grow up, when users swaping Reserve token to Traded token. (tradedtoken(itr) reserve decreasing)", async() => {
 
                         let maxliquidity,tradedReserve1,tradedReserve2;
                         let maxliquidities = [];
@@ -648,7 +673,7 @@ console.log("js::getTradedAveragePrice After = ",(averagePriceEnd)._x);
 
                     }); 
 
-                    it("price should be the same when call update only", async() => {
+                    xit("price should be the same when call update only", async() => {
 
                         let x1,x2,x3,x4,x5,x6,x7;
                         let priceTraded,averagePriceTraded;
@@ -678,7 +703,7 @@ console.log("js::getTradedAveragePrice After = ",(averagePriceEnd)._x);
                         
 
                     });
-*/
+/**/
                 });
             
             });
