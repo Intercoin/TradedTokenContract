@@ -22,7 +22,22 @@ contract MainMock is Main {
     {
     }
 
-   
+    function forceSync(
+    ) 
+        public 
+    {
+        IUniswapV2Pair(uniswapV2Pair).sync();
+    }
+
+    function getTradedAveragePrice(
+    ) 
+        public
+        view
+        returns(FixedPoint.uq112x112 memory)
+    {
+        return tradedAveragePrice();
+    }
+
     function uniswapReservesSimple(
     ) 
         public 
@@ -40,7 +55,7 @@ contract MainMock is Main {
         returns(
             uint112 r0, uint112 r1, uint32 blockTimestamp,
             uint price0Cumulative, uint price1Cumulative,
-            uint64 timestampLast, uint price0CumulativeLast, uint price1CumulativeLast, uint224 price0Average, uint224 price1Average
+            uint64 timestampLast, uint price0CumulativeLast, uint224 price0Average
         )
     {
         (r0, r1, blockTimestamp) = _uniswapReserves();
@@ -49,9 +64,9 @@ contract MainMock is Main {
 
         timestampLast = pairObservation.timestampLast;
         price0CumulativeLast = pairObservation.price0CumulativeLast;
-        price1CumulativeLast = pairObservation.price1CumulativeLast;
+        
         price0Average = pairObservation.price0Average._x;
-        price1Average = pairObservation.price1Average._x;
+        
     }
 
 
