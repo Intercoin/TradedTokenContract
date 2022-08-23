@@ -22,11 +22,31 @@ contract MainMock is Main {
     {
     }
 
+    function getSqrt(
+        uint256 x
+    ) 
+        public
+        pure 
+        returns(uint256 result) 
+    {
+        return sqrt(x);
+    }
+
     function forceSync(
     ) 
         public 
     {
         IUniswapV2Pair(uniswapV2Pair).sync();
+    }
+
+    function maxAddLiquidity(
+    ) 
+        public 
+        view 
+        //      traded1 -> traded2->priceAverageData
+        returns(uint256, uint256, uint256) 
+    {  
+        return _maxAddLiquidity();
     }
 
     function getTradedAveragePrice(

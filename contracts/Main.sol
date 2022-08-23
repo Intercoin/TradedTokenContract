@@ -15,6 +15,8 @@ import "./minimums/libs/MinimumsLib.sol";
 import "./ExecuteManager.sol";
 import "./Liquidity.sol";
 
+//import "hardhat/console.sol";
+
 contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
     using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
@@ -27,9 +29,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
     struct Observation {
         uint64 timestampLast;
         uint price0CumulativeLast;
-        //uint price1CumulativeLast;
         FixedPoint.uq112x112 price0Average;
-        //FixedPoint.uq112x112 price1Average;
     }
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
@@ -84,10 +84,10 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
     uint64 internal startupTimestamp;
     uint64 internal lockupIntervalAmount;
 
-    uint256 immutable buyTaxMax;
-    uint256 immutable sellTaxMax;
-    uint256 buyTax;
-    uint256 sellTax;
+    uint256 public immutable buyTaxMax;
+    uint256 public immutable sellTaxMax;
+    uint256 public buyTax;
+    uint256 public sellTax;
     uint256 public totalCumulativeClaimed;
 
     Liquidity internal internalLiquidity;
@@ -96,7 +96,6 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
-
 
     /**
     * @param tokenName_ token name
@@ -164,9 +163,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
 
         // IUniswapV2Pair(uniswapV2Pair).sync(); !!!! not created yet
 
-
         internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapRouter);
-
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -218,7 +215,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         onlyOwner
         public
     {   
-        require(fraction <= buyTaxMax, "can't be more then max tax");
+        require(fraction <= buyTaxMax, "FRACTION_INVALID");
         buyTax = fraction;
     }
 
@@ -233,7 +230,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         onlyOwner
         public
     {
-        require(fraction <= sellTaxMax, "can't be more then max tax");
+        require(fraction <= sellTaxMax, "FRACTION_INVALID");
         sellTax = fraction;
     }
 
@@ -340,68 +337,69 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         uint256 tradedReserve2;
         uint256 priceAverageData; // it's fixed point uint224 
 
-        (tradedReserve1, tradedReserve2, priceAverageData) = maxAddLiquidity();
-        
-        require(
-            tradedReserve1 < tradedReserve2 && tradedTokenAmount <= (tradedReserve2 - tradedReserve1), 
-            "maxAddLiquidity exceeded"
-        );
+        uint256 rTraded;
+        uint256 rReserved;
+        uint256 traded2Swap;
+        uint256 traded2Liq;
+        uint256 reserved2Liq;
 
-        //if zero we've try to use max as possible of available tokens
-        if (tradedTokenAmount == 0) {
-            tradedTokenAmount = tradedReserve2 - tradedReserve1;
+        FixedPoint.uq112x112 memory averageWithPriceDrop;
+
+        (tradedReserve1, tradedReserve2, priceAverageData) = _maxAddLiquidity();
+
+        bool err;
+
+        if (
+            tradedReserve1 < tradedReserve2 && 
+            tradedTokenAmount <= (tradedReserve2 - tradedReserve1)
+        ) {
+            err = false;
+        } else {
+            err = true;
         }
 
+        if (err == false) {
+            //if zero we've try to use max as possible of available tokens
+            if (tradedTokenAmount == 0) {
+                tradedTokenAmount = tradedReserve2 - tradedReserve1;
+            }
+
+            (rTraded, rReserved, traded2Swap, traded2Liq, reserved2Liq) = _calculateSellTradedAndLiquidity(tradedTokenAmount);
+
+            averageWithPriceDrop = (
+                FixedPoint.uq112x112(uint224(priceAverageData)).
+                    muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).
+                    muluq(FixedPoint.fraction(1, FRACTION))
+            );
+
+            // "new_current_price" should be more than "average_price(1-price_drop)"
+            if (
+                FixedPoint.fraction(
+                    rReserved,
+                    rTraded+traded2Swap+traded2Liq
+                )._x
+                <=
+                // (
+                //     FixedPoint.uq112x112(uint224(priceAverageData)).muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).muluq(FixedPoint.fraction(1, FRACTION))
+                // )._x
+                averageWithPriceDrop._x
+            ) {
+                err = true;
+            }
+        }
+
+        require(
+            err == false, 
+            "PRICE_DROP_TOO_BIG"
+        );
+
         // trade trade tokens and add liquidity
-        _sellTradedAndLiquidity(tradedTokenAmount);
+        _doSellTradedAndLiquidity(traded2Swap, traded2Liq);
 
         emit AddedLiquidity(tradedTokenAmount, priceAverageData);
 
         update();
 
-    }
-
-    function maxAddLiquidity(
-    ) 
-        public 
-        view 
-        //      traded1 -> traded2->priceAverageData
-        returns(uint256, uint256, uint256) 
-    {
-        // tradedNew = Math.sqrt(@tokenPair.r0 * @tokenPair.r1 / (average_price*(1-@price_drop)))
-
-        uint112 reserve0;
-        uint112 reserve1;
-        uint32 blockTimestampLast;
-
-        (reserve0, reserve1, blockTimestampLast) = _uniswapReserves();
-
-        FixedPoint.uq112x112 memory priceAverageData = tradedAveragePrice();
-        
-        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(sqrt(reserve0)));
-        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(sqrt(reserve1)));
-        FixedPoint.uq112x112 memory q3 = (priceAverageData.muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)))).sqrt();
-        //FixedPoint.uq112x112 memory q4 = FixedPoint.encode(uint112(1)).divuq(q3);
-
-        //traded1*reserve1/(priceaverage*pricedrop)
-
-        //traded1 * reserve1*(1/(priceaverage*pricedrop))
-
-        uint256 reserve0New = 
-        (
-            q1
-            .muluq(q2)
-            .muluq(FixedPoint.encode(uint112(sqrt(FRACTION))))
-            .muluq(
-                FixedPoint.encode(
-                    uint112(1)
-                )
-                .divuq(q3)
-                
-            )
-        ).decode();
-
-        return (reserve0, reserve0New, priceAverageData._x);
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -581,38 +579,6 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         
     }
 
-    /**
-    * @notice mint `incomingTradedToken`, sell part of them(`r3`) on uniswap to be added to liquidity without leftover 
-    * `r3` is sqrt((rTraded+incomingTradedToken)*rTraded)-rTraded
-    *
-    */
-    function _sellTradedAndLiquidity(
-        uint256 incomingTradedToken
-    )
-        internal
-    {
-
-        (uint256 rTraded, /*uint256 rReserved*/, /*uint256 priceTraded*/) = _uniswapReserves();
-
-        uint256 r3 = 
-            sqrt(
-                (rTraded + incomingTradedToken)*(rTraded)
-            ) - rTraded; //    
-        require(r3 > 0 && incomingTradedToken > r3, "BAD_AMOUNT");
-        // remaining (r2-r3) we will exchange at uniswap to traded token
-        
-        // claim to address(this) necessary amount to swap from traded to reserved tokens
-        _mint(address(this), r3, "", "");
-        //uint256 amountReserveToken = doSwapOnUniswap(tradedToken, reserveToken, r3, address(internalLiquidity));
-        doSwapOnUniswap(tradedToken, reserveToken, r3, address(internalLiquidity));
-        
-        // mint that left to  internalLiquidity contract
-        _mint(address(internalLiquidity), incomingTradedToken - r3, "", "");
-
-        // add to liquidity from there
-        internalLiquidity.addLiquidity();
-        
-    }
 
     // 
     /**
@@ -691,6 +657,97 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
             pairObservation.timestampLast = blockTimestamp;
         }
     }
+    
+    function _calculateSellTradedAndLiquidity(
+        uint256 incomingTradedToken
+    )
+        internal
+        view
+        returns(uint256 rTraded, uint256 rReserved, uint256 traded2Swap, uint256 traded2Liq, uint256 reserved2Liq)
+    {
+
+        (rTraded, rReserved, /*uint256 priceTraded*/) = _uniswapReserves();
+
+        traded2Swap = 
+            sqrt(
+                (rTraded + incomingTradedToken)*(rTraded)
+            ) - rTraded; //    
+        require(traded2Swap > 0 && incomingTradedToken > traded2Swap, "BAD_AMOUNT");
+        
+        reserved2Liq = IUniswapV2Router02(uniswapRouter).getAmountOut(traded2Swap, rTraded, rReserved);
+        traded2Liq = incomingTradedToken - traded2Swap;
+        
+    }
+
+    function _doSellTradedAndLiquidity(
+        uint256 traded2Swap,
+        uint256 traded2Liq
+    )
+        internal
+    {
+
+        // claim to address(this) necessary amount to swap from traded to reserved tokens
+        _mint(address(this), traded2Swap, "", "");
+        doSwapOnUniswap(tradedToken, reserveToken, traded2Swap, address(internalLiquidity));
+        
+        // mint that left to  internalLiquidity contract
+        _mint(address(internalLiquidity), traded2Liq, "", "");
+
+        // add to liquidity from there
+        internalLiquidity.addLiquidity();
+        
+        
+    }
+
+    
+    function _maxAddLiquidity(
+    ) 
+        internal 
+        view 
+        //      traded1 -> traded2->priceAverageData
+        returns(uint256, uint256, uint256) 
+    {  
+
+        // tradedNew = Math.sqrt(@tokenPair.r0 * @tokenPair.r1 / (average_price*(1-@price_drop)))
+
+        uint112 reserve0;
+        uint112 reserve1;
+        uint32 blockTimestampLast;
+
+        (reserve0, reserve1, blockTimestampLast) = _uniswapReserves();
+
+        FixedPoint.uq112x112 memory priceAverageData = tradedAveragePrice();
+        
+        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(sqrt(reserve0)));
+        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(sqrt(reserve1)));
+        FixedPoint.uq112x112 memory q3 = (
+            priceAverageData.
+                muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).
+                muluq(FixedPoint.fraction(1, FRACTION))
+        ).sqrt();
+        //FixedPoint.uq112x112 memory q4 = FixedPoint.encode(uint112(1)).divuq(q3);
+
+        //traded1*reserve1/(priceaverage*pricedrop)
+
+        //traded1 * reserve1*(1/(priceaverage*pricedrop))
+
+        uint256 reserve0New = 
+        (
+            q1
+            .muluq(q2)
+            .muluq(FixedPoint.encode(uint112(sqrt(FRACTION))))
+            .muluq(
+                FixedPoint.encode(
+                    uint112(1)
+                )
+                .divuq(q3)
+                
+            )
+        ).decode();
+
+        return (reserve0, reserve0New, priceAverageData._x);
+    }
+
   
     function sqrt(
         uint256 x

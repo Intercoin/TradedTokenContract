@@ -63,7 +63,7 @@ describe("mainInstance", function () {
     
     
     var printPrices = async function(str) {
-        //return;
+        return;
         console.log(mainInstance.address);
         let x1,x2,x3,x4,x5;
         [x1,x2,x3,x4,x5] = await mainInstance.uniswapPrices();
@@ -152,6 +152,7 @@ describe("mainInstance", function () {
         await ethers.provider.send('evm_revert', [snapId]);
     });
 
+    
     describe("validate params", function () {
        
         it("should correct reserveToken", async() => {
@@ -171,6 +172,59 @@ describe("mainInstance", function () {
             ).to.be.revertedWith("reserveToken invalid");
         });
     });
+
+    
+    describe("taxes", function () {
+        var externalToken;
+
+        const maxBuyTax = FRACTION.mul(3);
+        const maxSellTax = FRACTION.mul(7);
+        
+        beforeEach("deploying", async() => {
+            erc20ReservedToken  = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
+            externalToken       = await ERC20Factory.deploy("ERC20 External Token", "ERC20-EXT");
+
+            mainInstance = await MainFactory.connect(owner).deploy(
+                "Intercoin Investor Token",
+                "ITR",
+                erc20ReservedToken.address, //” (USDC)
+                priceDrop,
+                lockupIntervalAmount,
+                [minClaimPriceNumerator, minClaimPriceDenominator],
+                externalToken.address,
+                [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                maxBuyTax,
+                maxSellTax
+            );
+    
+        });
+// uint256 public immutable buyTaxMax;
+// uint256 public immutable sellTaxMax;
+// uint256 public buyTax;
+// uint256 public sellTax;
+        it("should setup buyTaxMax and sellTaxMax when deploy", async() => {
+            expect(await mainInstance.buyTaxMax()).to.be.equal(maxBuyTax);
+            expect(await mainInstance.sellTaxMax()).to.be.equal(maxSellTax);
+        }); 
+
+        it("should sellTax and buyTax to be zero when deploy", async() => {
+            expect(await mainInstance.buyTax()).to.be.equal(ZERO);
+            expect(await mainInstance.sellTax()).to.be.equal(ZERO);
+        }); 
+
+        it("shouldt setup buyTax value more then buyTaxMax", async() => {
+            await expect(mainInstance.setBuyTax(maxBuyTax.add(ONE))).to.be.revertedWith("FRACTION_INVALID");
+        }); 
+
+        it("shouldt setup sellTax value more then sellTaxMax", async() => {
+            await expect(mainInstance.setSellTax(maxSellTax.add(ONE))).to.be.revertedWith("FRACTION_INVALID");
+        }); 
+        
+        it("should setup sellTax", async() => {
+            
+        }); 
+        it("should setup buyTax", async() => {}); 
+    }); 
 
     describe("instance check", function () {
         var externalToken;
@@ -195,6 +249,11 @@ describe("mainInstance", function () {
             // itrv2 = await ethers.getContractAt("ITRv2",erc777);
 
             
+        });
+
+        it("cover sqrt func", async() => {
+            expect(await mainInstance.getSqrt(0)).to.be.equal(0);
+            expect(await mainInstance.getSqrt("0x100000000000000000000000000000000")).to.be.equal("0x10000000000000000");
         });
 
         it("should correct Intercoin Investor Token", async() => {
@@ -368,6 +427,7 @@ describe("mainInstance", function () {
 
         });
 
+
         describe("uniswap settings", function () {
             var uniswapRouterFactoryInstance, uniswapRouterInstance, pairInstance;
             var printTotalInfo = async () => {
@@ -430,7 +490,7 @@ describe("mainInstance", function () {
                     /////////////////////////////
                 });
                 
-                describe("Adding liquidity", function () {
+                describe("Adding liquidity. synth", function () {
                     var snapId;
                     beforeEach("make snapshot", async() => {
                         // make snapshot before time manipulations
@@ -442,10 +502,34 @@ describe("mainInstance", function () {
                         await ethers.provider.send('evm_revert', [snapId]);
                     });
 
-                    it.only("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & immediately]", async() => {
+                    it("should add liquidity", async() => {
+                        let tradedReserve1,tradedReserve2,priceAv, maxliquidity, add2Liquidity;
+                        [tradedReserve1, tradedReserve2, priceAv] = await mainInstance.connect(owner).maxAddLiquidity();
+
+                        maxliquidity = tradedReserve2.sub(tradedReserve1);
+
+                        add2Liquidity = maxliquidity.abs().mul(1).div(1000);
+
+                        await mainInstance.connect(owner).addLiquidity(add2Liquidity);
+
+                    });
+
+                    it("shouldnt add liquidity", async() => {
+                        let tradedReserve1,tradedReserve2,priceAv, maxliquidity, add2Liquidity;
+                        [tradedReserve1, tradedReserve2, priceAv] = await mainInstance.connect(owner).maxAddLiquidity();
+
+                        maxliquidity = tradedReserve2.sub(tradedReserve1);
+                        add2Liquidity = maxliquidity.abs()//.mul(1).div(10000);
+
+                        await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWith("PRICE_DROP_TOO_BIG");
+ 
+                    });
+
+                    xit("should: add liquidity, Price should be grow down not more then priceDrop.[single iteration & immediately]", async() => {
                         
                         let tradedReserve1,tradedReserve2;
-                        let maxliquidity;
+                        let maxliquidity, add2Liquidity;
+                        let priceAv;
 
                         let frac = 1000000;
                         let priceStart, r1Start, r2Start, averagePriceStart;
@@ -455,13 +539,16 @@ describe("mainInstance", function () {
                         [r1Start,r2Start] = await mainInstance.connect(owner).uniswapReservesSimple();
                         priceStart = r2Start.mul(frac).div(r1Start);
 
-                        // [tradedReserve1,tradedReserve2] = await mainInstance.connect(owner).maxAddLiquidity();
+                        [tradedReserve1,tradedReserve2,priceAv] = await mainInstance.connect(owner).maxAddLiquidity();
                         
                         // // if (tradedReserve2.gt(tradedReserve1)) { .. }
                         // // no matter what we send with transaction, contract should avoid adding liquidity if tradedReserve2.lt(tradedReserve1).
                         // // and here we take modulo(tradedReserve2-tradedReserve1) to avoid tx error with negative numbers
-                        // maxliquidity = tradedReserve2.sub(tradedReserve1);
-                        // console.log("!MaxLiquidity = ", maxliquidity);
+                        maxliquidity = tradedReserve2.sub(tradedReserve1);
+                        console.log("MaxLiquidity = ", maxliquidity);
+
+                        add2Liquidity = maxliquidity.abs().mul(1).div(10000);
+                        console.log("add2Liquidity = ", add2Liquidity);
                         // //await mainInstance.connect(owner).addLiquidity(maxliquidity.abs());
 
                         // tmp = await mainInstance.connect(owner).getTradedAveragePrice()
@@ -471,7 +558,7 @@ describe("mainInstance", function () {
                         tmp = await mainInstance.connect(owner).getTradedAveragePrice();
                         console.log("js::averagePriceStart #1 = ",tmp._x);
 
-                        let tx = await mainInstance.connect(owner).addLiquidity(0);
+                        let tx = await mainInstance.connect(owner).addLiquidity(add2Liquidity);
                         
                         let receipt = await tx.wait();
 
@@ -704,7 +791,7 @@ describe("mainInstance", function () {
                         
 
                     });
-/**/
+
                 });
             
             });

@@ -20,9 +20,9 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">9.09% </span>
+        <span class="strong">81.82% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>1/11</span>
+        <span class='fraction'>9/11</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -30,18 +30,18 @@
         <span class='fraction'>0/0</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">40% </span>
+        <span class="strong">71.43% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>2/5</span>
+        <span class='fraction'>5/7</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">9.09% </span>
+        <span class="strong">81.82% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>1/11</span>
+        <span class='fraction'>9/11</span>
       </div>
     </div>
   </div>
-  <div class='status-line low'></div>
+  <div class='status-line high'></div>
 <pre><table class="coverage">
 <tr><td class="line-count quiet">1
 2
@@ -153,7 +153,27 @@
 108
 109
 110
-111</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -175,6 +195,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -190,7 +220,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -208,20 +239,29 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -287,11 +327,31 @@ contract MainMock is Main {
     {
     }
 &nbsp;
+    function getSqrt(
+        uint256 x
+    ) 
+        public
+        pure 
+        returns(uint256 result) 
+    {
+        return sqrt(x);
+    }
+&nbsp;
     function forceSync(
     ) 
         public 
     {
         IUniswapV2Pair(uniswapV2Pair).sync();
+    }
+&nbsp;
+    function maxAddLiquidity(
+    ) 
+        public 
+        view 
+        //      traded1 -&gt; traded2-&gt;priceAverageData
+        returns(uint256, uint256, uint256) 
+    {  
+        return _maxAddLiquidity();
     }
 &nbsp;
 <span class="fstat-no" title="function not covered" >    function getTradedAveragePrice(</span>
@@ -312,7 +372,7 @@ contract MainMock is Main {
 <span class="cstat-no" title="statement not covered" >        return _uniswapReserves();</span>
     }
 &nbsp;
-<span class="fstat-no" title="function not covered" >    function totalInfo(</span>
+    function totalInfo(
 &nbsp;
     )
         public 
@@ -320,18 +380,18 @@ contract MainMock is Main {
         returns(
             uint112 r0, uint112 r1, uint32 blockTimestamp,
             uint price0Cumulative, uint price1Cumulative,
-            uint64 timestampLast, uint price0CumulativeLast, uint price1CumulativeLast, uint224 price0Average, uint224 price1Average
+            uint64 timestampLast, uint price0CumulativeLast, uint224 price0Average
         )
     {
-<span class="cstat-no" title="statement not covered" >        (r0, r1, blockTimestamp) = _uniswapReserves()</span>;
-<span class="cstat-no" title="statement not covered" >        price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast()</span>;
-<span class="cstat-no" title="statement not covered" >        price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast()</span>;
+        (r0, r1, blockTimestamp) = _uniswapReserves();
+        price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+        price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        timestampLast = pairObservation.timestampLast</span>;
-<span class="cstat-no" title="statement not covered" >        price0CumulativeLast = pairObservation.price0CumulativeLast</span>;
-<span class="cstat-no" title="statement not covered" >        price1CumulativeLast = pairObservation.price1CumulativeLast</span>;
-<span class="cstat-no" title="statement not covered" >        price0Average = pairObservation.price0Average._x</span>;
-<span class="cstat-no" title="statement not covered" >        price1Average = pairObservation.price1Average._x</span>;
+        timestampLast = pairObservation.timestampLast;
+        price0CumulativeLast = pairObservation.price0CumulativeLast;
+        
+        price0Average = pairObservation.price0Average._x;
+        
     }
 &nbsp;
 &nbsp;
@@ -379,7 +439,7 @@ contract MainMock is Main {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Mon Aug 22 2022 17:09:01 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Tue Aug 23 2022 20:10:18 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../../prettify.js"></script>
