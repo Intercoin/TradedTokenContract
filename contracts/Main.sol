@@ -15,7 +15,7 @@ import "./minimums/libs/MinimumsLib.sol";
 import "./ExecuteManager.sol";
 import "./Liquidity.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
     using FixedPoint for *;
@@ -352,42 +352,6 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         update();
     }
 
-    ////////////////////////////////////////////////////////////////////////
-    // internal section ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
-    // need to run immedialety after adding liquidity tx and sync cumulativePrice. BUT i's can't applicable if do in the same trasaction with addInitialLiquidity.
-    // reserve0 and reserve1 still zero and
-    function singlePairSync() internal {
-        if (alreadyRunStartupSync == false) {
-            alreadyRunStartupSync = true;
-            IUniswapV2Pair(uniswapV2Pair).sync();
-            //console.log("singlePairSync - synced");
-        } else {
-            //console.log("singlePairSync - ALREADY synced");
-        }
-    }
-
-    function _beforeTokenTransfer(
-        address, /*operator*/
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual override {
-        if (
-            // if minted
-            (from == address(0)) ||
-            // or burnt itself
-            (from == address(this) && to == address(0)) // ||
-        ) {
-            //skip validation
-        } else {
-            uint256 balance = balanceOf(from);
-            uint256 locked = tokensLocked[from]._getMinimum();
-            require(balance - locked >= amount, "INSUFFICIENT_AMOUNT");
-        }
-    }
-
     function transferFrom(
         address holder,
         address recipient,
@@ -422,6 +386,42 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         // 2. do usual transaction, then make calculation and burn tax from sides(buyer or seller)
         // we DON'T USE this case, because have callbacks in _move method: _callTokensToSend and _callTokensReceived
         // and than be send to some1 else in recipient contract callback
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    // internal section ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+
+    // need to run immedialety after adding liquidity tx and sync cumulativePrice. BUT i's can't applicable if do in the same trasaction with addInitialLiquidity.
+    // reserve0 and reserve1 still zero and
+    function singlePairSync() internal {
+        if (alreadyRunStartupSync == false) {
+            alreadyRunStartupSync = true;
+            IUniswapV2Pair(uniswapV2Pair).sync();
+            //console.log("singlePairSync - synced");
+        } else {
+            //console.log("singlePairSync - ALREADY synced");
+        }
+    }
+
+    function _beforeTokenTransfer(
+        address, /*operator*/
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual override {
+        if (
+            // if minted
+            (from == address(0)) ||
+            // or burnt itself
+            (from == address(this) && to == address(0)) // ||
+        ) {
+            //skip validation
+        } else {
+            uint256 balance = balanceOf(from);
+            uint256 locked = tokensLocked[from]._getMinimum();
+            require(balance - locked >= amount, "INSUFFICIENT_AMOUNT");
+        }
     }
 
     /**
