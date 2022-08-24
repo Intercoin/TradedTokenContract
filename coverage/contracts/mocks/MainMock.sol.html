@@ -20,9 +20,9 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">81.82% </span>
+        <span class="strong">36.36% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>9/11</span>
+        <span class='fraction'>4/11</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -35,13 +35,13 @@
         <span class='fraction'>5/7</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">81.82% </span>
+        <span class="strong">36.36% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>9/11</span>
+        <span class='fraction'>4/11</span>
       </div>
     </div>
   </div>
-  <div class='status-line high'></div>
+  <div class='status-line low'></div>
 <pre><table class="coverage">
 <tr><td class="line-count quiet">1
 2
@@ -221,6 +221,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -239,28 +248,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -354,13 +354,13 @@ contract MainMock is Main {
         return _maxAddLiquidity();
     }
 &nbsp;
-<span class="fstat-no" title="function not covered" >    function getTradedAveragePrice(</span>
+    function getTradedAveragePrice(
     ) 
         public
         view
         returns(FixedPoint.uq112x112 memory)
     {
-<span class="cstat-no" title="statement not covered" >        return tradedAveragePrice();</span>
+        return tradedAveragePrice();
     }
 &nbsp;
 <span class="fstat-no" title="function not covered" >    function uniswapReservesSimple(</span>
@@ -372,7 +372,7 @@ contract MainMock is Main {
 <span class="cstat-no" title="statement not covered" >        return _uniswapReserves();</span>
     }
 &nbsp;
-    function totalInfo(
+<span class="fstat-no" title="function not covered" >    function totalInfo(</span>
 &nbsp;
     )
         public 
@@ -383,14 +383,14 @@ contract MainMock is Main {
             uint64 timestampLast, uint price0CumulativeLast, uint224 price0Average
         )
     {
-        (r0, r1, blockTimestamp) = _uniswapReserves();
-        price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
-        price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
+<span class="cstat-no" title="statement not covered" >        (r0, r1, blockTimestamp) = _uniswapReserves()</span>;
+<span class="cstat-no" title="statement not covered" >        price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast()</span>;
+<span class="cstat-no" title="statement not covered" >        price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast()</span>;
 &nbsp;
-        timestampLast = pairObservation.timestampLast;
-        price0CumulativeLast = pairObservation.price0CumulativeLast;
+<span class="cstat-no" title="statement not covered" >        timestampLast = pairObservation.timestampLast</span>;
+<span class="cstat-no" title="statement not covered" >        price0CumulativeLast = pairObservation.price0CumulativeLast</span>;
         
-        price0Average = pairObservation.price0Average._x;
+<span class="cstat-no" title="statement not covered" >        price0Average = pairObservation.price0Average._x</span>;
         
     }
 &nbsp;
@@ -439,7 +439,7 @@ contract MainMock is Main {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Tue Aug 23 2022 20:10:18 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Aug 24 2022 16:55:41 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../../prettify.js"></script>

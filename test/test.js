@@ -57,6 +57,9 @@ describe("mainInstance", function () {
     const externalTokenExchangePriceNumerator = 1;
     const externalTokenExchangePriceDenominator = 1;
 
+    const maxBuyTax = FRACTION.mul(15).div(100); // 0.15*fraction
+    const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
+
     // vars
     var mainInstance, erc20ReservedToken;
     var MainFactory, ERC20Factory;
@@ -95,8 +98,8 @@ describe("mainInstance", function () {
             [minClaimPriceNumerator, minClaimPriceDenominator],
             ZERO_ADDRESS, //externalToken.address,
             [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-            0,
-            0
+            maxBuyTax,
+            maxSellTax
         );
 
         await expect(
@@ -166,65 +169,13 @@ describe("mainInstance", function () {
                     [minClaimPriceNumerator, minClaimPriceDenominator],
                     ZERO_ADDRESS,
                     [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-                    0,
-                    0
+                    maxBuyTax,
+                    maxSellTax
                 )
             ).to.be.revertedWith("reserveToken invalid");
         });
     });
 
-    
-    describe("taxes", function () {
-        var externalToken;
-
-        const maxBuyTax = FRACTION.mul(3);
-        const maxSellTax = FRACTION.mul(7);
-        
-        beforeEach("deploying", async() => {
-            erc20ReservedToken  = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
-            externalToken       = await ERC20Factory.deploy("ERC20 External Token", "ERC20-EXT");
-
-            mainInstance = await MainFactory.connect(owner).deploy(
-                "Intercoin Investor Token",
-                "ITR",
-                erc20ReservedToken.address, //” (USDC)
-                priceDrop,
-                lockupIntervalAmount,
-                [minClaimPriceNumerator, minClaimPriceDenominator],
-                externalToken.address,
-                [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-                maxBuyTax,
-                maxSellTax
-            );
-    
-        });
-// uint256 public immutable buyTaxMax;
-// uint256 public immutable sellTaxMax;
-// uint256 public buyTax;
-// uint256 public sellTax;
-        it("should setup buyTaxMax and sellTaxMax when deploy", async() => {
-            expect(await mainInstance.buyTaxMax()).to.be.equal(maxBuyTax);
-            expect(await mainInstance.sellTaxMax()).to.be.equal(maxSellTax);
-        }); 
-
-        it("should sellTax and buyTax to be zero when deploy", async() => {
-            expect(await mainInstance.buyTax()).to.be.equal(ZERO);
-            expect(await mainInstance.sellTax()).to.be.equal(ZERO);
-        }); 
-
-        it("shouldt setup buyTax value more then buyTaxMax", async() => {
-            await expect(mainInstance.setBuyTax(maxBuyTax.add(ONE))).to.be.revertedWith("FRACTION_INVALID");
-        }); 
-
-        it("shouldt setup sellTax value more then sellTaxMax", async() => {
-            await expect(mainInstance.setSellTax(maxSellTax.add(ONE))).to.be.revertedWith("FRACTION_INVALID");
-        }); 
-        
-        it("should setup sellTax", async() => {
-            
-        }); 
-        it("should setup buyTax", async() => {}); 
-    }); 
 
     describe("instance check", function () {
         var externalToken;
@@ -241,8 +192,8 @@ describe("mainInstance", function () {
                 [minClaimPriceNumerator, minClaimPriceDenominator],
                 externalToken.address,
                 [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-                0,
-                0
+                maxBuyTax,
+                maxSellTax
             );
 
             // let erc777 = await mainInstance.tradedToken();
@@ -431,6 +382,7 @@ describe("mainInstance", function () {
         describe("uniswap settings", function () {
             var uniswapRouterFactoryInstance, uniswapRouterInstance, pairInstance;
             var printTotalInfo = async () => {
+                return; 
                 let r0, r1, blockTimestamp, price0Cumulative, price1Cumulative, timestampLast, price0CumulativeLast, price0Average;
                 [r0, r1, blockTimestamp, price0Cumulative, price1Cumulative, timestampLast, price0CumulativeLast, price0Average] = await mainInstance.connect(owner).totalInfo();
                 let maxAddLiquidityR0, maxAddLiquidityR1;
@@ -467,6 +419,194 @@ describe("mainInstance", function () {
                 
 
             });
+
+            describe("taxes", function () {
+
+                it("should setup buyTaxMax and sellTaxMax when deploy", async() => {
+                    expect(await mainInstance.buyTaxMax()).to.be.equal(maxBuyTax);
+                    expect(await mainInstance.sellTaxMax()).to.be.equal(maxSellTax);
+                }); 
+
+                it("should sellTax and buyTax to be zero when deploy", async() => {
+                    expect(await mainInstance.buyTax()).to.be.equal(ZERO);
+                    expect(await mainInstance.sellTax()).to.be.equal(ZERO);
+                }); 
+
+                it("shouldt setup buyTax value more then buyTaxMax", async() => {
+                    await expect(mainInstance.setBuyTax(maxBuyTax.add(ONE))).to.be.revertedWith("FRACTION_INVALID");
+                }); 
+
+                it("shouldt setup sellTax value more then sellTaxMax", async() => {
+                    await expect(mainInstance.setSellTax(maxSellTax.add(ONE))).to.be.revertedWith("FRACTION_INVALID");
+                }); 
+                
+                it("should setup sellTax", async() => {
+                    const oldValue = await mainInstance.sellTax();
+
+                    const value = maxSellTax.sub(ONE);
+                    await mainInstance.setSellTax(value);
+
+                    const newValue = await mainInstance.sellTax();
+                    
+                    expect(oldValue).not.to.be.eq(newValue);
+                    expect(value).to.be.eq(newValue);
+                }); 
+
+                it("should setup buyTax", async() => {
+                    const oldValue = await mainInstance.buyTax();
+
+                    const value = maxBuyTax.sub(ONE);
+                    await mainInstance.setBuyTax(value);
+
+                    const newValue = await mainInstance.buyTax();
+
+                    expect(oldValue).not.to.be.eq(newValue);
+                    expect(value).to.be.eq(newValue);
+                }); 
+
+                it("should burn buyTax", async() => {
+
+                    let ts, timeUntil;
+                    
+                    // make snapshot
+                    // make swapExactTokensForTokens  without tax
+                    // got amount that user obtain
+                    // restore snapshot
+                    // setup buy tax and the same swapExactTokensForTokens as previous
+                    // obtained amount should be less by buytax
+                    //---------------------------
+                    var snapId = await ethers.provider.send('evm_snapshot', []);
+
+                    await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.div(2));
+                    await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.div(2));
+                    ts = await time.latest();
+                    timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+
+                    let bobBalanceBeforeWoTax = await mainInstance.balanceOf(bob.address);
+                    await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                        ONE_ETH.div(2), //uint amountIn,
+                        0, //uint amountOutMin,
+                        [erc20ReservedToken.address, mainInstance.address], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+
+                    );
+                    let bobBalanceAfterWoTax = await mainInstance.balanceOf(bob.address);
+
+                    await ethers.provider.send('evm_revert', [snapId]);
+                    //----
+
+                    const tax = FRACTION.mul(10).div(100);
+                    await mainInstance.setBuyTax(tax);
+
+                    await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.div(2));
+                    await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.div(2));
+                    ts = await time.latest();
+                    timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+
+                    let bobBalanceBeforeWithTax = await mainInstance.balanceOf(bob.address);
+                    await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                        ONE_ETH.div(2), //uint amountIn,
+                        0, //uint amountOutMin,
+                        [erc20ReservedToken.address, mainInstance.address], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+
+                    );
+                    let bobBalanceAfterWithTax = await mainInstance.balanceOf(bob.address);
+                    //-----
+
+                    // now check
+                    let deltaWithTax = bobBalanceAfterWithTax.sub(bobBalanceBeforeWithTax);
+                    let deltaWWoTax = bobBalanceAfterWoTax.sub(bobBalanceBeforeWoTax);
+
+                    expect(deltaWithTax).not.be.eq(deltaWWoTax);
+                    expect(deltaWithTax).not.be.eq(deltaWWoTax.mul(tax).div(FRACTION));
+
+                });
+
+                it("should burn sellTax", async() => {
+
+                    let ts, timeUntil;
+                    uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+                    // make swapExactTokensForTokens  without tax to obtain tradedToken
+                    // make snapshot
+                    // make swapExactTokensForTokens  without tax
+                    // got amount that user obtain
+                    // restore snapshot
+                    // setup buy tax and the same swapExactTokensForTokens as previous
+                    // obtained amount should be less by buytax
+                    //---------------------------
+                    await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.div(2));
+                    await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.div(2));
+                    ts = await time.latest();
+                    timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+
+                    let tmp = await mainInstance.balanceOf(bob.address);
+                    await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                        ONE_ETH.div(2), //uint amountIn,
+                        0, //uint amountOutMin,
+                        [erc20ReservedToken.address, mainInstance.address], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+
+                    );
+
+                    let tmp2 = await mainInstance.balanceOf(bob.address);
+                    const obtainERC777Tokens = tmp2.sub(tmp);
+                    //----
+                    var snapId = await ethers.provider.send('evm_snapshot', []);
+
+                    ts = await time.latest();
+                    timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+
+                    let bobBalanceBeforeWoTax = await erc20ReservedToken.balanceOf(bob.address);
+
+                    await mainInstance.connect(bob).approve(uniswapRouterInstance.address, obtainERC777Tokens);
+                    await uniswapRouterInstance.connect(bob).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                        obtainERC777Tokens, //uint amountIn,
+                        0, //uint amountOutMin,
+                        [mainInstance.address, erc20ReservedToken.address], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+
+                    );
+                    let bobBalanceAfterWoTax = await erc20ReservedToken.balanceOf(bob.address);
+
+                    await ethers.provider.send('evm_revert', [snapId]);
+                    //----
+
+                    const tax = FRACTION.mul(10).div(100);
+                    await mainInstance.setSellTax(tax);
+
+                    ts = await time.latest();
+                    timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+
+                    let bobBalanceBeforeWithTax = await erc20ReservedToken.balanceOf(bob.address);
+
+                    await mainInstance.connect(bob).approve(uniswapRouterInstance.address, obtainERC777Tokens);
+                    await uniswapRouterInstance.connect(bob).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                        obtainERC777Tokens, //uint amountIn,
+                        0, //uint amountOutMin,
+                        [mainInstance.address, erc20ReservedToken.address], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+
+                    );
+                    let bobBalanceAfterWithTax = await erc20ReservedToken.balanceOf(bob.address);
+                    //-----
+
+                    // now check
+                    let deltaWithTax = bobBalanceAfterWithTax.sub(bobBalanceBeforeWithTax);
+                    let deltaWWoTax = bobBalanceAfterWoTax.sub(bobBalanceBeforeWoTax);
+
+                    expect(deltaWithTax).not.be.eq(deltaWWoTax);
+                    expect(deltaWithTax).not.be.eq(deltaWWoTax.mul(tax).div(FRACTION));
+
+                });
+            }); 
+
             describe("with first swap", function () {
                 beforeEach("prepare", async() => {
                     /////////////////////////////
@@ -502,6 +642,24 @@ describe("mainInstance", function () {
                         await ethers.provider.send('evm_revert', [snapId]);
                     });
 
+                    it("synth case: try to get stored average price", async() => {
+                        
+                        let tradedReserve1,tradedReserve2,priceAv, maxliquidity, add2Liquidity;
+                        [tradedReserve1, tradedReserve2, priceAv] = await mainInstance.connect(owner).maxAddLiquidity();
+
+                        maxliquidity = tradedReserve2.sub(tradedReserve1);
+
+                        add2Liquidity = maxliquidity.abs().mul(1).div(1000);
+
+                        await mainInstance.connect(owner).addLiquidity(add2Liquidity);
+                        await ethers.provider.send('evm_increaseTime', [5]);
+                        await ethers.provider.send('evm_mine');
+                        await mainInstance.connect(owner).addLiquidity(add2Liquidity);
+
+                     //   expect(t).to.be.eq(t2);
+
+                    });
+
                     it("should add liquidity", async() => {
                         let tradedReserve1,tradedReserve2,priceAv, maxliquidity, add2Liquidity;
                         [tradedReserve1, tradedReserve2, priceAv] = await mainInstance.connect(owner).maxAddLiquidity();
@@ -522,6 +680,9 @@ describe("mainInstance", function () {
                         add2Liquidity = maxliquidity.abs()//.mul(1).div(10000);
 
                         await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWith("PRICE_DROP_TOO_BIG");
+
+                        // or try to max from maxAddLiquidity
+                        await expect(mainInstance.connect(owner).addLiquidity(0)).to.be.revertedWith("PRICE_DROP_TOO_BIG");
  
                     });
 

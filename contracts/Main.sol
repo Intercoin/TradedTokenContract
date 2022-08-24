@@ -15,7 +15,7 @@ import "./minimums/libs/MinimumsLib.sol";
 import "./ExecuteManager.sol";
 import "./Liquidity.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
     using FixedPoint for *;
@@ -455,41 +455,53 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
             uint256 locked = tokensLocked[from]._getMinimum();
             require(balance - locked >= amount, "insufficient amount");
         }
-    }    
+    }   
 
-    function _send(
-        address from,
-        address to,
-        uint256 amount,
-        bytes memory userData,
-        bytes memory operatorData,
-        bool requireReceptionAck
-    ) internal virtual override {
+    function transferFrom(
+        address holder,
+        address recipient,
+        uint256 amount
+    ) public virtual override returns (bool) {
+        if (uniswapV2Pair == recipient) {
+            uint256 taxAmount = amount*sellTax/FRACTION;
+            if (taxAmount != 0) {
+                amount -= taxAmount;
+                _burn(holder, taxAmount, "", "");
+            }
+        }
+        return super.transferFrom(holder, recipient, amount);
+    } 
+
+    function transfer(
+        address recipient, 
+        uint256 amount
+    ) 
+        public 
+        virtual 
+        override 
+        returns (bool) 
+    {
+        address from = _msgSender();
+        address to = recipient;
 
         // inject into transfer and burn tax from sender
         // two ways:
-        // 1. make calculations, burn taxes from sender and do transafction with substracted values
-        if (uniswapV2Pair == from || uniswapV2Pair == to) {
-            uint256 tax = (uniswapV2Pair == from) ? buyTax : sellTax;
-            uint256 taxAmount = amount*tax/FRACTION;
+        // 1. make calculations, burn taxes from sender and do transaction with substracted values
+        if (uniswapV2Pair == from) {
 
-            amount -= taxAmount;
-            _burn(from, taxAmount, "", "");
+            uint256 taxAmount = amount*buyTax/FRACTION;
+
+            if (taxAmount != 0) {
+                amount -= taxAmount;
+                _burn(from, taxAmount, "", "");
+            }
+
         }
-        super._send(from, to, amount, userData, operatorData, requireReceptionAck);
-        
-        // 2. do usual transaction, make calculation and burn tax from sides(buyer or seller)
-        // we DON'T USE this case, because have callbacks in _move method: _callTokensToSend and _callTokensReceived
-        // super._send(from, to, amount, userData, operatorData, requireReceptionAck);
-        // if (uniswapV2Pair == from) {
-        //     amount -= amount*buyTax/FRACTION;
-        //     _burn(from, amount*buyTax/FRACTION, "", "");
-        // }
-        // if (uniswapV2Pair == to) {
-        //     amount -= amount*sellTax/FRACTION;
-        //     _burn(to, amount*sellTax/FRACTION, "", "");
-        // }
+        return super.transfer(recipient, amount);
 
+        // 2. do usual transaction, then make calculation and burn tax from sides(buyer or seller)
+        // we DON'T USE this case, because have callbacks in _move method: _callTokensToSend and _callTokensReceived 
+        // and than be send to some1 else in recipient contract callback
     }
 
     /**
@@ -593,23 +605,20 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         internal 
         returns(uint256 amountOut) 
     {
-        if (tokenIn == tokenOut) {
-            // situation when WETH is a reserve token
-            amountOut = amountIn;
-        } else {
-            require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
+        
+        require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
 
-            address[] memory path = new address[](2);
-            path[0] = address(tokenIn);
-            path[1] = address(tokenOut);
-            // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
+        address[] memory path = new address[](2);
+        path[0] = address(tokenIn);
+        path[1] = address(tokenOut);
+        // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
 
-            uint256[] memory outputAmounts = IUniswapV2Router02(uniswapRouter).swapExactTokensForTokens(
-                amountIn, 0, path, beneficiary, block.timestamp
-            );
+        uint256[] memory outputAmounts = IUniswapV2Router02(uniswapRouter).swapExactTokensForTokens(
+            amountIn, 0, path, beneficiary, block.timestamp
+        );
 
-            amountOut = outputAmounts[1];
-        }
+        amountOut = outputAmounts[1];
+        
     }
 
     /**
@@ -626,7 +635,11 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
         uint64 windowSize = (blockTimestamp - startupTimestamp)*averagePriceWindow/FRACTION;
 
-        if (timeElapsed > windowSize && timeElapsed>0) {
+        if (
+            timeElapsed > windowSize && 
+            timeElapsed > 0 &&
+            price0Cumulative > pairObservation.price0CumulativeLast
+            ) {
             // console.log("timeElapsed > windowSize && timeElapsed>0");
             // console.log("price0Cumulative                       =", price0Cumulative);
             // console.log("pairObservation.price0CumulativeLast   =", pairObservation.price0CumulativeLast);
