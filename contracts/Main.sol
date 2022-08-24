@@ -95,7 +95,14 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
 
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
+    mapping(address => uint64) internal managers;
+
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
+
+    modifier onlyManagers() {
+        require(owner() == _msgSender() || managers[_msgSender()] != 0, "MANAGERS_ONLY");
+        _;
+    }
 
     /**
      * @param tokenName_ token name
@@ -193,6 +200,14 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+    function addManagers(
+        address manager
+    )
+        public
+        onlyManagers
+    {
+        managers[manager] = currentBlockTimestamp();
+    }
     /**
      * @notice setting buy tax
      * @param fraction buy tax
@@ -218,7 +233,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
      * @param amountTradedToken amount of traded token which will be claimed into contract and adding as liquidity
      * @param amountReserveToken amount of reserve token which must be donate into contract by user and adding as liquidity
      */
-    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) public runOnlyOnce {
+    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) public onlyOwner runOnlyOnce {
         require(amountReserveToken <= ERC777(reserveToken).balanceOf(address(this)), "INSUFFICIENT_RESERVE");
         _claim(amountTradedToken, address(this));
 
@@ -243,7 +258,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
      * @param tradedTokenAmount amount of traded token to claim
      * @custom:calledby owner
      */
-    function claim(uint256 tradedTokenAmount) public onlyOwner {
+    function claim(uint256 tradedTokenAmount) public onlyManagers {
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, msg.sender);
     }
@@ -256,7 +271,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
      */
     function claim(uint256 tradedTokenAmount, address account)
         public
-        onlyOwner // or redeemer ?
+        onlyManagers
     {
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, account);
@@ -288,7 +303,7 @@ contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManage
      * @dev claims, sells, adds liquidity, sends LP to 0x0
      * @custom:calledby owner
      */
-    function addLiquidity(uint256 tradedTokenAmount) public onlyOwner {
+    function addLiquidity(uint256 tradedTokenAmount) public onlyManagers {
         singlePairSync();
 
         uint256 tradedReserve1;

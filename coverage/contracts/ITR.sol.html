@@ -151,13 +151,7 @@
 106
 107
 108
-109
-110
-111
-112
-113
-114
-115</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+109</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -204,14 +198,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9×</span>
@@ -240,15 +233,11 @@
 <span class="cline-any cline-yes">5×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3×</span>
 <span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -262,14 +251,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-yes">1×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: AGPL
 pragma solidity ^0.8.0;
@@ -282,116 +270,110 @@ import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 &nbsp;
 contract ITR is Ownable, ERC777 {
     using SafeMath for uint256;
-    
+&nbsp;
     address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
-    
-    uint256 internal constant WEEK = 604800;    // 7*24*60*60
-    uint256 internal constant MONTH = 2592000;  // 30*24*60*60  30 days
+&nbsp;
+    uint256 internal constant WEEK = 604800; // 7*24*60*60
+    uint256 internal constant MONTH = 2592000; // 30*24*60*60  30 days
     uint256 internal _maxTotalSupply = 200_000_000 * 10**18;
-    
+&nbsp;
     address _claimToken;
     uint256 public _claimDuration;
     uint256 public _claimFraction;
-    
+&nbsp;
     // this is the amount of ITR which can be sold before any percent restrictions kick in
     uint256 _claimExcepted;
-    
+&nbsp;
     // every _claimDuration this gets added to _claimFraction
     uint256 _claimGrowth;
-    
-	uint256 internal constant MULTIPLIER = 100000;
+&nbsp;
+    uint256 internal constant MULTIPLIER = 100000;
     uint256 private deployedTime;
-    
+&nbsp;
     // global restriction for claims
     uint256 internal _lastClaimedTime;
     uint256 internal _lastClaimedAmount;
-    
+&nbsp;
     constructor() ERC777("Intercoin Investor Token", "ITR", new address[](0)) {
-       init(
-		   200_000_000 * 10**18,
-		   0x6Ef5febbD2A56FAb23f18a69d3fB9F4E2A70440B,
-		   2000,
-		   MONTH,
-		   30000 * 10 **18,
-		   100
-	   );
+        init(200_000_000 * 10**18, 0x6Ef5febbD2A56FAb23f18a69d3fB9F4E2A70440B, 2000, MONTH, 30000 * 10**18, 100);
     }
 &nbsp;
-	function init(
-		uint256 maxTotalSupply, 
-		address claimToken, 
-		uint256 claimFraction,
-		uint256 claimDuration, 
-		uint256 claimExcepted, 
-		uint256 claimGrowth
-	) internal {
-		(_maxTotalSupply, _claimToken, _claimFraction, _claimDuration, _claimExcepted, _claimGrowth) = 
-		    (maxTotalSupply, claimToken, claimFraction, claimDuration, claimExcepted, claimGrowth);
-		
-		deployedTime = block.timestamp;
-	}
-    
+    function init(
+        uint256 maxTotalSupply,
+        address claimToken,
+        uint256 claimFraction,
+        uint256 claimDuration,
+        uint256 claimExcepted,
+        uint256 claimGrowth
+    ) internal {
+        (_maxTotalSupply, _claimToken, _claimFraction, _claimDuration, _claimExcepted, _claimGrowth) = (
+            maxTotalSupply,
+            claimToken,
+            claimFraction,
+            claimDuration,
+            claimExcepted,
+            claimGrowth
+        );
+&nbsp;
+        deployedTime = block.timestamp;
+    }
+&nbsp;
     // cap of total supply
-    function getMaxTotalSupply() public view returns(uint256) {
+    function getMaxTotalSupply() public view returns (uint256) {
         return _maxTotalSupply;
     }
-    
+&nbsp;
     // still available to claim
-<span class="fstat-no" title="function not covered" >    function totalRemaining() public view returns(uint256) {</span>
+<span class="fstat-no" title="function not covered" >    function totalRemaining() public view returns (uint256) {</span>
 <span class="cstat-no" title="statement not covered" >        return _maxTotalSupply.sub(totalSupply());</span>
     }
-	
-	// how much to claim
-	function getClaimFraction() public view returns (uint256) {
-		return _claimFraction.add(_claimGrowth.mul(getGrowthDurationsPassed()));
-	}
-    
-	// this function mints the tokens internally
+&nbsp;
+    // how much to claim
+    function getClaimFraction() public view returns (uint256) {
+        return _claimFraction.add(_claimGrowth.mul(getGrowthDurationsPassed()));
+    }
+&nbsp;
+    // this function mints the tokens internally
     function claim(address to) external {
         uint256 a = IERC20(_claimToken).balanceOf(to);
         uint256 b = IERC20(_claimToken).balanceOf(address(this));
 &nbsp;
         require(b &gt; 0, "nothing to claim");
-       
-        if ((b &gt; _claimExcepted) &amp;&amp; (b &gt; (
-			a.add(b).mul(getClaimFraction()).div(MULTIPLIER)
-		))) {
+&nbsp;
+        if ((b &gt; _claimExcepted) &amp;&amp; (b &gt; (a.add(b).mul(getClaimFraction()).div(MULTIPLIER)))) {
             revert("please claim less tokens per month");
         }
-         
-		// restrict global amounts transferred in each period
-        uint256 index = (block.timestamp)
-			.div(_claimDuration)
-			.mul(_claimDuration);
+&nbsp;
+        // restrict global amounts transferred in each period
+        uint256 index = (block.timestamp).div(_claimDuration).mul(_claimDuration);
         if (index == _lastClaimedTime) {
             _lastClaimedAmount = _lastClaimedAmount.add(b);
         } else {
             _lastClaimedTime = index;
             _lastClaimedAmount = b;
         }
-        
+&nbsp;
         require(
-            (_maxTotalSupply).mul(getClaimFraction()).div(MULTIPLIER) &gt;= _lastClaimedAmount, 
+            (_maxTotalSupply).mul(getClaimFraction()).div(MULTIPLIER) &gt;= _lastClaimedAmount,
             "please wait, too many tokens already claimed this month"
         );
-        
-        require(totalSupply().add(b) &lt;= _maxTotalSupply, 
-			"this would exceed maxTotalSupply");
+&nbsp;
+        require(totalSupply().add(b) &lt;= _maxTotalSupply, "this would exceed maxTotalSupply");
         _mint(to, b, "", "");
         IERC20(_claimToken).transfer(deadAddress, b);
-        
     }
-    
-    function getGrowthDurationsPassed() internal view returns(uint256) {
+&nbsp;
+    function getGrowthDurationsPassed() internal view returns (uint256) {
         return (block.timestamp.sub(deployedTime)).div(_claimDuration);
     }
-}</pre></td></tr>
+}
+&nbsp;</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Aug 24 2022 17:50:31 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Aug 24 2022 20:45:55 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>

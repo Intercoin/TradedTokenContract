@@ -113,18 +113,7 @@
 68
 69
 70
-71
-72
-73
-74
-75
-76
-77
-78
-79
-80
-81
-82</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+71</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -147,27 +136,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">75×</span>
+<span class="cline-any cline-yes">75×</span>
+<span class="cline-any cline-yes">75×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">69×</span>
-<span class="cline-any cline-yes">69×</span>
-<span class="cline-any cline-yes">69×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">69×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">75×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23×</span>
+<span class="cline-any cline-yes">23×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21×</span>
-<span class="cline-any cline-yes">21×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21×</span>
+<span class="cline-any cline-yes">23×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -183,18 +167,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23×</span>
+<span class="cline-any cline-yes">23×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21×</span>
-<span class="cline-any cline-yes">21×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -217,7 +195,6 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 //import "hardhat/console.sol";
 &nbsp;
 contract Liquidity is IERC777Recipient {
-&nbsp;
     address internal immutable token0;
     address internal immutable token1;
     address internal immutable uniswapRouter;
@@ -235,16 +212,12 @@ contract Liquidity is IERC777Recipient {
 &nbsp;
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
-        
     }
 &nbsp;
     /**
-    * adding liquidity for all available balance
-    */
-    function addLiquidity(
-    )
-        external 
-    {
+     * adding liquidity for all available balance
+     */
+    function addLiquidity() external {
         uint256 token0Amount = IERC20(token0).balanceOf(address(this));
         uint256 token1Amount = IERC20(token1).balanceOf(address(this));
 &nbsp;
@@ -258,41 +231,35 @@ contract Liquidity is IERC777Recipient {
         uint256 amount,
         bytes calldata userData,
         bytes calldata operatorData
-    ) external {
-       
-    }
+    ) external {}
 &nbsp;
     /**
-    * approve tokens to uniswap router obtain LP tokens and move to zero address
-    */
-    function _addLiquidity(
-        uint256 token0Amount,
-        uint256 token1Amount
-    )
-        internal
-    {
+     * approve tokens to uniswap router obtain LP tokens and move to zero address
+     */
+    function _addLiquidity(uint256 token0Amount, uint256 token1Amount) internal {
         IERC20(token0).approve(address(uniswapRouter), token0Amount);
         IERC20(token1).approve(address(uniswapRouter), token1Amount);
 &nbsp;
-         //(/* uint256 A*/, /*uint256 B*/, /*uint256 lpTokens*/) = 
-         IUniswapV2Router02(uniswapRouter).addLiquidity(
+        //(/* uint256 A*/, /*uint256 B*/, /*uint256 lpTokens*/) =
+        IUniswapV2Router02(uniswapRouter).addLiquidity(
             token0,
             token1,
             token0Amount,
             token1Amount,
             0, // there may be some slippage
             0, // there may be some slippage
-            address(0), 
+            address(0),
             block.timestamp
         );
     }
-}</pre></td></tr>
+}
+&nbsp;</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Aug 24 2022 17:50:31 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Aug 24 2022 20:45:55 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>

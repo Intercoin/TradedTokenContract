@@ -34,9 +34,7 @@ describe("mainInstance", function () {
     const alice = accounts[1];
     const bob = accounts[2];
     const charlie = accounts[3];
-    const commissionReceiver = accounts[4];
-    const liquidityHolder = accounts[5];
-
+    
     const HOUR = 60*60; // * interval: HOUR in seconds
     const DAY = 24*HOUR; // * interval: DAY in seconds
 
@@ -277,24 +275,38 @@ describe("mainInstance", function () {
                 it("should claim", async() => {
                     await expect(
                         mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
-                    ).to.be.revertedWith("Ownable: caller is not the owner");
+                    ).to.be.revertedWith("MANAGERS_ONLY");
 
                     await expect(
                         mainInstance.connect(bob)["claim(uint256,address)"](ONE_ETH,bob.address)
-                    ).to.be.revertedWith("Ownable: caller is not the owner");
+                    ).to.be.revertedWith("MANAGERS_ONLY");
 
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
+                });
+                
+                it("should addManagers", async() => {
+                    await expect(
+                        mainInstance.connect(bob).addManagers(charlie.address)
+                    ).to.be.revertedWith("MANAGERS_ONLY");
+                    await mainInstance.connect(owner).addManagers(bob.address);
+                    await mainInstance.connect(bob).addManagers(charlie.address);
+                });
+
+                it("should claim by managers", async() => {
+                    await mainInstance.connect(owner).addManagers(bob.address);
+                    await mainInstance.connect(bob)["claim(uint256)"](ONE_ETH);
+                    expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH);
                 });
 
                 it("shouldnt `claim` if the price has become lower than minClaimPrice", async() => {
                     await expect(
                         mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
-                    ).to.be.revertedWith("Ownable: caller is not the owner");
+                    ).to.be.revertedWith("MANAGERS_ONLY");
 
                     await expect(
                         mainInstance.connect(bob)["claim(uint256,address)"](ONE_ETH,bob.address)
-                    ).to.be.revertedWith("Ownable: caller is not the owner");
+                    ).to.be.revertedWith("MANAGERS_ONLY");
 
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
