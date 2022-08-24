@@ -20,9 +20,9 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>0/13</span>
+        <span class='fraction'>13/13</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -30,18 +30,18 @@
         <span class='fraction'>0/0</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>0/5</span>
+        <span class='fraction'>5/5</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>0/13</span>
+        <span class='fraction'>13/13</span>
       </div>
     </div>
   </div>
-  <div class='status-line low'></div>
+  <div class='status-line high'></div>
 <pre><table class="coverage">
 <tr><td class="line-count quiet">1
 2
@@ -120,11 +120,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -139,26 +139,26 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
@@ -169,7 +169,7 @@ import "../ITR.sol";
 contract ITRMock is ITR {
    
     
-<span class="fstat-no" title="function not covered" >    function setClaimData(</span>
+    function setClaimData(
         address addr,
         uint256 duration,
         uint256 fraction,
@@ -179,14 +179,14 @@ contract ITRMock is ITR {
         public 
     {
         
-<span class="cstat-no" title="statement not covered" >        _claimToken = addr</span>;
-<span class="cstat-no" title="statement not covered" >        _claimDuration = duration</span>;
-<span class="cstat-no" title="statement not covered" >        _claimFraction = fraction</span>;
-<span class="cstat-no" title="statement not covered" >        _claimExcepted = excepted</span>;
-<span class="cstat-no" title="statement not covered" >        _claimGrowth = growth</span>;
+        _claimToken = addr;
+        _claimDuration = duration;
+        _claimFraction = fraction;
+        _claimExcepted = excepted;
+        _claimGrowth = growth;
     }
     
-<span class="fstat-no" title="function not covered" >    function getClaimData(</span>
+    function getClaimData(
     ) 
         public
         view
@@ -198,26 +198,26 @@ contract ITRMock is ITR {
             uint256 growth
         )
     {
-<span class="cstat-no" title="statement not covered" >        addr = _claimToken</span>;
-<span class="cstat-no" title="statement not covered" >        duration = _claimDuration</span>;
-<span class="cstat-no" title="statement not covered" >        fraction = _claimFraction</span>;
-<span class="cstat-no" title="statement not covered" >        excepted = _claimExcepted</span>;
-<span class="cstat-no" title="statement not covered" >        growth = _claimGrowth</span>;
+        addr = _claimToken;
+        duration = _claimDuration;
+        fraction = _claimFraction;
+        excepted = _claimExcepted;
+        growth = _claimGrowth;
     }
     
-<span class="fstat-no" title="function not covered" >    function getCurrentClaimedAmount() public view returns(uint256) {</span>
-<span class="cstat-no" title="statement not covered" >        return _lastClaimedAmount;</span>
+    function getCurrentClaimedAmount() public view returns(uint256) {
+        return _lastClaimedAmount;
     }
-<span class="fstat-no" title="function not covered" >    function setCurrentClaimedAmount(uint256 input) public {</span>
-<span class="cstat-no" title="statement not covered" >        _lastClaimedAmount = input</span>;
+    function setCurrentClaimedAmount(uint256 input) public {
+        _lastClaimedAmount = input;
     }
     
     // function getMaxTotalSupply() public view returns(uint256) {
     //     return _maxTotalSupply;
     // }
     
-<span class="fstat-no" title="function not covered" >    function setMaxTotalSupply(uint256 input) public {</span>
-<span class="cstat-no" title="statement not covered" >        _maxTotalSupply = input</span>;
+    function setMaxTotalSupply(uint256 input) public {
+        _maxTotalSupply = input;
     }
     
 }</pre></td></tr>
@@ -226,7 +226,7 @@ contract ITRMock is ITR {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Aug 24 2022 16:55:41 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Aug 24 2022 17:50:31 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../../prettify.js"></script>
