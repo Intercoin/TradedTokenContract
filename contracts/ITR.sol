@@ -10,8 +10,7 @@ import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 contract ITR is Ownable, ERC777 {
     using SafeMath for uint256;
 
-    address private constant deadAddress =
-        0x000000000000000000000000000000000000dEaD;
+    address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
 
     uint256 internal constant WEEK = 604800; // 7*24*60*60
     uint256 internal constant MONTH = 2592000; // 30*24*60*60  30 days
@@ -35,14 +34,7 @@ contract ITR is Ownable, ERC777 {
     uint256 internal _lastClaimedAmount;
 
     constructor() ERC777("Intercoin Investor Token", "ITR", new address[](0)) {
-        init(
-            200_000_000 * 10**18,
-            0x6Ef5febbD2A56FAb23f18a69d3fB9F4E2A70440B,
-            2000,
-            MONTH,
-            30000 * 10**18,
-            100
-        );
+        init(200_000_000 * 10**18, 0x6Ef5febbD2A56FAb23f18a69d3fB9F4E2A70440B, 2000, MONTH, 30000 * 10**18, 100);
     }
 
     function init(
@@ -53,14 +45,7 @@ contract ITR is Ownable, ERC777 {
         uint256 claimExcepted,
         uint256 claimGrowth
     ) internal {
-        (
-            _maxTotalSupply,
-            _claimToken,
-            _claimFraction,
-            _claimDuration,
-            _claimExcepted,
-            _claimGrowth
-        ) = (
+        (_maxTotalSupply, _claimToken, _claimFraction, _claimDuration, _claimExcepted, _claimGrowth) = (
             maxTotalSupply,
             claimToken,
             claimFraction,
@@ -94,17 +79,12 @@ contract ITR is Ownable, ERC777 {
 
         require(b > 0, "nothing to claim");
 
-        if (
-            (b > _claimExcepted) &&
-            (b > (a.add(b).mul(getClaimFraction()).div(MULTIPLIER)))
-        ) {
+        if ((b > _claimExcepted) && (b > (a.add(b).mul(getClaimFraction()).div(MULTIPLIER)))) {
             revert("please claim less tokens per month");
         }
 
         // restrict global amounts transferred in each period
-        uint256 index = (block.timestamp).div(_claimDuration).mul(
-            _claimDuration
-        );
+        uint256 index = (block.timestamp).div(_claimDuration).mul(_claimDuration);
         if (index == _lastClaimedTime) {
             _lastClaimedAmount = _lastClaimedAmount.add(b);
         } else {
@@ -113,15 +93,11 @@ contract ITR is Ownable, ERC777 {
         }
 
         require(
-            (_maxTotalSupply).mul(getClaimFraction()).div(MULTIPLIER) >=
-                _lastClaimedAmount,
+            (_maxTotalSupply).mul(getClaimFraction()).div(MULTIPLIER) >= _lastClaimedAmount,
             "please wait, too many tokens already claimed this month"
         );
 
-        require(
-            totalSupply().add(b) <= _maxTotalSupply,
-            "this would exceed maxTotalSupply"
-        );
+        require(totalSupply().add(b) <= _maxTotalSupply, "this would exceed maxTotalSupply");
         _mint(to, b, "", "");
         IERC20(_claimToken).transfer(deadAddress, b);
     }

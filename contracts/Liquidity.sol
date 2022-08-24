@@ -13,10 +13,8 @@ contract Liquidity is IERC777Recipient {
     address internal immutable token0;
     address internal immutable token1;
     address internal immutable uniswapRouter;
-    IERC1820Registry internal constant _ERC1820_REGISTRY =
-        IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
-    bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH =
-        keccak256("ERC777TokensRecipient");
+    IERC1820Registry internal constant _ERC1820_REGISTRY = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+    bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
     constructor(
         address token0_,
@@ -28,11 +26,7 @@ contract Liquidity is IERC777Recipient {
         uniswapRouter = uniswapRouter_;
 
         // register interfaces
-        _ERC1820_REGISTRY.setInterfaceImplementer(
-            address(this),
-            _TOKENS_RECIPIENT_INTERFACE_HASH,
-            address(this)
-        );
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
 
     /**
@@ -57,9 +51,7 @@ contract Liquidity is IERC777Recipient {
     /**
      * approve tokens to uniswap router obtain LP tokens and move to zero address
      */
-    function _addLiquidity(uint256 token0Amount, uint256 token1Amount)
-        internal
-    {
+    function _addLiquidity(uint256 token0Amount, uint256 token1Amount) internal {
         IERC20(token0).approve(address(uniswapRouter), token0Amount);
         IERC20(token1).approve(address(uniswapRouter), token1Amount);
 

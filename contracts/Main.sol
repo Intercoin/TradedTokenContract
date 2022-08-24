@@ -17,13 +17,7 @@ import "./Liquidity.sol";
 
 import "hardhat/console.sol";
 
-contract Main is
-    Ownable,
-    IERC777Recipient,
-    IERC777Sender,
-    ERC777,
-    ExecuteManager
-{
+contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
     using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
 
@@ -38,13 +32,10 @@ contract Main is
         FixedPoint.uq112x112 price0Average;
     }
 
-    bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH =
-        keccak256("ERC777TokensSender");
-    bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH =
-        keccak256("ERC777TokensRecipient");
+    bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
+    bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
-    address private constant deadAddress =
-        0x000000000000000000000000000000000000dEaD;
+    address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
 
     /**
      * @custom:shortd traded token address
@@ -143,32 +134,18 @@ contract Main is
         minClaimPrice.numerator = minClaimPrice_.numerator;
         minClaimPrice.denominator = minClaimPrice_.denominator;
         externalToken = externalToken_;
-        externalTokenExchangePrice.numerator = externalTokenExchangePrice_
-            .numerator;
-        externalTokenExchangePrice.denominator = externalTokenExchangePrice_
-            .denominator;
+        externalTokenExchangePrice.numerator = externalTokenExchangePrice_.numerator;
+        externalTokenExchangePrice.denominator = externalTokenExchangePrice_.denominator;
 
         // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib
-            .netWorkSettings();
+        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
 
         // register interfaces
-        _ERC1820_REGISTRY.setInterfaceImplementer(
-            address(this),
-            _TOKENS_SENDER_INTERFACE_HASH,
-            address(this)
-        );
-        _ERC1820_REGISTRY.setInterfaceImplementer(
-            address(this),
-            _TOKENS_RECIPIENT_INTERFACE_HASH,
-            address(this)
-        );
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
 
         //create Pair
-        uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).createPair(
-            tradedToken,
-            reserveToken
-        );
+        uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).createPair(tradedToken, reserveToken);
         require(uniswapV2Pair != address(0), "can't create pair");
 
         startupTimestamp = currentBlockTimestamp();
@@ -179,17 +156,11 @@ contract Main is
         //     token01 = true;
         // }
         // but can do if use ternary operator :)
-        token01 = (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken)
-            ? true
-            : false;
+        token01 = (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) ? true : false;
 
         // IUniswapV2Pair(uniswapV2Pair).sync(); !!!! not created yet
 
-        internalLiquidity = new Liquidity(
-            tradedToken,
-            reserveToken,
-            uniswapRouter
-        );
+        internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapRouter);
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -247,24 +218,12 @@ contract Main is
      * @param amountTradedToken amount of traded token which will be claimed into contract and adding as liquidity
      * @param amountReserveToken amount of reserve token which must be donate into contract by user and adding as liquidity
      */
-    function addInitialLiquidity(
-        uint256 amountTradedToken,
-        uint256 amountReserveToken
-    ) public runOnlyOnce {
-        require(
-            amountReserveToken <= ERC777(reserveToken).balanceOf(address(this)),
-            "reserveAmount is insufficient"
-        );
+    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) public runOnlyOnce {
+        require(amountReserveToken <= ERC777(reserveToken).balanceOf(address(this)), "INSUFFICIENT_RESERVE");
         _claim(amountTradedToken, address(this));
 
-        ERC777(tradedToken).transfer(
-            address(internalLiquidity),
-            amountTradedToken
-        );
-        ERC777(reserveToken).transfer(
-            address(internalLiquidity),
-            amountReserveToken
-        );
+        ERC777(tradedToken).transfer(address(internalLiquidity), amountTradedToken);
+        ERC777(reserveToken).transfer(address(internalLiquidity), amountReserveToken);
 
         internalLiquidity.addLiquidity();
 
@@ -308,24 +267,16 @@ contract Main is
      * @param externalTokenAmount amount of external token to claim traded token
      * @param account address to claim for
      */
-    function claimViaExternal(uint256 externalTokenAmount, address account)
-        public
-    {
-        require(externalToken != address(0), "externalToken is not set");
+    function claimViaExternal(uint256 externalTokenAmount, address account) public {
+        require(externalToken != address(0), "EMPTY_EXTERNALTOKEN");
         require(
-            externalTokenAmount <=
-                ERC777(externalToken).allowance(msg.sender, address(this)),
-            "insufficient amount in allowance"
+            externalTokenAmount <= ERC777(externalToken).allowance(msg.sender, address(this)),
+            "INSUFFICIENT_AMOUNT"
         );
 
-        ERC777(externalToken).transferFrom(
-            msg.sender,
-            deadAddress,
-            externalTokenAmount
-        );
+        ERC777(externalToken).transferFrom(msg.sender, deadAddress, externalTokenAmount);
 
-        uint256 tradedTokenAmount = (externalTokenAmount *
-            externalTokenExchangePrice.numerator) /
+        uint256 tradedTokenAmount = (externalTokenAmount * externalTokenExchangePrice.numerator) /
             externalTokenExchangePrice.denominator;
 
         _validateClaim(tradedTokenAmount);
@@ -356,10 +307,7 @@ contract Main is
 
         bool err;
 
-        if (
-            tradedReserve1 < tradedReserve2 &&
-            tradedTokenAmount <= (tradedReserve2 - tradedReserve1)
-        ) {
+        if (tradedReserve1 < tradedReserve2 && tradedTokenAmount <= (tradedReserve2 - tradedReserve1)) {
             err = false;
         } else {
             err = true;
@@ -371,30 +319,20 @@ contract Main is
                 tradedTokenAmount = tradedReserve2 - tradedReserve1;
             }
 
-            (
-                rTraded,
-                rReserved,
-                traded2Swap,
-                traded2Liq,
-                reserved2Liq
-            ) = _calculateSellTradedAndLiquidity(tradedTokenAmount);
+            (rTraded, rReserved, traded2Swap, traded2Liq, reserved2Liq) = _calculateSellTradedAndLiquidity(
+                tradedTokenAmount
+            );
 
             averageWithPriceDrop = (
                 FixedPoint
                     .uq112x112(uint224(priceAverageData))
-                    .muluq(
-                        FixedPoint.encode(
-                            uint112(uint256(FRACTION) - priceDrop)
-                        )
-                    )
+                    .muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)))
                     .muluq(FixedPoint.fraction(1, FRACTION))
             );
 
             // "new_current_price" should be more than "average_price(1-price_drop)"
             if (
-                FixedPoint
-                    .fraction(rReserved, rTraded + traded2Swap + traded2Liq)
-                    ._x <=
+                FixedPoint.fraction(rReserved, rTraded + traded2Swap + traded2Liq)._x <=
                 // (
                 //     FixedPoint.uq112x112(uint224(priceAverageData)).muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).muluq(FixedPoint.fraction(1, FRACTION))
                 // )._x
@@ -436,18 +374,6 @@ contract Main is
         address to,
         uint256 amount
     ) internal virtual override {
-        // owner - contract main
-        // real owner User
-        // console.log("======================");
-        // console.log("                                   address               [isAdmin] [isOwner]");
-        // console.log("operator       = ", operator, hasRole(DEFAULT_ADMIN_ROLE,operator), hasRole(CLAIM_ROLE,operator));
-        // console.log("from           = ", from, hasRole(DEFAULT_ADMIN_ROLE,from), hasRole(CLAIM_ROLE,from));
-        // console.log("to             = ", to, hasRole(DEFAULT_ADMIN_ROLE,to), hasRole(CLAIM_ROLE,to));
-        // console.log("----------------------");
-        // console.log("address(this)  = ", address(this), hasRole(DEFAULT_ADMIN_ROLE,address(this)), hasRole(CLAIM_ROLE,address(this)));
-        // console.log("owner()        = ", owner(), hasRole(DEFAULT_ADMIN_ROLE,owner()), hasRole(CLAIM_ROLE,owner()));
-        // console.log("uniswapRouter  = ", uniswapRouter, hasRole(DEFAULT_ADMIN_ROLE,uniswapRouter), hasRole(CLAIM_ROLE,uniswapRouter));
-
         if (
             // if minted
             (from == address(0)) ||
@@ -458,7 +384,7 @@ contract Main is
         } else {
             uint256 balance = balanceOf(from);
             uint256 locked = tokensLocked[from]._getMinimum();
-            require(balance - locked >= amount, "insufficient amount");
+            require(balance - locked >= amount, "INSUFFICIENT_AMOUNT");
         }
     }
 
@@ -477,24 +403,18 @@ contract Main is
         return super.transferFrom(holder, recipient, amount);
     }
 
-    function transfer(address recipient, uint256 amount)
-        public
-        virtual
-        override
-        returns (bool)
-    {
-        address from = _msgSender();
-        address to = recipient;
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        //address from = _msgSender();
 
         // inject into transfer and burn tax from sender
         // two ways:
         // 1. make calculations, burn taxes from sender and do transaction with substracted values
-        if (uniswapV2Pair == from) {
+        if (uniswapV2Pair == _msgSender()) {
             uint256 taxAmount = (amount * buyTax) / FRACTION;
 
             if (taxAmount != 0) {
                 amount -= taxAmount;
-                _burn(from, taxAmount, "", "");
+                _burn(_msgSender(), taxAmount, "", "");
             }
         }
         return super.transfer(recipient, amount);
@@ -524,11 +444,7 @@ contract Main is
             uint32
         )
     {
-        (
-            uint112 reserve0,
-            uint112 reserve1,
-            uint32 blockTimestampLast
-        ) = IUniswapV2Pair(uniswapV2Pair).getReserves();
+        (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(uniswapV2Pair).getReserves();
         require(reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
 
         if (token01) {
@@ -545,10 +461,8 @@ contract Main is
         price should be less than minClaimPrice
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
-        (uint112 _reserve0, uint112 _reserve1, ) = IUniswapV2Pair(uniswapV2Pair)
-            .getReserves();
-        uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed +
-                tradedTokenAmount;
+        (uint112 _reserve0, uint112 _reserve1, ) = IUniswapV2Pair(uniswapV2Pair).getReserves();
+        uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
         uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
             currentIterationTotalCumulativeClaimed,
@@ -556,22 +470,12 @@ contract Main is
             _reserve1
         );
 
-        require(amountOut > 0, "errors in claim validation");
+        require(amountOut > 0, "CLAIM_VALIDATION_ERROR");
 
         require(
-            FixedPoint
-                .fraction(
-                    _reserve1 - amountOut,
-                    _reserve0 + currentIterationTotalCumulativeClaimed
-                )
-                ._x >
-                FixedPoint
-                    .fraction(
-                        minClaimPrice.numerator,
-                        minClaimPrice.denominator
-                    )
-                    ._x,
-            "price after claim is lower than minClaimPrice"
+            FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + currentIterationTotalCumulativeClaimed)._x >
+                FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x,
+            "PRICE_HAS_BECOME_A_LOWER_THAN_MINCLAIMPRICE"
         );
     }
 
@@ -587,12 +491,7 @@ contract Main is
         // - owner(because it's owner)
         // - current contract(because do sell traded tokens and add liquidity)
         if (_msgSender() != owner() && _msgSender() != address(this)) {
-            tokensLocked[account]._minimumsAdd(
-                tradedTokenAmount,
-                lockupIntervalAmount,
-                LOCKUP_INTERVAL,
-                true
-            );
+            tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupIntervalAmount, LOCKUP_INTERVAL, true);
         }
     }
 
@@ -606,24 +505,20 @@ contract Main is
         uint256 amountIn,
         address beneficiary
     ) internal returns (uint256 amountOut) {
-        require(
-            ERC777(tokenIn).approve(address(uniswapRouter), amountIn),
-            "APPROVE_FAILED"
-        );
+        require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
 
         address[] memory path = new address[](2);
         path[0] = address(tokenIn);
         path[1] = address(tokenOut);
         // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
 
-        uint256[] memory outputAmounts = IUniswapV2Router02(uniswapRouter)
-            .swapExactTokensForTokens(
-                amountIn,
-                0,
-                path,
-                beneficiary,
-                block.timestamp
-            );
+        uint256[] memory outputAmounts = IUniswapV2Router02(uniswapRouter).swapExactTokensForTokens(
+            amountIn,
+            0,
+            path,
+            beneficiary,
+            block.timestamp
+        );
 
         amountOut = outputAmounts[1];
     }
@@ -631,32 +526,20 @@ contract Main is
     /**
      * @notice
      */
-    function tradedAveragePrice()
-        internal
-        view
-        returns (FixedPoint.uq112x112 memory)
-    {
+    function tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
         uint64 blockTimestamp = currentBlockTimestamp();
-        uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair)
-            .price0CumulativeLast();
+        uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
-        uint64 windowSize = ((blockTimestamp - startupTimestamp) *
-            averagePriceWindow) / FRACTION;
+        uint64 windowSize = ((blockTimestamp - startupTimestamp) * averagePriceWindow) / FRACTION;
 
-        if (
-            timeElapsed > windowSize &&
-            timeElapsed > 0 &&
-            price0Cumulative > pairObservation.price0CumulativeLast
-        ) {
+        if (timeElapsed > windowSize && timeElapsed > 0 && price0Cumulative > pairObservation.price0CumulativeLast) {
             // console.log("timeElapsed > windowSize && timeElapsed>0");
             // console.log("price0Cumulative                       =", price0Cumulative);
             // console.log("pairObservation.price0CumulativeLast   =", pairObservation.price0CumulativeLast);
             // console.log("timeElapsed                            =", timeElapsed);
             return
                 FixedPoint.uq112x112(
-                    uint224(
-                        price0Cumulative - pairObservation.price0CumulativeLast
-                    ) / uint224(timeElapsed)
+                    uint224(price0Cumulative - pairObservation.price0CumulativeLast) / uint224(timeElapsed)
                 );
         } else {
             //use stored
@@ -668,19 +551,13 @@ contract Main is
         uint64 blockTimestamp = currentBlockTimestamp();
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
 
-        uint64 windowSize = ((blockTimestamp - startupTimestamp) *
-            averagePriceWindow) / FRACTION;
+        uint64 windowSize = ((blockTimestamp - startupTimestamp) * averagePriceWindow) / FRACTION;
 
         if (timeElapsed > windowSize && timeElapsed > 0) {
-            uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair)
-                .price0CumulativeLast();
+            uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
 
             pairObservation.price0Average = FixedPoint
-                .uq112x112(
-                    uint224(
-                        price0Cumulative - pairObservation.price0CumulativeLast
-                    )
-                )
+                .uq112x112(uint224(price0Cumulative - pairObservation.price0CumulativeLast))
                 .divuq(FixedPoint.encode(timeElapsed));
             pairObservation.price0CumulativeLast = price0Cumulative;
 
@@ -705,33 +582,17 @@ contract Main is
 
         ) = _uniswapReserves();
 
-        traded2Swap =
-            sqrt((rTraded + incomingTradedToken) * (rTraded)) -
-            rTraded; //
-        require(
-            traded2Swap > 0 && incomingTradedToken > traded2Swap,
-            "BAD_AMOUNT"
-        );
+        traded2Swap = sqrt((rTraded + incomingTradedToken) * (rTraded)) - rTraded; //
+        require(traded2Swap > 0 && incomingTradedToken > traded2Swap, "BAD_AMOUNT");
 
-        reserved2Liq = IUniswapV2Router02(uniswapRouter).getAmountOut(
-            traded2Swap,
-            rTraded,
-            rReserved
-        );
+        reserved2Liq = IUniswapV2Router02(uniswapRouter).getAmountOut(traded2Swap, rTraded, rReserved);
         traded2Liq = incomingTradedToken - traded2Swap;
     }
 
-    function _doSellTradedAndLiquidity(uint256 traded2Swap, uint256 traded2Liq)
-        internal
-    {
+    function _doSellTradedAndLiquidity(uint256 traded2Swap, uint256 traded2Liq) internal {
         // claim to address(this) necessary amount to swap from traded to reserved tokens
         _mint(address(this), traded2Swap, "", "");
-        doSwapOnUniswap(
-            tradedToken,
-            reserveToken,
-            traded2Swap,
-            address(internalLiquidity)
-        );
+        doSwapOnUniswap(tradedToken, reserveToken, traded2Swap, address(internalLiquidity));
 
         // mint that left to  internalLiquidity contract
         _mint(address(internalLiquidity), traded2Liq, "", "");
@@ -760,18 +621,12 @@ contract Main is
 
         FixedPoint.uq112x112 memory priceAverageData = tradedAveragePrice();
 
-        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(
-            uint112(sqrt(reserve0))
-        );
-        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(
-            uint112(sqrt(reserve1))
-        );
+        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(sqrt(reserve0)));
+        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(sqrt(reserve1)));
         FixedPoint.uq112x112 memory q3 = (
-            priceAverageData
-                .muluq(
-                    FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))
-                )
-                .muluq(FixedPoint.fraction(1, FRACTION))
+            priceAverageData.muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).muluq(
+                FixedPoint.fraction(1, FRACTION)
+            )
         ).sqrt();
         //FixedPoint.uq112x112 memory q4 = FixedPoint.encode(uint112(1)).divuq(q3);
 
@@ -780,10 +635,9 @@ contract Main is
         //traded1 * reserve1*(1/(priceaverage*pricedrop))
 
         uint256 reserve0New = (
-            q1
-                .muluq(q2)
-                .muluq(FixedPoint.encode(uint112(sqrt(FRACTION))))
-                .muluq(FixedPoint.encode(uint112(1)).divuq(q3))
+            q1.muluq(q2).muluq(FixedPoint.encode(uint112(sqrt(FRACTION)))).muluq(
+                FixedPoint.encode(uint112(1)).divuq(q3)
+            )
         ).decode();
 
         return (reserve0, reserve0New, priceAverageData._x);

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 abstract contract ExecuteManager {
-
     uint8 private runOnlyOnceFlag;
 
     modifier runOnlyOnce() {
@@ -11,4 +10,3 @@ abstract contract ExecuteManager {
         _;
     }
 }
-    
