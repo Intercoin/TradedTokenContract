@@ -12,12 +12,12 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./libs/SwapSettingsLib.sol";
 import "./libs/FixedPoint.sol";
 import "./minimums/libs/MinimumsLib.sol";
-import "./ExecuteManager.sol";
-import "./Liquidity.sol";
+import "./helpers/ExecuteManager.sol";
+import "./helpers/Liquidity.sol";
 
 //import "hardhat/console.sol";
 
-contract Main is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
+contract TradedTokenContract is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
     using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
 

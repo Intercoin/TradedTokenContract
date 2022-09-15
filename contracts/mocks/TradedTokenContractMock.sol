@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL
 pragma solidity ^0.8.15;
 
-import "../Main.sol";
+import "../TradedTokenContract.sol";
 
-contract MainMock is Main {
+contract TradedTokenContractMock is TradedTokenContract {
 
     using FixedPoint for *;
  
@@ -18,7 +18,7 @@ contract MainMock is Main {
         PriceNumDen memory externalTokenExchangePrice_,
         uint256 buyTaxMax_,
         uint256 sellTaxMax_
-    ) Main(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_, buyTaxMax_, sellTaxMax_)
+    ) TradedTokenContract(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_, buyTaxMax_, sellTaxMax_)
     {
     }
 

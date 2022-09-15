@@ -27,7 +27,7 @@ const FRACTION = BigNumber.from('10000');
 
 chai.use(require('chai-bignumber')());
 
-describe("mainInstance", function () {
+describe("TradedTokenContractInstance", function () {
     const accounts = waffle.provider.getWallets();
 
     const owner = accounts[0];                     
@@ -79,7 +79,7 @@ describe("mainInstance", function () {
                 
 
     beforeEach("deploying", async() => {
-        MainFactory = await ethers.getContractFactory("MainMock");
+        MainFactory = await ethers.getContractFactory("TradedTokenContractMock");
         
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
     });
