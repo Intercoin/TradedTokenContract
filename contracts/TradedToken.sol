@@ -17,7 +17,7 @@ import "./helpers/Liquidity.sol";
 
 //import "hardhat/console.sol";
 
-contract TradedTokenContract is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
+contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
     using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
 

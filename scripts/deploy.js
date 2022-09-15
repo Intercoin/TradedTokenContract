@@ -74,7 +74,7 @@ sellTaxMax: 10000 (10%)
 
 	console.log("Account balance:", (await deployer.getBalance()).toString());
 
-	const MainF = await ethers.getContractFactory("Main");
+	const MainF = await ethers.getContractFactory("TradedToken");
 
 	this.instance = await MainF.connect(deployer).deploy(...params);
 
