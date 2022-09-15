@@ -20,6 +20,7 @@ const bscURL = 'https://bsc-dataseed.binance.org' //`https://eth-rinkeby.alchemy
 const bsctestURL = 'https://data-seed-prebsc-1-s1.binance.org:8545';
 const mainnetURL = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_MAINNET}`
 const maticURL = `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
+const mumbaiURL = `https://matic-mumbai.chainstacklabs.com`;
 
 
 module.exports = {
@@ -35,49 +36,56 @@ module.exports = {
       url: kovanURL,
       chainId: 42,
       gas: 12000000,
-      accounts: {mnemonic: process.env.MNEMONIC},
+      accounts: [process.env.private_key],
       saveDeployments: true
     },
     goerli: {
       url: goerliURL,
       chainId: 5,
       gasPrice: 1000,
-      accounts: {mnemonic: process.env.MNEMONIC},
+      accounts: [process.env.private_key],
       saveDeployments: true
     },
     rinkeby: {
       url: rinkebyURL,
       chainId: 4,
       gasPrice: "auto",
-      accounts: {mnemonic: process.env.MNEMONIC},
+      accounts: [process.env.private_key],
       saveDeployments: true
     },
     bsc: {
       url: bscURL,
       chainId: 56,
       gasPrice: "auto",
-      accounts: {mnemonic: process.env.MNEMONIC},
+      accounts: [process.env.private_key],
       saveDeployments: true
     },
     bsctest: {
       url: bsctestURL,
       chainId: 97,
       gasPrice: "auto",
-      accounts: {mnemonic: process.env.MNEMONIC},
+      accounts: [process.env.private_key],
       saveDeployments: true
     },
     matic: {
       url: maticURL,
       chainId: 137,
       gasPrice: "auto",
-      accounts: {mnemonic: process.env.MNEMONIC},
+      accounts: [process.env.private_key],
+      saveDeployments: true
+    },
+    mumbai: { // matic test
+      url: mumbaiURL,
+      chainId: 80001,
+      gasPrice: "auto",
+      accounts: [process.env.private_key],
       saveDeployments: true
     },
     mainnet: {
       url: mainnetURL,
       chainId: 1,
       gasPrice: 20000000000,
-      accounts: {mnemonic: process.env.MNEMONIC},
+      accounts: [process.env.private_key],
       saveDeployments: true
     }
   },
@@ -93,9 +101,9 @@ module.exports = {
     currency: "USD"
   },
   etherscan: {
-    //apiKey: process.env.MATIC_API_KEY  
+    apiKey: process.env.MATIC_API_KEY  
     //apiKey: process.env.ETHERSCAN_API_KEY
-    apiKey: process.env.BSCSCAN_API_KEY
+    //apiKey: process.env.BSCSCAN_API_KEY
   },
   solidity: {
     compilers: [
