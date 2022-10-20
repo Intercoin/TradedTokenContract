@@ -14,12 +14,11 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./libs/SwapSettingsLib.sol";
 import "./libs/FixedPoint.sol";
 import "./minimums/libs/MinimumsLib.sol";
-import "./helpers/ExecuteManager.sol";
 import "./helpers/Liquidity.sol";
 
 import "hardhat/console.sol";
 
-contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager, ReentrancyGuard {
+contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
     using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
     using SafeERC20 for ERC777;
@@ -100,10 +99,31 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
 
     mapping(address => uint64) internal managers;
 
+    bool private addedInitialLiquidityRun;
+
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
+
+    error AlreadyCalled();
+    error InitialLiquidityRequired();
 
     modifier onlyManagers() {
         require(owner() == _msgSender() || managers[_msgSender()] != 0, "MANAGERS_ONLY");
+        _;
+    }
+
+    modifier runOnlyOnce() {
+        //require(addedInitialLiquidityRun == false, "already called");
+        if (addedInitialLiquidityRun == true) {
+            revert AlreadyCalled();
+        }
+        addedInitialLiquidityRun = true;
+        _;
+    }
+
+    modifier initialLiquidityRequired() {
+        if (addedInitialLiquidityRun == false) {
+            revert InitialLiquidityRequired();
+        }
         _;
     }
 
@@ -131,6 +151,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         uint256 buyTaxMax_,
         uint256 sellTaxMax_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
+
+        addedInitialLiquidityRun = false;
+
         buyTaxMax = buyTaxMax_;
         sellTaxMax = sellTaxMax_;
 
@@ -306,7 +329,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
      * @dev claims, sells, adds liquidity, sends LP to 0x0
      * @custom:calledby owner
      */
-    function addLiquidity(uint256 tradedTokenAmount) public onlyManagers {
+    function addLiquidity(uint256 tradedTokenAmount) public onlyManagers initialLiquidityRequired {
         singlePairSync();
 
         uint256 tradedReserve1;

@@ -216,7 +216,7 @@ describe("TradedTokenInstance", function () {
         it("shouldnt `addLiquidity` without liquidity", async() => {
             await expect(
                 mainInstance.connect(owner).addLiquidity(ONE_ETH)
-            ).to.be.revertedWith("RESERVES_EMPTY");
+            ).to.be.revertedWith("InitialLiquidityRequired()");
         }); 
     
         describe("claim", function () {
@@ -234,9 +234,13 @@ describe("TradedTokenInstance", function () {
 
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
-                ).to.be.revertedWith("RESERVES_EMPTY");
+                ).to.be.revertedWith("InitialLiquidityRequired()");
 
                 await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
+
+                await expect(
+                    mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN))
+                ).to.be.revertedWith("AlreadyCalled()");
 
                 // tmp = await pair.getReserves();
                 // console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
