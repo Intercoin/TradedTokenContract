@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
@@ -21,6 +22,7 @@ import "hardhat/console.sol";
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager, ReentrancyGuard {
     using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
+    using SafeERC20 for ERC777;
 
     struct PriceNumDen {
         uint256 numerator;
@@ -238,8 +240,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         require(amountReserveToken <= ERC777(reserveToken).balanceOf(address(this)), "INSUFFICIENT_RESERVE");
         _claim(amountTradedToken, address(this));
 
-        ERC777(tradedToken).transfer(address(internalLiquidity), amountTradedToken);
-        ERC777(reserveToken).transfer(address(internalLiquidity), amountReserveToken);
+        ERC777(tradedToken).safeTransfer(address(internalLiquidity), amountTradedToken);
+        ERC777(reserveToken).safeTransfer(address(internalLiquidity), amountReserveToken);
 
         internalLiquidity.addLiquidity();
 
@@ -290,7 +292,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
             "INSUFFICIENT_AMOUNT"
         );
 
-        ERC777(externalToken).transferFrom(msg.sender, deadAddress, externalTokenAmount);
+        ERC777(externalToken).safeTransferFrom(msg.sender, deadAddress, externalTokenAmount);
 
         uint256 tradedTokenAmount = (externalTokenAmount * externalTokenExchangePrice.numerator) /
             externalTokenExchangePrice.denominator;
