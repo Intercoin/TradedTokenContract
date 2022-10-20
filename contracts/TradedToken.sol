@@ -15,7 +15,7 @@ import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/ExecuteManager.sol";
 import "./helpers/Liquidity.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
     using FixedPoint for *;
@@ -372,7 +372,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-        if (uniswapV2Pair == recipient) {
+        if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
             uint256 taxAmount = (amount * sellTax) / FRACTION;
             if (taxAmount != 0) {
                 amount -= taxAmount;
