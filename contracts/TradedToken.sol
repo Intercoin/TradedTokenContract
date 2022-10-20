@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
@@ -17,7 +18,7 @@ import "./helpers/Liquidity.sol";
 
 import "hardhat/console.sol";
 
-contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
+contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager, ReentrancyGuard {
     using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
 
@@ -282,7 +283,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
      * @param externalTokenAmount amount of external token to claim traded token
      * @param account address to claim for
      */
-    function claimViaExternal(uint256 externalTokenAmount, address account) public {
+    function claimViaExternal(uint256 externalTokenAmount, address account) public nonReentrant() {
         require(externalToken != address(0), "EMPTY_EXTERNALTOKEN");
         require(
             externalTokenAmount <= ERC777(externalToken).allowance(msg.sender, address(this)),
