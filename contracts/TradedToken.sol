@@ -476,7 +476,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         price should be less than minClaimPrice
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
-        (uint112 _reserve0, uint112 _reserve1, ) = IUniswapV2Pair(uniswapV2Pair).getReserves();
+        (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
         uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
