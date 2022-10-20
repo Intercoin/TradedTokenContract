@@ -102,7 +102,7 @@ describe("TradedTokenInstance", function () {
 
         await expect(
             mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address)
-        ).to.be.revertedWith("EMPTY_EXTERNALTOKEN");
+        ).to.be.revertedWith("EmptyTokenAddress()");
         
     });
 
@@ -369,7 +369,7 @@ describe("TradedTokenInstance", function () {
                 it("shouldnt claim via external token without approve before", async() => {
                     await expect(
                         mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address)
-                    ).to.be.revertedWith("INSUFFICIENT_AMOUNT");
+                    ).to.be.revertedWith("InsufficientAmount()");
                 });
 
                 it("should claim via external token", async() => {
@@ -698,7 +698,7 @@ describe("TradedTokenInstance", function () {
                         await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWith("PRICE_DROP_TOO_BIG");
 
                         // or try to max from maxAddLiquidity
-                        await expect(mainInstance.connect(owner).addLiquidity(0)).to.be.revertedWith("PRICE_DROP_TOO_BIG");
+                        await expect(mainInstance.connect(owner).addLiquidity(0)).to.be.revertedWith("CanNotBeZero()");
  
                     });
 

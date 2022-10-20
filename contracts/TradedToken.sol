@@ -105,6 +105,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
+    error EmptyAddress();
+    error EmptyAccountAddress();
+    error EmptyManagerAddress();
+    error EmptyTokenAddress();
+    error CanNotBeZero();
+    error InputAmountCanNotBeZero();
+    error InsufficientAmount();
+    error TaxCanNotBeMoreThen(uint64 fraction);
 
     modifier onlyManagers() {
         require(owner() == _msgSender() || managers[_msgSender()] != 0, "MANAGERS_ONLY");
@@ -151,13 +159,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 buyTaxMax_,
         uint256 sellTaxMax_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
+        
 
         addedInitialLiquidityRun = false;
 
         buyTaxMax = buyTaxMax_;
         sellTaxMax = sellTaxMax_;
 
+        //input validations
         require(reserveToken_ != address(0), "reserveToken invalid");
+        
 
         tradedToken = address(this);
         reserveToken = reserveToken_;
@@ -172,6 +183,25 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         // setup swap addresses
         (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
+
+        // check inputs
+        if (uniswapRouter == address(0) || uniswapRouterFactory == address(0)) {
+            revert EmptyAddress();
+        }
+        if (
+            externalTokenExchangePrice_.numerator == 0 || 
+            externalTokenExchangePrice_.denominator == 0 || 
+            minClaimPrice_.numerator == 0 || 
+            minClaimPrice_.denominator == 0
+        ) { 
+            revert CanNotBeZero();
+        }
+
+        if (buyTaxMax_ > FRACTION || sellTaxMax_ > FRACTION) {
+            revert TaxCanNotBeMoreThen(FRACTION);
+        }
+
+
 
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
@@ -232,6 +262,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         public
         onlyManagers
     {
+        if (manager == address(0)) {revert EmptyManagerAddress();}
         managers[manager] = currentBlockTimestamp();
     }
     /**
@@ -260,7 +291,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param amountReserveToken amount of reserve token which must be donate into contract by user and adding as liquidity
      */
     function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) public onlyOwner runOnlyOnce {
-        require(amountReserveToken <= ERC777(reserveToken).balanceOf(address(this)), "INSUFFICIENT_RESERVE");
+        if (amountTradedToken == 0 || amountReserveToken == 0) {
+            revert InputAmountCanNotBeZero();
+        }
+        if (amountReserveToken > ERC777(reserveToken).balanceOf(address(this))) {
+            revert InsufficientAmount();
+        }
+
         _claim(amountTradedToken, address(this));
 
         ERC777(tradedToken).safeTransfer(address(internalLiquidity), amountTradedToken);
@@ -309,12 +346,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param account address to claim for
      */
     function claimViaExternal(uint256 externalTokenAmount, address account) public nonReentrant() {
-        require(externalToken != address(0), "EMPTY_EXTERNALTOKEN");
-        require(
-            externalTokenAmount <= ERC777(externalToken).allowance(msg.sender, address(this)),
-            "INSUFFICIENT_AMOUNT"
-        );
-
+        if (externalToken == address(0)) { 
+            revert EmptyTokenAddress();
+        }
+        if (externalTokenAmount == 0) { 
+            revert InputAmountCanNotBeZero();
+        }
+        if (externalTokenAmount > ERC777(externalToken).allowance(msg.sender, address(this))) {
+            revert InsufficientAmount();
+        }
+        
         ERC777(externalToken).safeTransferFrom(msg.sender, deadAddress, externalTokenAmount);
 
         uint256 tradedTokenAmount = (externalTokenAmount * externalTokenExchangePrice.numerator) /
@@ -330,6 +371,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @custom:calledby owner
      */
     function addLiquidity(uint256 tradedTokenAmount) public onlyManagers initialLiquidityRequired {
+        if (tradedTokenAmount == 0) {
+            revert CanNotBeZero();
+        }
         singlePairSync();
 
         uint256 tradedReserve1;
@@ -502,6 +546,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         price should be less than minClaimPrice
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
+        if (tradedTokenAmount == 0) {
+            revert CanNotBeZero();
+        }
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
@@ -524,6 +571,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @notice do claim to the `account` and locked tokens if
      */
     function _claim(uint256 tradedTokenAmount, address account) internal {
+        
+        if (account == address(0)) {
+            revert EmptyAccountAddress();
+        }
+
         totalCumulativeClaimed += tradedTokenAmount;
 
         _mint(account, tradedTokenAmount, "", "");
