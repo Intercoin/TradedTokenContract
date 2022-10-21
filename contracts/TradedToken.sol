@@ -546,7 +546,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @notice helper function that returns the current block timestamp within the range of uint32, i.e. [0, 2**64 - 1]
      */
     function _currentBlockTimestamp() internal view returns (uint64) {
-        return uint64(block.timestamp % 2**64);
+        return uint64(block.timestamp);
     }
 
     /**
