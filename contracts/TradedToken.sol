@@ -102,6 +102,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     bool private addedInitialLiquidityRun;
 
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
+    event AddedManager(address account, address sender);
+    event AddedInitialLiquidity(uint256 tradedTokenAmount, uint256 reserveTokenAmount);
+    event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
+    event Claimed(address account, uint256 amount);
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
@@ -264,6 +268,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     {
         if (manager == address(0)) {revert EmptyManagerAddress();}
         managers[manager] = currentBlockTimestamp();
+
+        emit AddedManager(manager, _msgSender());
     }
     /**
      * @notice setting buy tax
@@ -273,6 +279,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     function setBuyTax(uint256 fraction) external onlyOwner {
         require(fraction <= buyTaxMax, "FRACTION_INVALID");
         buyTax = fraction;
+        emit UpdatedTaxes(sellTax, buyTax);
     }
 
     /**
@@ -283,6 +290,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     function setSellTax(uint256 fraction) external onlyOwner {
         require(fraction <= sellTaxMax, "FRACTION_INVALID");
         sellTax = fraction;
+        emit UpdatedTaxes(sellTax, buyTax);
     }
 
     /**
@@ -305,6 +313,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         internalLiquidity.addLiquidity();
 
+        emit AddedInitialLiquidity(amountTradedToken, amountReserveToken);
         // singlePairSync() ??
 
         // console.log("force sync start");
@@ -579,6 +588,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         totalCumulativeClaimed += tradedTokenAmount;
 
         _mint(account, tradedTokenAmount, "", "");
+        emit Claimed(account, tradedTokenAmount);
 
         // lockup tokens for any except:
         // - owner(because it's owner)
@@ -586,6 +596,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (_msgSender() != owner() && account != address(this)) {
             tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupIntervalAmount, LOCKUP_INTERVAL, true);
         }
+
     }
 
     //
