@@ -16,7 +16,7 @@ import "./libs/FixedPoint.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
     using FixedPoint for *;
@@ -63,14 +63,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @custom:shortd external token
      * @notice external token
      */
-    address public externalToken;
+    address public immutable externalToken;
     PriceNumDen externalTokenExchangePrice;
 
     /**
      * @custom:shortd uniswap v2 pair
      * @notice uniswap v2 pair
      */
-    address public uniswapV2Pair;
+    address public immutable uniswapV2Pair;
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
@@ -83,8 +83,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint64 internal constant averagePriceWindow = 5;
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant LOCKUP_INTERVAL = 24 * 60 * 60; // day in seconds
-    uint64 internal startupTimestamp;
-    uint64 internal lockupIntervalAmount;
+    uint64 internal immutable startupTimestamp;
+    uint64 internal immutable lockupIntervalAmount;
 
     uint256 public immutable buyTaxMax;
     uint256 public immutable sellTaxMax;
