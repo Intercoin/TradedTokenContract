@@ -711,8 +711,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     {
         (
             rTraded,
-            rReserved, /*uint256 priceTraded*/
-
+            rReserved, 
+            /*uint32 blockTimestampLast*/
         ) = _uniswapReserves();
 
         traded2Swap = _sqrt((rTraded + incomingTradedToken) * (rTraded)) - rTraded; //
