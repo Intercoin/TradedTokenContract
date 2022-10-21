@@ -746,16 +746,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     {
         // tradedNew = Math.sqrt(@tokenPair.r0 * @tokenPair.r1 / (average_price*(1-@price_drop)))
 
-        uint112 reserve0;
-        uint112 reserve1;
+        uint112 traded;
+        uint112 reserved;
         uint32 blockTimestampLast;
 
-        (reserve0, reserve1, blockTimestampLast) = _uniswapReserves();
+        (traded, reserved, blockTimestampLast) = _uniswapReserves();
 
         FixedPoint.uq112x112 memory priceAverageData = _tradedAveragePrice();
 
-        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(_sqrt(reserve0)));
-        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(_sqrt(reserve1)));
+        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(_sqrt(traded)));
+        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(_sqrt(reserved)));
         FixedPoint.uq112x112 memory q3 = (
             priceAverageData.muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).muluq(
                 FixedPoint.fraction(1, FRACTION)
@@ -767,13 +767,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         //traded1 * reserve1*(1/(priceaverage*pricedrop))
 
-        uint256 reserve0New = (
+        uint256 tradedNew = (
             q1.muluq(q2).muluq(FixedPoint.encode(uint112(_sqrt(FRACTION)))).muluq(
                 FixedPoint.encode(uint112(1)).divuq(q3)
             )
         ).decode();
 
-        return (reserve0, reserve0New, priceAverageData._x);
+        return (traded, tradedNew, priceAverageData._x);
     }
 
     function _sqrt(uint256 x) internal pure returns (uint256 result) {
