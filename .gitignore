@@ -7,3 +7,5 @@ artifacts
 secret.*.json
 TODO.txt
 /flattenen
+/coverage
+coverage.json

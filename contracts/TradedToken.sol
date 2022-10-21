@@ -1,25 +1,27 @@
 // SPDX-License-Identifier: AGPL
-pragma solidity ^0.8.15;
+pragma solidity 0.8.15;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "./libs/SwapSettingsLib.sol";
 import "./libs/FixedPoint.sol";
 import "./minimums/libs/MinimumsLib.sol";
-import "./helpers/ExecuteManager.sol";
 import "./helpers/Liquidity.sol";
 
 //import "hardhat/console.sol";
 
-contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ExecuteManager {
+contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
     using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
+    using SafeERC20 for ERC777;
 
     struct PriceNumDen {
         uint256 numerator;
@@ -35,7 +37,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
-    address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
+    address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     /**
      * @custom:shortd traded token address
@@ -61,14 +63,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
      * @custom:shortd external token
      * @notice external token
      */
-    address public externalToken;
+    address public immutable externalToken;
     PriceNumDen externalTokenExchangePrice;
 
     /**
      * @custom:shortd uniswap v2 pair
      * @notice uniswap v2 pair
      */
-    address public uniswapV2Pair;
+    address public immutable uniswapV2Pair;
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
@@ -78,16 +80,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
     bool internal immutable token01;
     bool internal alreadyRunStartupSync;
 
-    uint64 internal constant averagePriceWindow = 5;
+    uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
     uint64 internal constant FRACTION = 10000;
-    uint64 internal constant LOCKUP_INTERVAL = 24 * 60 * 60; // day in seconds
-    uint64 internal startupTimestamp;
-    uint64 internal lockupIntervalAmount;
+    uint64 internal constant LOCKUP_INTERVAL = 1 days; //24 * 60 * 60; // day in seconds
+    uint64 internal immutable startupTimestamp;
+    uint64 internal immutable lockupIntervalAmount;
 
-    uint256 public immutable buyTaxMax;
-    uint256 public immutable sellTaxMax;
-    uint256 public buyTax;
-    uint256 public sellTax;
+    uint64 public immutable buyTaxMax;
+    uint64 public immutable sellTaxMax;
+    uint64 public buyTax;
+    uint64 public sellTax;
     uint256 public totalCumulativeClaimed;
 
     Liquidity internal internalLiquidity;
@@ -97,10 +99,59 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
 
     mapping(address => uint64) internal managers;
 
-    event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
+    bool private addedInitialLiquidityRun;
 
+    event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
+    event AddedManager(address account, address sender);
+    event AddedInitialLiquidity(uint256 tradedTokenAmount, uint256 reserveTokenAmount);
+    event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
+    event Claimed(address account, uint256 amount);
+
+    error AlreadyCalled();
+    error InitialLiquidityRequired();
+    error reserveTokenInvalid();
+    error EmptyAddress();
+    error EmptyAccountAddress();
+    error EmptyManagerAddress();
+    error EmptyTokenAddress();
+    error CanNotBeZero();
+    error InputAmountCanNotBeZero();
+    error InsufficientAmount();
+    error TaxCanNotBeMoreThen(uint64 fraction);
+    error PriceDropTooBig();
+    error ManagersOnly();
+    error CantCreatePair(address tradedToken, address reserveToken);
+    error BuyTaxInvalid();
+    error SellTaxInvalid();
+    error EmptyReserves();
+    error ClaimValidationError();
+    error PriceHasBecomeALowerThanMinClaimPrice();
+    
     modifier onlyManagers() {
-        require(owner() == _msgSender() || managers[_msgSender()] != 0, "MANAGERS_ONLY");
+        // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
+        // } else {
+        //     revert ManagersOnly();
+        // }
+        // lets transform via de'Morgan law
+        if (owner() != _msgSender() && managers[_msgSender()] == 0) {
+            revert ManagersOnly();
+        }
+
+        _;
+    }
+
+    modifier runOnlyOnce() {
+        if (addedInitialLiquidityRun) {
+            revert AlreadyCalled();
+        }
+        addedInitialLiquidityRun = true;
+        _;
+    }
+
+    modifier initialLiquidityRequired() {
+        if (!addedInitialLiquidityRun) {
+            revert InitialLiquidityRequired();
+        }
         _;
     }
 
@@ -125,13 +176,20 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         PriceNumDen memory minClaimPrice_,
         address externalToken_,
         PriceNumDen memory externalTokenExchangePrice_,
-        uint256 buyTaxMax_,
-        uint256 sellTaxMax_
+        uint64 buyTaxMax_,
+        uint64 sellTaxMax_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
+        
+
+        addedInitialLiquidityRun = false;
+
         buyTaxMax = buyTaxMax_;
         sellTaxMax = sellTaxMax_;
 
-        require(reserveToken_ != address(0), "reserveToken invalid");
+        //input validations
+        if (reserveToken_ == address(0)) {
+            revert reserveTokenInvalid();
+        }
 
         tradedToken = address(this);
         reserveToken = reserveToken_;
@@ -147,16 +205,36 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         // setup swap addresses
         (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
 
+        // check inputs
+        if (uniswapRouter == address(0) || uniswapRouterFactory == address(0)) {
+            revert EmptyAddress();
+        }
+        if (
+            externalTokenExchangePrice_.numerator == 0 || 
+            externalTokenExchangePrice_.denominator == 0 || 
+            minClaimPrice_.numerator == 0 || 
+            minClaimPrice_.denominator == 0
+        ) { 
+            revert CanNotBeZero();
+        }
+
+        if (buyTaxMax_ > FRACTION || sellTaxMax_ > FRACTION) {
+            revert TaxCanNotBeMoreThen(FRACTION);
+        }
+        
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
 
         //create Pair
         uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).createPair(tradedToken, reserveToken);
-        require(uniswapV2Pair != address(0), "can't create pair");
 
-        startupTimestamp = currentBlockTimestamp();
-        pairObservation.timestampLast = currentBlockTimestamp();
+        if (uniswapV2Pair == address(0)) {
+            revert CantCreatePair(tradedToken, reserveToken);
+        }
+
+        startupTimestamp = _currentBlockTimestamp();
+        pairObservation.timestampLast = _currentBlockTimestamp();
 
         // TypeError: Cannot write to immutable here: Immutable variables cannot be initialized inside an if statement.
         // if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
@@ -203,19 +281,25 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
     function addManagers(
         address manager
     )
-        public
+        external
         onlyManagers
     {
-        managers[manager] = currentBlockTimestamp();
+        if (manager == address(0)) {revert EmptyManagerAddress();}
+        managers[manager] = _currentBlockTimestamp();
+
+        emit AddedManager(manager, _msgSender());
     }
     /**
      * @notice setting buy tax
      * @param fraction buy tax
      * @custom:calledby owner
      */
-    function setBuyTax(uint256 fraction) public onlyOwner {
-        require(fraction <= buyTaxMax, "FRACTION_INVALID");
+    function setBuyTax(uint64 fraction) external onlyOwner {
+        if (fraction > buyTaxMax) {
+            revert TaxCanNotBeMoreThen(buyTaxMax);
+        }
         buyTax = fraction;
+        emit UpdatedTaxes(sellTax, buyTax);
     }
 
     /**
@@ -223,9 +307,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
      * @param fraction sell tax
      * @custom:calledby owner
      */
-    function setSellTax(uint256 fraction) public onlyOwner {
-        require(fraction <= sellTaxMax, "FRACTION_INVALID");
+    function setSellTax(uint64 fraction) external onlyOwner {
+        if (fraction > sellTaxMax) {
+            revert TaxCanNotBeMoreThen(sellTaxMax);
+        }
         sellTax = fraction;
+        emit UpdatedTaxes(sellTax, buyTax);
     }
 
     /**
@@ -233,15 +320,22 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
      * @param amountTradedToken amount of traded token which will be claimed into contract and adding as liquidity
      * @param amountReserveToken amount of reserve token which must be donate into contract by user and adding as liquidity
      */
-    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) public onlyOwner runOnlyOnce {
-        require(amountReserveToken <= ERC777(reserveToken).balanceOf(address(this)), "INSUFFICIENT_RESERVE");
+    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external onlyOwner runOnlyOnce {
+        if (amountTradedToken == 0 || amountReserveToken == 0) {
+            revert InputAmountCanNotBeZero();
+        }
+        if (amountReserveToken > ERC777(reserveToken).balanceOf(address(this))) {
+            revert InsufficientAmount();
+        }
+
         _claim(amountTradedToken, address(this));
 
-        ERC777(tradedToken).transfer(address(internalLiquidity), amountTradedToken);
-        ERC777(reserveToken).transfer(address(internalLiquidity), amountReserveToken);
+        ERC777(tradedToken).safeTransfer(address(internalLiquidity), amountTradedToken);
+        ERC777(reserveToken).safeTransfer(address(internalLiquidity), amountReserveToken);
 
         internalLiquidity.addLiquidity();
 
+        emit AddedInitialLiquidity(amountTradedToken, amountReserveToken);
         // singlePairSync() ??
 
         // console.log("force sync start");
@@ -250,7 +344,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         //IUniswapV2Pair(uniswapV2Pair).sync();
 
         // // and update
-        // update();
+        // _update();
     }
 
     /**
@@ -258,7 +352,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
      * @param tradedTokenAmount amount of traded token to claim
      * @custom:calledby owner
      */
-    function claim(uint256 tradedTokenAmount) public onlyManagers {
+    function claim(uint256 tradedTokenAmount) external onlyManagers {
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, msg.sender);
     }
@@ -270,7 +364,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
      * @custom:calledby owner
      */
     function claim(uint256 tradedTokenAmount, address account)
-        public
+        external
         onlyManagers
     {
         _validateClaim(tradedTokenAmount);
@@ -282,14 +376,18 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
      * @param externalTokenAmount amount of external token to claim traded token
      * @param account address to claim for
      */
-    function claimViaExternal(uint256 externalTokenAmount, address account) public {
-        require(externalToken != address(0), "EMPTY_EXTERNALTOKEN");
-        require(
-            externalTokenAmount <= ERC777(externalToken).allowance(msg.sender, address(this)),
-            "INSUFFICIENT_AMOUNT"
-        );
-
-        ERC777(externalToken).transferFrom(msg.sender, deadAddress, externalTokenAmount);
+    function claimViaExternal(uint256 externalTokenAmount, address account) external nonReentrant() {
+        if (externalToken == address(0)) { 
+            revert EmptyTokenAddress();
+        }
+        if (externalTokenAmount == 0) { 
+            revert InputAmountCanNotBeZero();
+        }
+        if (externalTokenAmount > ERC777(externalToken).allowance(msg.sender, address(this))) {
+            revert InsufficientAmount();
+        }
+        
+        ERC777(externalToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, externalTokenAmount);
 
         uint256 tradedTokenAmount = (externalTokenAmount * externalTokenExchangePrice.numerator) /
             externalTokenExchangePrice.denominator;
@@ -303,9 +401,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
      * @dev claims, sells, adds liquidity, sends LP to 0x0
      * @custom:calledby owner
      */
-    function addLiquidity(uint256 tradedTokenAmount) public onlyManagers {
-        singlePairSync();
-
+    function addLiquidity(uint256 tradedTokenAmount) external onlyManagers initialLiquidityRequired {
+        if (tradedTokenAmount == 0) {
+            revert CanNotBeZero();
+        }
+        
         uint256 tradedReserve1;
         uint256 tradedReserve2;
         uint256 priceAverageData; // it's fixed point uint224
@@ -328,7 +428,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
             err = true;
         }
 
-        if (err == false) {
+        if (!err) {
             //if zero we've try to use max as possible of available tokens
             if (tradedTokenAmount == 0) {
                 tradedTokenAmount = tradedReserve2 - tradedReserve1;
@@ -357,14 +457,17 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
             }
         }
 
-        require(err == false, "PRICE_DROP_TOO_BIG");
+        if (err) {
+            revert PriceDropTooBig();
+        }
+
 
         // trade trade tokens and add liquidity
         _doSellTradedAndLiquidity(traded2Swap, traded2Liq);
 
         emit AddedLiquidity(tradedTokenAmount, priceAverageData);
 
-        update();
+        _update();
     }
 
     function transferFrom(
@@ -372,7 +475,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-        if (uniswapV2Pair == recipient) {
+        if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
             uint256 taxAmount = (amount * sellTax) / FRACTION;
             if (taxAmount != 0) {
                 amount -= taxAmount;
@@ -406,19 +509,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-
-    // need to run immedialety after adding liquidity tx and sync cumulativePrice. BUT i's can't applicable if do in the same trasaction with addInitialLiquidity.
-    // reserve0 and reserve1 still zero and
-    function singlePairSync() internal {
-        if (alreadyRunStartupSync == false) {
-            alreadyRunStartupSync = true;
-            IUniswapV2Pair(uniswapV2Pair).sync();
-            //console.log("singlePairSync - synced");
-        } else {
-            //console.log("singlePairSync - ALREADY synced");
-        }
-    }
-
+    
     function _beforeTokenTransfer(
         address, /*operator*/
         address from,
@@ -435,15 +526,17 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         } else {
             uint256 balance = balanceOf(from);
             uint256 locked = tokensLocked[from]._getMinimum();
-            require(balance - locked >= amount, "INSUFFICIENT_AMOUNT");
+            if (balance - locked < amount) {
+                revert InsufficientAmount();
+            }
         }
     }
 
     /**
      * @notice helper function that returns the current block timestamp within the range of uint32, i.e. [0, 2**64 - 1]
      */
-    function currentBlockTimestamp() internal view returns (uint64) {
-        return uint64(block.timestamp % 2**64);
+    function _currentBlockTimestamp() internal view returns (uint64) {
+        return uint64(block.timestamp);
     }
 
     /**
@@ -460,7 +553,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         )
     {
         (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(uniswapV2Pair).getReserves();
-        require(reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
+        if (reserve0 == 0 || reserve1 == 0) {
+            revert EmptyReserves();
+        }
 
         if (token01) {
             return (reserve0, reserve1, blockTimestampLast);
@@ -476,7 +571,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         price should be less than minClaimPrice
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
-        (uint112 _reserve0, uint112 _reserve1, ) = IUniswapV2Pair(uniswapV2Pair).getReserves();
+        if (tradedTokenAmount == 0) {
+            revert CanNotBeZero();
+        }
+        (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
         uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
@@ -484,43 +582,53 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
             _reserve0,
             _reserve1
         );
+        if (amountOut == 0) {
+            revert ClaimValidationError();
+        }
 
-        require(amountOut > 0, "CLAIM_VALIDATION_ERROR");
+        if (
+            FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + currentIterationTotalCumulativeClaimed)._x <=
+            FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
+        ) {
+            revert PriceHasBecomeALowerThanMinClaimPrice();
+        }
 
-        require(
-            FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + currentIterationTotalCumulativeClaimed)._x >
-                FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x,
-            "PRICE_HAS_BECOME_A_LOWER_THAN_MINCLAIMPRICE"
-        );
     }
 
     /**
      * @notice do claim to the `account` and locked tokens if
      */
     function _claim(uint256 tradedTokenAmount, address account) internal {
+        
+        if (account == address(0)) {
+            revert EmptyAccountAddress();
+        }
+
         totalCumulativeClaimed += tradedTokenAmount;
 
         _mint(account, tradedTokenAmount, "", "");
+        emit Claimed(account, tradedTokenAmount);
 
         // lockup tokens for any except:
         // - owner(because it's owner)
         // - current contract(because do sell traded tokens and add liquidity)
-        if (_msgSender() != owner() && _msgSender() != address(this)) {
+        if (_msgSender() != owner() && account != address(this)) {
             tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupIntervalAmount, LOCKUP_INTERVAL, true);
         }
+
     }
 
     //
     /**
      * @notice do swap for internal liquidity contract
      */
-    function doSwapOnUniswap(
+    function _doSwapOnUniswap(
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
         address beneficiary
     ) internal returns (uint256 amountOut) {
-        require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
+        require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn));
 
         address[] memory path = new address[](2);
         path[0] = address(tokenIn);
@@ -541,11 +649,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
     /**
      * @notice
      */
-    function tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
-        uint64 blockTimestamp = currentBlockTimestamp();
+    function _tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
+        uint64 blockTimestamp = _currentBlockTimestamp();
         uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
-        uint64 windowSize = ((blockTimestamp - startupTimestamp) * averagePriceWindow) / FRACTION;
+        uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
         if (timeElapsed > windowSize && timeElapsed > 0 && price0Cumulative > pairObservation.price0CumulativeLast) {
             // console.log("timeElapsed > windowSize && timeElapsed>0");
@@ -562,11 +670,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
         }
     }
 
-    function update() internal {
-        uint64 blockTimestamp = currentBlockTimestamp();
+    function _update() internal {
+        uint64 blockTimestamp = _currentBlockTimestamp();
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
 
-        uint64 windowSize = ((blockTimestamp - startupTimestamp) * averagePriceWindow) / FRACTION;
+        uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
         if (timeElapsed > windowSize && timeElapsed > 0) {
             uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
@@ -593,11 +701,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
     {
         (
             rTraded,
-            rReserved, /*uint256 priceTraded*/
-
+            rReserved, 
+            /*uint32 blockTimestampLast*/
         ) = _uniswapReserves();
 
-        traded2Swap = sqrt((rTraded + incomingTradedToken) * (rTraded)) - rTraded; //
+        traded2Swap = _sqrt((rTraded + incomingTradedToken) * (rTraded)) - rTraded; //
         require(traded2Swap > 0 && incomingTradedToken > traded2Swap, "BAD_AMOUNT");
 
         reserved2Liq = IUniswapV2Router02(uniswapRouter).getAmountOut(traded2Swap, rTraded, rReserved);
@@ -607,7 +715,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
     function _doSellTradedAndLiquidity(uint256 traded2Swap, uint256 traded2Liq) internal {
         // claim to address(this) necessary amount to swap from traded to reserved tokens
         _mint(address(this), traded2Swap, "", "");
-        doSwapOnUniswap(tradedToken, reserveToken, traded2Swap, address(internalLiquidity));
+        _doSwapOnUniswap(tradedToken, reserveToken, traded2Swap, address(internalLiquidity));
 
         // mint that left to  internalLiquidity contract
         _mint(address(internalLiquidity), traded2Liq, "", "");
@@ -628,16 +736,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
     {
         // tradedNew = Math.sqrt(@tokenPair.r0 * @tokenPair.r1 / (average_price*(1-@price_drop)))
 
-        uint112 reserve0;
-        uint112 reserve1;
+        uint112 traded;
+        uint112 reserved;
         uint32 blockTimestampLast;
 
-        (reserve0, reserve1, blockTimestampLast) = _uniswapReserves();
+        (traded, reserved, blockTimestampLast) = _uniswapReserves();
 
-        FixedPoint.uq112x112 memory priceAverageData = tradedAveragePrice();
+        FixedPoint.uq112x112 memory priceAverageData = _tradedAveragePrice();
 
-        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(sqrt(reserve0)));
-        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(sqrt(reserve1)));
+        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(_sqrt(traded)));
+        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(_sqrt(reserved)));
         FixedPoint.uq112x112 memory q3 = (
             priceAverageData.muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).muluq(
                 FixedPoint.fraction(1, FRACTION)
@@ -649,16 +757,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Execut
 
         //traded1 * reserve1*(1/(priceaverage*pricedrop))
 
-        uint256 reserve0New = (
-            q1.muluq(q2).muluq(FixedPoint.encode(uint112(sqrt(FRACTION)))).muluq(
+        uint256 tradedNew = (
+            q1.muluq(q2).muluq(FixedPoint.encode(uint112(_sqrt(FRACTION)))).muluq(
                 FixedPoint.encode(uint112(1)).divuq(q3)
             )
         ).decode();
 
-        return (reserve0, reserve0New, priceAverageData._x);
+        return (traded, tradedNew, priceAverageData._x);
     }
 
-    function sqrt(uint256 x) internal pure returns (uint256 result) {
+    function _sqrt(uint256 x) internal pure returns (uint256 result) {
         if (x == 0) {
             return 0;
         }
