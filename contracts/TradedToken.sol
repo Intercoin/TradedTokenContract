@@ -259,7 +259,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     function addManagers(
         address manager
     )
-        public
+        external
         onlyManagers
     {
         if (manager == address(0)) {revert EmptyManagerAddress();}
@@ -270,7 +270,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param fraction buy tax
      * @custom:calledby owner
      */
-    function setBuyTax(uint256 fraction) public onlyOwner {
+    function setBuyTax(uint256 fraction) external onlyOwner {
         require(fraction <= buyTaxMax, "FRACTION_INVALID");
         buyTax = fraction;
     }
@@ -280,7 +280,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param fraction sell tax
      * @custom:calledby owner
      */
-    function setSellTax(uint256 fraction) public onlyOwner {
+    function setSellTax(uint256 fraction) external onlyOwner {
         require(fraction <= sellTaxMax, "FRACTION_INVALID");
         sellTax = fraction;
     }
@@ -290,7 +290,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param amountTradedToken amount of traded token which will be claimed into contract and adding as liquidity
      * @param amountReserveToken amount of reserve token which must be donate into contract by user and adding as liquidity
      */
-    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) public onlyOwner runOnlyOnce {
+    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external onlyOwner runOnlyOnce {
         if (amountTradedToken == 0 || amountReserveToken == 0) {
             revert InputAmountCanNotBeZero();
         }
@@ -321,7 +321,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param tradedTokenAmount amount of traded token to claim
      * @custom:calledby owner
      */
-    function claim(uint256 tradedTokenAmount) public onlyManagers {
+    function claim(uint256 tradedTokenAmount) external onlyManagers {
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, msg.sender);
     }
@@ -333,7 +333,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @custom:calledby owner
      */
     function claim(uint256 tradedTokenAmount, address account)
-        public
+        external
         onlyManagers
     {
         _validateClaim(tradedTokenAmount);
@@ -345,7 +345,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param externalTokenAmount amount of external token to claim traded token
      * @param account address to claim for
      */
-    function claimViaExternal(uint256 externalTokenAmount, address account) public nonReentrant() {
+    function claimViaExternal(uint256 externalTokenAmount, address account) external nonReentrant() {
         if (externalToken == address(0)) { 
             revert EmptyTokenAddress();
         }
@@ -370,7 +370,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @dev claims, sells, adds liquidity, sends LP to 0x0
      * @custom:calledby owner
      */
-    function addLiquidity(uint256 tradedTokenAmount) public onlyManagers initialLiquidityRequired {
+    function addLiquidity(uint256 tradedTokenAmount) external onlyManagers initialLiquidityRequired {
         if (tradedTokenAmount == 0) {
             revert CanNotBeZero();
         }
