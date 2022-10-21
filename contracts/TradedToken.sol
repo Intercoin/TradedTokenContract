@@ -405,8 +405,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (tradedTokenAmount == 0) {
             revert CanNotBeZero();
         }
-        _singlePairSync();
-
+        
         uint256 tradedReserve1;
         uint256 tradedReserve2;
         uint256 priceAverageData; // it's fixed point uint224
@@ -510,16 +509,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-   
-    // need to run immedialety after adding liquidity tx and sync cumulativePrice. BUT i's can't applicable if do in the same trasaction with addInitialLiquidity.
-    // reserve0 and reserve1 still zero and
-    function _singlePairSync() internal {
-        if (!alreadyRunStartupSync) {
-            alreadyRunStartupSync = true;
-            IUniswapV2Pair(uniswapV2Pair).sync();
-        }
-    }
-
+    
     function _beforeTokenTransfer(
         address, /*operator*/
         address from,
