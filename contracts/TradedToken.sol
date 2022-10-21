@@ -82,7 +82,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
     uint64 internal constant FRACTION = 10000;
-    uint64 internal constant LOCKUP_INTERVAL = 24 * 60 * 60; // day in seconds
+    uint64 internal constant LOCKUP_INTERVAL = 1 days; //24 * 60 * 60; // day in seconds
     uint64 internal immutable startupTimestamp;
     uint64 internal immutable lockupIntervalAmount;
 
