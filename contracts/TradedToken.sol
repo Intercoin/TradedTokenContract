@@ -583,7 +583,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // lockup tokens for any except:
         // - owner(because it's owner)
         // - current contract(because do sell traded tokens and add liquidity)
-        if (_msgSender() != owner() && _msgSender() != address(this)) {
+        if (_msgSender() != owner() && account != address(this)) {
             tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupIntervalAmount, LOCKUP_INTERVAL, true);
         }
     }
