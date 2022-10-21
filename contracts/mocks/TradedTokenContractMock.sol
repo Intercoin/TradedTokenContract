@@ -29,7 +29,7 @@ contract TradedTokenMock is TradedToken {
         pure 
         returns(uint256 result) 
     {
-        return sqrt(x);
+        return _sqrt(x);
     }
 
     function forceSync(
@@ -55,7 +55,7 @@ contract TradedTokenMock is TradedToken {
         view
         returns(FixedPoint.uq112x112 memory)
     {
-        return tradedAveragePrice();
+        return _tradedAveragePrice();
     }
 
     function uniswapReservesSimple(

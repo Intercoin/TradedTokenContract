@@ -37,7 +37,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
-    address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
+    address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     /**
      * @custom:shortd traded token address
@@ -80,7 +80,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     bool internal immutable token01;
     bool internal alreadyRunStartupSync;
 
-    uint64 internal constant averagePriceWindow = 5;
+    uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant LOCKUP_INTERVAL = 24 * 60 * 60; // day in seconds
     uint64 internal immutable startupTimestamp;
@@ -215,8 +215,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).createPair(tradedToken, reserveToken);
         require(uniswapV2Pair != address(0), "can't create pair");
 
-        startupTimestamp = currentBlockTimestamp();
-        pairObservation.timestampLast = currentBlockTimestamp();
+        startupTimestamp = _currentBlockTimestamp();
+        pairObservation.timestampLast = _currentBlockTimestamp();
 
         // TypeError: Cannot write to immutable here: Immutable variables cannot be initialized inside an if statement.
         // if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
@@ -267,7 +267,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         onlyManagers
     {
         if (manager == address(0)) {revert EmptyManagerAddress();}
-        managers[manager] = currentBlockTimestamp();
+        managers[manager] = _currentBlockTimestamp();
 
         emit AddedManager(manager, _msgSender());
     }
@@ -322,7 +322,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //IUniswapV2Pair(uniswapV2Pair).sync();
 
         // // and update
-        // update();
+        // _update();
     }
 
     /**
@@ -365,7 +365,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert InsufficientAmount();
         }
         
-        ERC777(externalToken).safeTransferFrom(msg.sender, deadAddress, externalTokenAmount);
+        ERC777(externalToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, externalTokenAmount);
 
         uint256 tradedTokenAmount = (externalTokenAmount * externalTokenExchangePrice.numerator) /
             externalTokenExchangePrice.denominator;
@@ -383,7 +383,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (tradedTokenAmount == 0) {
             revert CanNotBeZero();
         }
-        singlePairSync();
+        _singlePairSync();
 
         uint256 tradedReserve1;
         uint256 tradedReserve2;
@@ -443,7 +443,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         emit AddedLiquidity(tradedTokenAmount, priceAverageData);
 
-        update();
+        _update();
     }
 
     function transferFrom(
@@ -488,7 +488,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     // need to run immedialety after adding liquidity tx and sync cumulativePrice. BUT i's can't applicable if do in the same trasaction with addInitialLiquidity.
     // reserve0 and reserve1 still zero and
-    function singlePairSync() internal {
+    function _singlePairSync() internal {
         if (alreadyRunStartupSync == false) {
             alreadyRunStartupSync = true;
             IUniswapV2Pair(uniswapV2Pair).sync();
@@ -521,7 +521,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     /**
      * @notice helper function that returns the current block timestamp within the range of uint32, i.e. [0, 2**64 - 1]
      */
-    function currentBlockTimestamp() internal view returns (uint64) {
+    function _currentBlockTimestamp() internal view returns (uint64) {
         return uint64(block.timestamp % 2**64);
     }
 
@@ -603,7 +603,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     /**
      * @notice do swap for internal liquidity contract
      */
-    function doSwapOnUniswap(
+    function _doSwapOnUniswap(
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
@@ -630,11 +630,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     /**
      * @notice
      */
-    function tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
-        uint64 blockTimestamp = currentBlockTimestamp();
+    function _tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
+        uint64 blockTimestamp = _currentBlockTimestamp();
         uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
-        uint64 windowSize = ((blockTimestamp - startupTimestamp) * averagePriceWindow) / FRACTION;
+        uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
         if (timeElapsed > windowSize && timeElapsed > 0 && price0Cumulative > pairObservation.price0CumulativeLast) {
             // console.log("timeElapsed > windowSize && timeElapsed>0");
@@ -651,11 +651,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
     }
 
-    function update() internal {
-        uint64 blockTimestamp = currentBlockTimestamp();
+    function _update() internal {
+        uint64 blockTimestamp = _currentBlockTimestamp();
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
 
-        uint64 windowSize = ((blockTimestamp - startupTimestamp) * averagePriceWindow) / FRACTION;
+        uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
         if (timeElapsed > windowSize && timeElapsed > 0) {
             uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
@@ -686,7 +686,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         ) = _uniswapReserves();
 
-        traded2Swap = sqrt((rTraded + incomingTradedToken) * (rTraded)) - rTraded; //
+        traded2Swap = _sqrt((rTraded + incomingTradedToken) * (rTraded)) - rTraded; //
         require(traded2Swap > 0 && incomingTradedToken > traded2Swap, "BAD_AMOUNT");
 
         reserved2Liq = IUniswapV2Router02(uniswapRouter).getAmountOut(traded2Swap, rTraded, rReserved);
@@ -696,7 +696,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     function _doSellTradedAndLiquidity(uint256 traded2Swap, uint256 traded2Liq) internal {
         // claim to address(this) necessary amount to swap from traded to reserved tokens
         _mint(address(this), traded2Swap, "", "");
-        doSwapOnUniswap(tradedToken, reserveToken, traded2Swap, address(internalLiquidity));
+        _doSwapOnUniswap(tradedToken, reserveToken, traded2Swap, address(internalLiquidity));
 
         // mint that left to  internalLiquidity contract
         _mint(address(internalLiquidity), traded2Liq, "", "");
@@ -723,10 +723,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         (reserve0, reserve1, blockTimestampLast) = _uniswapReserves();
 
-        FixedPoint.uq112x112 memory priceAverageData = tradedAveragePrice();
+        FixedPoint.uq112x112 memory priceAverageData = _tradedAveragePrice();
 
-        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(sqrt(reserve0)));
-        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(sqrt(reserve1)));
+        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(_sqrt(reserve0)));
+        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(_sqrt(reserve1)));
         FixedPoint.uq112x112 memory q3 = (
             priceAverageData.muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).muluq(
                 FixedPoint.fraction(1, FRACTION)
@@ -739,7 +739,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //traded1 * reserve1*(1/(priceaverage*pricedrop))
 
         uint256 reserve0New = (
-            q1.muluq(q2).muluq(FixedPoint.encode(uint112(sqrt(FRACTION)))).muluq(
+            q1.muluq(q2).muluq(FixedPoint.encode(uint112(_sqrt(FRACTION)))).muluq(
                 FixedPoint.encode(uint112(1)).divuq(q3)
             )
         ).decode();
@@ -747,7 +747,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         return (reserve0, reserve0New, priceAverageData._x);
     }
 
-    function sqrt(uint256 x) internal pure returns (uint256 result) {
+    function _sqrt(uint256 x) internal pure returns (uint256 result) {
         if (x == 0) {
             return 0;
         }
