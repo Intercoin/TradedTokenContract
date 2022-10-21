@@ -170,7 +170,7 @@ describe("TradedTokenInstance", function () {
                     maxBuyTax,
                     maxSellTax
                 )
-            ).to.be.revertedWith("reserveToken invalid");
+            ).to.be.revertedWith("reserveTokenInvalid()");
         });
     });
 
@@ -279,11 +279,11 @@ describe("TradedTokenInstance", function () {
                 it("should claim", async() => {
                     await expect(
                         mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
-                    ).to.be.revertedWith("MANAGERS_ONLY");
+                    ).to.be.revertedWith("ManagersOnly()");
 
                     await expect(
                         mainInstance.connect(bob)["claim(uint256,address)"](ONE_ETH,bob.address)
-                    ).to.be.revertedWith("MANAGERS_ONLY");
+                    ).to.be.revertedWith("ManagersOnly()");
 
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
@@ -292,7 +292,7 @@ describe("TradedTokenInstance", function () {
                 it("should addManagers", async() => {
                     await expect(
                         mainInstance.connect(bob).addManagers(charlie.address)
-                    ).to.be.revertedWith("MANAGERS_ONLY");
+                    ).to.be.revertedWith("ManagersOnly()");
                     await mainInstance.connect(owner).addManagers(bob.address);
                     await mainInstance.connect(bob).addManagers(charlie.address);
                 });
@@ -306,11 +306,11 @@ describe("TradedTokenInstance", function () {
                 it("shouldnt `claim` if the price has become lower than minClaimPrice", async() => {
                     await expect(
                         mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
-                    ).to.be.revertedWith("MANAGERS_ONLY");
+                    ).to.be.revertedWith("ManagersOnly()");
 
                     await expect(
                         mainInstance.connect(bob)["claim(uint256,address)"](ONE_ETH,bob.address)
-                    ).to.be.revertedWith("MANAGERS_ONLY");
+                    ).to.be.revertedWith("ManagersOnly()");
 
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
@@ -449,11 +449,11 @@ describe("TradedTokenInstance", function () {
                 }); 
 
                 it("shouldt setup buyTax value more then buyTaxMax", async() => {
-                    await expect(mainInstance.setBuyTax(maxBuyTax.add(ONE))).to.be.revertedWith("FRACTION_INVALID");
+                    await expect(mainInstance.setBuyTax(maxBuyTax.add(ONE))).to.be.revertedWith(`TaxCanNotBeMoreThen(${maxBuyTax})`);
                 }); 
 
                 it("shouldt setup sellTax value more then sellTaxMax", async() => {
-                    await expect(mainInstance.setSellTax(maxSellTax.add(ONE))).to.be.revertedWith("FRACTION_INVALID");
+                    await expect(mainInstance.setSellTax(maxSellTax.add(ONE))).to.be.revertedWith(`TaxCanNotBeMoreThen(${maxSellTax})`);
                 }); 
                 
                 it("should setup sellTax", async() => {
@@ -695,7 +695,7 @@ describe("TradedTokenInstance", function () {
                         maxliquidity = tradedReserve2.sub(tradedReserve1);
                         add2Liquidity = maxliquidity.abs()//.mul(1).div(10000);
 
-                        await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWith("PRICE_DROP_TOO_BIG");
+                        await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWith("PriceDropTooBig()");
 
                         // or try to max from maxAddLiquidity
                         await expect(mainInstance.connect(owner).addLiquidity(0)).to.be.revertedWith("CanNotBeZero()");
