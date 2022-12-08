@@ -3,6 +3,9 @@
 artifacts
 .env
 .deps
+/cache
 secret.*.json
 TODO.txt
 /flattenen
+/coverage
+coverage.json

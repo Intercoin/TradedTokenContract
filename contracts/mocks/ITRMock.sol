@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../ITR.sol";
+import "../old/ITR.sol";
 
 contract ITRMock is ITR {
    
