@@ -705,7 +705,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             /*uint32 blockTimestampLast*/
         ) = _uniswapReserves();
 
-        traded2Swap = _sqrt((rTraded + incomingTradedToken) * (rTraded)) - rTraded; //
+        // inspired by https://blog.alphaventuredao.io/onesideduniswap/
+        traded2Swap = (_sqrt(rTraded*(incomingTradedToken*3988000 + rTraded*3988009)) - rTraded*1997) / 1994;
+
         require(traded2Swap > 0 && incomingTradedToken > traded2Swap, "BAD_AMOUNT");
 
         reserved2Liq = IUniswapV2Router02(uniswapRouter).getAmountOut(traded2Swap, rTraded, rReserved);

@@ -648,9 +648,11 @@ describe("TradedTokenInstance", function () {
                 
                 describe("Adding liquidity. synth", function () {
                     var snapId;
+                    var internalLiquidityAddress;
                     beforeEach("make snapshot", async() => {
                         // make snapshot before time manipulations
                         snapId = await ethers.provider.send('evm_snapshot', []);
+                        internalLiquidityAddress = await mainInstance.getInternalLiquidity();
                     });
 
                     afterEach("revert to snapshot", async() => {
@@ -676,7 +678,7 @@ describe("TradedTokenInstance", function () {
 
                     });
 
-                    it("should add liquidity", async() => {
+                    it("should add liquidity. liquidity contract middleware shouldn't have funds left after added liquidity", async() => {
                         let tradedReserve1,tradedReserve2,priceAv, maxliquidity, add2Liquidity;
                         [tradedReserve1, tradedReserve2, priceAv] = await mainInstance.connect(owner).maxAddLiquidity();
 
@@ -684,8 +686,18 @@ describe("TradedTokenInstance", function () {
 
                         add2Liquidity = maxliquidity.abs().mul(1).div(1000);
 
+                        // math presicion!!!  left can be like values less then 10
+                        expect(await mainInstance.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
+                        expect(await erc20ReservedToken.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
+                        // adding liquidity
                         await mainInstance.connect(owner).addLiquidity(add2Liquidity);
-
+                        // shouldn't have any tokens left on middleware
+                        expect(await mainInstance.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
+                        expect(await erc20ReservedToken.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
+                        // and again
+                        await mainInstance.connect(owner).addLiquidity(add2Liquidity);
+                        expect(await mainInstance.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
+                        expect(await erc20ReservedToken.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
                     });
 
                     it("shouldnt add liquidity", async() => {

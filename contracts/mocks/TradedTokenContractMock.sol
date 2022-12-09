@@ -22,6 +22,10 @@ contract TradedTokenMock is TradedToken {
     {
     }
 
+    function getInternalLiquidity() public view returns (address) {
+        return address(internalLiquidity);
+    }
+
     function getSqrt(
         uint256 x
     ) 
