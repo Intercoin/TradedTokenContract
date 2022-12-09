@@ -107,6 +107,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     mapping(address => uint64) internal managers;
 
+    mapping(address => uint256) public wantToClaimMap;
+    
     bool private addedInitialLiquidityRun;
 
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
@@ -287,9 +289,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         bytes calldata operatorData
     ) external {}
 
-    ////////////////////////////////////////////////////////////////////////
-    // public section //////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
     function addManagers(
         address manager
     )
@@ -381,6 +380,36 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     {
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, account);
+    }
+
+    function enableClaims() external onlyOwner {
+        if (claimsEnabledTime != 0) {
+            revert ClaimsEnabledTimeAlreadySetup();
+        }
+        claimsEnabledTime = uint64(block.timestamp);
+    }
+
+    /**
+    * If there is a claimingToken, then they have to pass an amount that is <= claimingToken.balanceOf(caller). 
+    * If they pass zero here, it will actually look up and use their entire balance.
+    */
+    function wantToClaim(
+        uint256 amount
+    ) 
+        external 
+    {
+        address sender = _msgSender();
+        uint256 availableAmount = ERC777(claimingToken).balanceOf(sender);
+        
+        if (amount == 0) {
+            amount = availableAmount;
+        }
+
+        if (availableAmount < amount || amount == 0) {
+            revert InsufficientAmount();
+        }
+        wantToClaimMap[sender] = amount;
+
     }
 
     /**
@@ -482,6 +511,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         _update();
     }
 
+    ////////////////////////////////////////////////////////////////////////
+    // public section //////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    
     function transferFrom(
         address holder,
         address recipient,
@@ -516,13 +549,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // 2. do usual transaction, then make calculation and burn tax from sides(buyer or seller)
         // we DON'T USE this case, because have callbacks in _move method: _callTokensToSend and _callTokensReceived
         // and than be send to some1 else in recipient contract callback
-    }
-
-    function enableClaims() public onlyOwner {
-        if (claimsEnabledTime != 0) {
-            revert ClaimsEnabledTimeAlreadySetup();
-        }
-        claimsEnabledTime = uint64(block.timestamp);
     }
 
     ////////////////////////////////////////////////////////////////////////
