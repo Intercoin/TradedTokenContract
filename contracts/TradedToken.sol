@@ -108,6 +108,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => uint64) internal managers;
 
     mapping(address => uint256) public wantToClaimMap;
+    uint256 public wantToClaimTotal; // value that accomulated all users `wantToClaim requests`
     
     bool private addedInitialLiquidityRun;
 
@@ -408,6 +409,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (availableAmount < amount || amount == 0) {
             revert InsufficientAmount();
         }
+
+        wantToClaimTotal += amount - wantToClaimMap[sender];
         wantToClaimMap[sender] = amount;
 
     }
