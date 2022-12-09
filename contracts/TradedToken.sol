@@ -38,7 +38,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
     address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
-
+    /**
+     * @custom:shortd claimFrequency
+     * @notice claimFrequency
+     */
+    uint16 immutable claimFrequency;
     /**
      * @custom:shortd traded token address
      * @notice traded token address
@@ -88,6 +92,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     uint64 public immutable buyTaxMax;
     uint64 public immutable sellTaxMax;
+    
     uint64 public buyTax;
     uint64 public sellTax;
     uint256 public totalCumulativeClaimed;
@@ -166,6 +171,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param externalTokenExchangePrice_ (numerator,denominator) exchange price. used when user trying to change external token to Traded
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
+     * @param claimFrequency_ claimFrequency_
      */
     constructor(
         string memory tokenName_,
@@ -177,7 +183,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address externalToken_,
         PriceNumDen memory externalTokenExchangePrice_,
         uint64 buyTaxMax_,
-        uint64 sellTaxMax_
+        uint64 sellTaxMax_,
+        uint16 claimFrequency_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
         
 
@@ -185,6 +192,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         buyTaxMax = buyTaxMax_;
         sellTaxMax = sellTaxMax_;
+        claimFrequency = claimFrequency_;
 
         //input validations
         if (reserveToken_ == address(0)) {

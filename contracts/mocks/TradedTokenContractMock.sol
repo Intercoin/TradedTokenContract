@@ -17,8 +17,9 @@ contract TradedTokenMock is TradedToken {
         address externalToken_,
         PriceNumDen memory externalTokenExchangePrice_,
         uint64 buyTaxMax_,
-        uint64 sellTaxMax_
-    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_, buyTaxMax_, sellTaxMax_)
+        uint64 sellTaxMax_,
+        uint16 claimFrequency_
+    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  minClaimPrice_, externalToken_, externalTokenExchangePrice_, buyTaxMax_, sellTaxMax_, claimFrequency_)
     {
     }
 

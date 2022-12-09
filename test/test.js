@@ -57,6 +57,7 @@ describe("TradedTokenInstance", function () {
 
     const maxBuyTax = FRACTION.mul(15).div(100); // 0.15*fraction
     const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
+    const claimFrequency = 0; 
 
     // vars
     var mainInstance, erc20ReservedToken;
@@ -97,7 +98,8 @@ describe("TradedTokenInstance", function () {
             ZERO_ADDRESS, //externalToken.address,
             [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
             maxBuyTax,
-            maxSellTax
+            maxSellTax,
+            claimFrequency
         );
 
         await expect(
@@ -126,7 +128,8 @@ describe("TradedTokenInstance", function () {
             externalToken.address,
             [customExternalTokenExchangePriceNumerator, customExternalTokenExchangePriceDenominator],
             0,
-            0
+            0,
+            claimFrequency
         );
         
         await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
@@ -168,7 +171,8 @@ describe("TradedTokenInstance", function () {
                     ZERO_ADDRESS,
                     [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
                     maxBuyTax,
-                    maxSellTax
+                    maxSellTax,
+                    claimFrequency
                 )
             ).to.be.revertedWith("reserveTokenInvalid()");
         });
@@ -191,7 +195,8 @@ describe("TradedTokenInstance", function () {
                 externalToken.address,
                 [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
                 maxBuyTax,
-                maxSellTax
+                maxSellTax,
+                claimFrequency
             );
 
             // let erc777 = await mainInstance.tradedToken();
