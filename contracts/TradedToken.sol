@@ -107,7 +107,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     mapping(address => uint64) internal managers;
 
-    mapping(address => uint256) public wantToClaimMap;
+    struct ClaimStruct {
+        uint256 amount;
+        uint256 lastActionTime;
+    }
+    mapping(address => ClaimStruct) public wantToClaimMap;
     uint256 public wantToClaimTotal; // value that accomulated all users `wantToClaim requests`
     
     bool private addedInitialLiquidityRun;
@@ -138,6 +142,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error ClaimValidationError();
     error PriceHasBecomeALowerThanMinClaimPrice();
     error ClaimsEnabledTimeAlreadySetup();
+    error ClaimTooFast(uint256 untilTime);
     
     modifier onlyManagers() {
         // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
@@ -410,8 +415,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert InsufficientAmount();
         }
 
-        wantToClaimTotal += amount - wantToClaimMap[sender];
-        wantToClaimMap[sender] = amount;
+        wantToClaimTotal += amount - wantToClaimMap[sender].amount;
+        wantToClaimMap[sender].amount = amount;
+
+        wantToClaimMap[sender].lastActionTime = block.timestamp;
 
     }
 
@@ -421,17 +428,24 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param account address to claim for
      */
     function claimViaExternal(uint256 claimingTokenAmount, address account) external nonReentrant() {
+
+        address sender = _msgSender();
+
         if (claimingToken == address(0)) { 
             revert EmptyTokenAddress();
         }
         if (claimingTokenAmount == 0) { 
             revert InputAmountCanNotBeZero();
         }
-        if (claimingTokenAmount > ERC777(claimingToken).allowance(msg.sender, address(this))) {
+        if (claimingTokenAmount > ERC777(claimingToken).allowance(sender, address(this))) {
             revert InsufficientAmount();
         }
+        if (wantToClaimMap[sender].lastActionTime + claimFrequency > block.timestamp) {
+            revert ClaimTooFast(wantToClaimMap[sender].lastActionTime + claimFrequency);
+        }
         
-        ERC777(claimingToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
+        
+        ERC777(claimingToken).safeTransferFrom(sender, DEAD_ADDRESS, claimingTokenAmount);
 
         uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
             claimingTokenExchangePrice.denominator;
@@ -439,6 +453,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         _validateClaim(tradedTokenAmount);
 
         _claim(tradedTokenAmount, account);
+
+        wantToClaimMap[sender].lastActionTime = block.timestamp;
     }
 
     /**
