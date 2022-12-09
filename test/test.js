@@ -205,6 +205,14 @@ describe("TradedTokenInstance", function () {
             
         });
 
+        it("should valid ClamedEnabledTime", async() => {
+            expect(await mainInstance.claimsEnabledTime()).to.be.eq(ZERO);
+            await expect(mainInstance.connect(bob).enableClaims()).revertedWith("Ownable: caller is not the owner");
+            await mainInstance.connect(owner).enableClaims();
+            expect(await mainInstance.claimsEnabledTime()).not.to.be.eq(ZERO);
+            await expect(mainInstance.connect(owner).enableClaims()).revertedWith("ClaimsEnabledTimeAlreadySetup()");
+        });
+
         it("cover sqrt func", async() => {
             expect(await mainInstance.getSqrt(0)).to.be.equal(0);
             expect(await mainInstance.getSqrt("0x100000000000000000000000000000000")).to.be.equal("0x10000000000000000");

@@ -38,11 +38,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
     address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    
+    uint64 public claimsEnabledTime;
+    
     /**
      * @custom:shortd claimFrequency
      * @notice claimFrequency
      */
-    uint16 immutable claimFrequency;
+    uint16 public immutable claimFrequency;
     /**
      * @custom:shortd traded token address
      * @notice traded token address
@@ -131,6 +134,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error EmptyReserves();
     error ClaimValidationError();
     error PriceHasBecomeALowerThanMinClaimPrice();
+    error ClaimsEnabledTimeAlreadySetup();
     
     modifier onlyManagers() {
         // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
@@ -512,6 +516,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // 2. do usual transaction, then make calculation and burn tax from sides(buyer or seller)
         // we DON'T USE this case, because have callbacks in _move method: _callTokensToSend and _callTokensReceived
         // and than be send to some1 else in recipient contract callback
+    }
+
+    function enableClaims() public onlyOwner {
+        if (claimsEnabledTime != 0) {
+            revert ClaimsEnabledTimeAlreadySetup();
+        }
+        claimsEnabledTime = uint64(block.timestamp);
     }
 
     ////////////////////////////////////////////////////////////////////////
