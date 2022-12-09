@@ -70,8 +70,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @custom:shortd external token
      * @notice external token
      */
-    address public immutable externalToken;
-    PriceNumDen externalTokenExchangePrice;
+    address public immutable claimingToken;
+    PriceNumDen claimingTokenExchangePrice;
 
     /**
      * @custom:shortd uniswap v2 pair
@@ -171,8 +171,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param priceDrop_ price drop while add liquidity
      * @param lockupIntervalAmount_ interval amount in days (see minimum lib)
      * @param minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
-     * @param externalToken_ external token address that used to change their tokens to traded
-     * @param externalTokenExchangePrice_ (numerator,denominator) exchange price. used when user trying to change external token to Traded
+     * @param claimingToken_ external token address that used to change their tokens to traded
+     * @param claimingTokenExchangePrice_ (numerator,denominator) exchange price. used when user trying to change external token to Traded
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
      * @param claimFrequency_ claimFrequency_
@@ -184,8 +184,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 priceDrop_,
         uint64 lockupIntervalAmount_,
         PriceNumDen memory minClaimPrice_,
-        address externalToken_,
-        PriceNumDen memory externalTokenExchangePrice_,
+        address claimingToken_,
+        PriceNumDen memory claimingTokenExchangePrice_,
         uint64 buyTaxMax_,
         uint64 sellTaxMax_,
         uint16 claimFrequency_
@@ -210,9 +210,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         minClaimPrice.numerator = minClaimPrice_.numerator;
         minClaimPrice.denominator = minClaimPrice_.denominator;
-        externalToken = externalToken_;
-        externalTokenExchangePrice.numerator = externalTokenExchangePrice_.numerator;
-        externalTokenExchangePrice.denominator = externalTokenExchangePrice_.denominator;
+        claimingToken = claimingToken_;
+        claimingTokenExchangePrice.numerator = claimingTokenExchangePrice_.numerator;
+        claimingTokenExchangePrice.denominator = claimingTokenExchangePrice_.denominator;
 
         // setup swap addresses
         (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
@@ -222,8 +222,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert EmptyAddress();
         }
         if (
-            externalTokenExchangePrice_.numerator == 0 || 
-            externalTokenExchangePrice_.denominator == 0 || 
+            claimingTokenExchangePrice_.numerator == 0 || 
+            claimingTokenExchangePrice_.denominator == 0 || 
             minClaimPrice_.numerator == 0 || 
             minClaimPrice_.denominator == 0
         ) { 
@@ -385,24 +385,24 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     /**
      * @notice claims to account traded tokens instead external tokens(if set). external tokens will send to dead address
-     * @param externalTokenAmount amount of external token to claim traded token
+     * @param claimingTokenAmount amount of external token to claim traded token
      * @param account address to claim for
      */
-    function claimViaExternal(uint256 externalTokenAmount, address account) external nonReentrant() {
-        if (externalToken == address(0)) { 
+    function claimViaExternal(uint256 claimingTokenAmount, address account) external nonReentrant() {
+        if (claimingToken == address(0)) { 
             revert EmptyTokenAddress();
         }
-        if (externalTokenAmount == 0) { 
+        if (claimingTokenAmount == 0) { 
             revert InputAmountCanNotBeZero();
         }
-        if (externalTokenAmount > ERC777(externalToken).allowance(msg.sender, address(this))) {
+        if (claimingTokenAmount > ERC777(claimingToken).allowance(msg.sender, address(this))) {
             revert InsufficientAmount();
         }
         
-        ERC777(externalToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, externalTokenAmount);
+        ERC777(claimingToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
 
-        uint256 tradedTokenAmount = (externalTokenAmount * externalTokenExchangePrice.numerator) /
-            externalTokenExchangePrice.denominator;
+        uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
+            claimingTokenExchangePrice.denominator;
 
         _validateClaim(tradedTokenAmount);
 
