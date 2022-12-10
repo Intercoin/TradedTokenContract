@@ -658,6 +658,41 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
 
     }
+    
+
+    // FixedPoint.fraction(_reserve1, _reserve0)._x -
+    // FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + totalCumulativeClaimed + tradedTokenAmount )._x =
+    // FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
+
+    // seems need to look UFIXED types
+// type UFixed is uint256;
+// https://ethereum.stackexchange.com/questions/136342/multiplying-fixed-point-types-in-solidity
+
+    function availableToClaim() public view returns(uint256 tradedTokenAmount) {
+        
+/*
+tradedTokenAmount = (
+    (
+        sqrt(3988009*_reserve1*(_reserve1 - _reserve0*numerator/denominator)) - (1997*(_reserve1 + _reserve0*numerator/denominator))
+    ) 
+/ (1994*_reserve1/_reserve0 - 1994*numerator/denominator)
+) - totalCumulativeClaimed
+*/
+(uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
+tradedTokenAmount = FixedPoint.decode(
+    FixedPoint.divuq(
+        FixedPoint.uq112x112(
+            FixedPoint.encode(1)._x//FixedPoint.sqrt()
+            - FixedPoint.uq112x112(1997*_reserve1)._x
+            - FixedPoint.muluq(FixedPoint.encode(1997*_reserve0),FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator))._x
+        )
+        ,
+        FixedPoint.uq112x112(
+            FixedPoint.fraction(1994*_reserve1,_reserve0)._x - FixedPoint.fraction(1994*minClaimPrice.numerator, minClaimPrice.denominator)._x
+        )
+    )
+)-totalCumulativeClaimed;
+    }
 
     /**
      * @notice do claim to the `account` and locked tokens if
