@@ -691,13 +691,17 @@ describe("TradedTokenInstance", function () {
 
                     });
 
-                    it("should add liquidity. liquidity contract middleware shouldn't have funds left after added liquidity", async() => {
+                    it.only("should add liquidity. liquidity contract middleware shouldn't have funds left after added liquidity", async() => {
                         let tradedReserve1,tradedReserve2,priceAv, maxliquidity, add2Liquidity;
                         [tradedReserve1, tradedReserve2, priceAv] = await mainInstance.connect(owner).maxAddLiquidity();
 
                         maxliquidity = tradedReserve2.sub(tradedReserve1);
 
                         add2Liquidity = maxliquidity.abs().mul(1).div(1000);
+console.log("maxliquidity = ", maxliquidity.toString());
+let t = await mainInstance.availableToClaim();
+
+console.log("availableToClaim = ", t.toString());
 
                         // math presicion!!!  left can be like values less then 10
                         expect(await mainInstance.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);

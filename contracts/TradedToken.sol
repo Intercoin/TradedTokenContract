@@ -16,7 +16,7 @@ import "./libs/FixedPoint.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
     using FixedPoint for *;
@@ -679,19 +679,96 @@ tradedTokenAmount = (
 ) - totalCumulativeClaimed
 */
 (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-tradedTokenAmount = FixedPoint.decode(
-    FixedPoint.divuq(
-        FixedPoint.uq112x112(
-            FixedPoint.encode(1)._x//FixedPoint.sqrt()
-            - FixedPoint.uq112x112(1997*_reserve1)._x
-            - FixedPoint.muluq(FixedPoint.encode(1997*_reserve0),FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator))._x
-        )
-        ,
-        FixedPoint.uq112x112(
-            FixedPoint.fraction(1994*_reserve1,_reserve0)._x - FixedPoint.fraction(1994*minClaimPrice.numerator, minClaimPrice.denominator)._x
-        )
+
+// ax2 + bx + c = 0
+// a= (997.0*numerator/denominator - 997.0*_reserve1/_reserve0)
+// b= (1997.0*_reserve0*numerator/denominator - 1997.0*_reserve1)
+// c= 1000.0*_reserve0*_reserve0*numerator/denominator
+// d = b^2-4ac
+
+//d = 3988009*_reserve1*_reserve1 - 3988009*_reserve0*_reserve1*numerator/denominator
+console.log("_reserve0                  = ", _reserve0);
+console.log("_reserve1                  = ", _reserve1);
+console.log("minClaimPrice.denominator  = ", minClaimPrice.denominator);
+console.log("minClaimPrice.numerator    = ", minClaimPrice.numerator);
+
+
+int256 d = 
+    int256(
+        uint256(3988009*_reserve1*_reserve1) - uint256(3988009*_reserve0*_reserve1*minClaimPrice.numerator/minClaimPrice.denominator)
+    );
+
+if (d < 0) {
+    console.log("!!!!! D<0 !!!!!!");
+}
+
+// a= (997.0*numerator/denominator - 997.0*_reserve1/_reserve0)
+int256 a_signed = 
+    int256(
+        (uint256(997.0*minClaimPrice.numerator/minClaimPrice.denominator) - uint256(997.0*_reserve1/_reserve0))
+    );
+
+// b= (1997.0*_reserve0*numerator/denominator - 1997.0*_reserve1)
+int256 b_signed = 
+    int256(
+        (uint256(1997.0*_reserve0*minClaimPrice.numerator/minClaimPrice.denominator) - uint256(1997*_reserve1))
+    );
+// c= 1000.0*_reserve0*_reserve0*numerator/denominator
+int256 c_signed = 
+    int256(
+        1000.0*_reserve0*_reserve0*minClaimPrice.numerator/minClaimPrice.denominator
     )
-)-totalCumulativeClaimed;
+
+// x = (- b +- sqrt(D)) / 2a
+// x1 = (- b + Math.sqrt(d)) / 2a
+// x2 = (- b - Math.sqrt(d)) / 2*a
+int256 x = ()
+//x = totalCumulativeClaimed + tradedTokenAmount
+return 0;
+/*
+d = 3988009*_reserve1*_reserve1 - 3988009*_reserve0*_reserve1*numerator/denominator
+d1 = b*b - 4*a*c
+
+x = (- b +- sqrt(D)) / 2a
+x1 = (- b + Math.sqrt(d)) / 2a
+x2 = (- b - Math.sqrt(d)) / 2*a
+
+uint256 d = 3988009*_reserve1*(_reserve1 - _reserve0*minClaimPrice.numerator/minClaimPrice.denominator);
+
+console.log("d = ", d);
+
+console.log("_reserve0 = ", _reserve0);
+console.log("_reserve1 = ", _reserve1);
+console.log("minClaimPrice.denominator = ", minClaimPrice.denominator);
+console.log("minClaimPrice.numerator = ", minClaimPrice.numerator);
+
+console.log("_sqrt(d)                                                                             = ", _sqrt(d));
+console.log("(1997*(_reserve1 + _reserve0 * minClaimPrice.numerator / minClaimPrice.denominator)) = ", (1997*(_reserve1 + _reserve0 * minClaimPrice.numerator / minClaimPrice.denominator)));
+console.log("1994*_reserve1 / _reserve0 - 1994 * minClaimPrice.numerator / minClaimPrice.denominator = ", 1994*_reserve1 / _reserve0 - 1994 * minClaimPrice.numerator / minClaimPrice.denominator);
+
+
+console.log("XXX = ", (
+        (
+            _sqrt(d) - (1997*(_reserve1 + _reserve0 * minClaimPrice.numerator / minClaimPrice.denominator))
+        )
+        /
+        (
+            1994*_reserve1 / _reserve0 - 1994 * minClaimPrice.numerator / minClaimPrice.denominator
+        )
+    ));
+console.log("totalCumulativeClaimed = ", totalCumulativeClaimed);
+
+tradedTokenAmount = 
+    (
+        (
+            _sqrt(d) - (1997*(_reserve1 + _reserve0 * minClaimPrice.numerator / minClaimPrice.denominator))
+        )
+        /
+        (
+            1994*_reserve1 / _reserve0 - 1994 * minClaimPrice.numerator / minClaimPrice.denominator
+        )
+    ) - totalCumulativeClaimed;
+    */
     }
 
     /**
