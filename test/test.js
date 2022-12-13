@@ -698,10 +698,10 @@ describe("TradedTokenInstance", function () {
                         maxliquidity = tradedReserve2.sub(tradedReserve1);
 
                         add2Liquidity = maxliquidity.abs().mul(1).div(1000);
-console.log("maxliquidity = ", maxliquidity.toString());
+console.log("maxliquidity       = ", maxliquidity.toString());
 let t = await mainInstance.availableToClaim();
 
-console.log("availableToClaim = ", t.toString());
+console.log("availableToClaim   = ", t.toString());
 
                         // math presicion!!!  left can be like values less then 10
                         expect(await mainInstance.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
