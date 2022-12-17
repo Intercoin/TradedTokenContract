@@ -33,6 +33,15 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 price0CumulativeLast;
         FixedPoint.uq112x112 price0Average;
     }
+    
+    struct ClaimSettings {
+        address claimingToken;
+        PriceNumDen minClaimPrice;
+        PriceNumDen minClaimPriceGrow;
+        PriceNumDen claimingTokenExchangePrice;
+        uint16 claimFrequency;
+        
+    }
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
@@ -65,14 +74,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint256 public immutable priceDrop;
 
     PriceNumDen minClaimPrice;
-
+    uint64 internal lastMinClaimPriceUpdatedTime;
+    PriceNumDen minClaimPriceGrow;
     /**
      * @custom:shortd external token
      * @notice external token
      */
     address public immutable claimingToken;
     PriceNumDen claimingTokenExchangePrice;
-
+    
+    
     /**
      * @custom:shortd uniswap v2 pair
      * @notice uniswap v2 pair
@@ -85,8 +96,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     // keep gas when try to get reserves
     // if token01 == true then (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) so reserve0 it's reserves of TradedToken
     bool internal immutable token01;
-    bool internal alreadyRunStartupSync;
-
+    
+    uint64 internal constant MIN_CLAIM_PRICE_UPDATED_TIME = 1 days;
     uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant LOCKUP_INTERVAL = 1 days; //24 * 60 * 60; // day in seconds
@@ -134,6 +145,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error InsufficientAmount();
     error TaxCanNotBeMoreThen(uint64 fraction);
     error PriceDropTooBig();
+    error OwnerAndManagersOnly();
     error ManagersOnly();
     error CantCreatePair(address tradedToken, address reserveToken);
     error BuyTaxInvalid();
@@ -143,17 +155,25 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error PriceHasBecomeALowerThanMinClaimPrice();
     error ClaimsEnabledTimeAlreadySetup();
     error ClaimTooFast(uint256 untilTime);
+    error ShouldBeMoreThenMinClaimPrice();
+    error MinClaimPriceGrowTooFast();
     
     modifier onlyOwnerAndManagers() {
         // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
         // } else {
-        //     revert ManagersOnly();
+        //     revert OwnerAndManagersOnly();
         // }
         // lets transform via de'Morgan law
         if (owner() != _msgSender() && managers[_msgSender()] == 0) {
+            revert OwnerAndManagersOnly();
+        }
+        _;
+    }
+    // real only managers.  owner cant be run of it
+    modifier onlyManagers() {
+        if (managers[_msgSender()] == 0) {
             revert ManagersOnly();
         }
-
         _;
     }
 
@@ -178,12 +198,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param reserveToken_ reserve token address
      * @param priceDrop_ price drop while add liquidity
      * @param lockupIntervalAmount_ interval amount in days (see minimum lib)
-     * @param minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
-     * @param claimingToken_ external token address that used to change their tokens to traded
-     * @param claimingTokenExchangePrice_ (numerator,denominator) exchange price. used when user trying to change external token to Traded
+     * @param claimSettings struct of claim settings
+     * param claimSettings.claimingToken_ external token address that used to change their tokens to traded
+     * param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
+     * param claimSettings.claimingTokenExchangePrice_ (numerator,denominator) exchange price. used when user trying to change external token to Traded
+     * param claimSettings.claimFrequency_ claimFrequency_
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
-     * @param claimFrequency_ claimFrequency_
      */
     constructor(
         string memory tokenName_,
@@ -191,57 +212,64 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address reserveToken_, //” (USDC)
         uint256 priceDrop_,
         uint64 lockupIntervalAmount_,
-        PriceNumDen memory minClaimPrice_,
-        address claimingToken_,
-        PriceNumDen memory claimingTokenExchangePrice_,
+        ClaimSettings memory claimSettings,
         uint64 buyTaxMax_,
-        uint64 sellTaxMax_,
-        uint16 claimFrequency_
+        uint64 sellTaxMax_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
-        
 
-        addedInitialLiquidityRun = false;
-
+        //setup
         buyTaxMax = buyTaxMax_;
         sellTaxMax = sellTaxMax_;
-        claimFrequency = claimFrequency_;
-
-        //input validations
-        if (reserveToken_ == address(0)) {
-            revert reserveTokenInvalid();
-        }
+        claimFrequency = claimSettings.claimFrequency;
 
         tradedToken = address(this);
         reserveToken = reserveToken_;
-        priceDrop = priceDrop_;
-        lockupIntervalAmount = lockupIntervalAmount_;
 
-        minClaimPrice.numerator = minClaimPrice_.numerator;
-        minClaimPrice.denominator = minClaimPrice_.denominator;
-        claimingToken = claimingToken_;
-        claimingTokenExchangePrice.numerator = claimingTokenExchangePrice_.numerator;
-        claimingTokenExchangePrice.denominator = claimingTokenExchangePrice_.denominator;
-
+        startupTimestamp = _currentBlockTimestamp();
+        pairObservation.timestampLast = _currentBlockTimestamp();
+        
         // setup swap addresses
         (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
+
+        priceDrop = priceDrop_;
+        lockupIntervalAmount = lockupIntervalAmount_;
+        claimingToken = claimSettings.claimingToken;
+        
+        minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
+        minClaimPriceGrow.denominator = claimSettings.minClaimPriceGrow.denominator;
+        minClaimPrice.numerator = claimSettings.minClaimPrice.numerator;
+        minClaimPrice.denominator = claimSettings.minClaimPrice.denominator;
+        
+        claimingTokenExchangePrice.numerator = claimSettings.claimingTokenExchangePrice.numerator;
+        claimingTokenExchangePrice.denominator = claimSettings.claimingTokenExchangePrice.denominator;
+
+        lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
+
+        //validations
+        if (
+            claimSettings.claimingTokenExchangePrice.numerator == 0 || 
+            claimSettings.claimingTokenExchangePrice.denominator == 0 || 
+            claimSettings.minClaimPrice.numerator == 0 || 
+            claimSettings.minClaimPrice.denominator == 0
+        ) { 
+            revert CanNotBeZero();
+        }
+
+        
+        if (reserveToken == address(0)) {
+            revert reserveTokenInvalid();
+        }
 
         // check inputs
         if (uniswapRouter == address(0) || uniswapRouterFactory == address(0)) {
             revert EmptyAddress();
         }
-        if (
-            claimingTokenExchangePrice_.numerator == 0 || 
-            claimingTokenExchangePrice_.denominator == 0 || 
-            minClaimPrice_.numerator == 0 || 
-            minClaimPrice_.denominator == 0
-        ) { 
-            revert CanNotBeZero();
-        }
-
-        if (buyTaxMax_ > FRACTION || sellTaxMax_ > FRACTION) {
+       
+        if (buyTaxMax > FRACTION || sellTaxMax > FRACTION) {
             revert TaxCanNotBeMoreThen(FRACTION);
         }
         
+
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
@@ -253,8 +281,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert CantCreatePair(tradedToken, reserveToken);
         }
 
-        startupTimestamp = _currentBlockTimestamp();
-        pairObservation.timestampLast = _currentBlockTimestamp();
 
         // TypeError: Cannot write to immutable here: Immutable variables cannot be initialized inside an if statement.
         // if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
@@ -266,6 +292,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // IUniswapV2Pair(uniswapV2Pair).sync(); !!!! not created yet
 
         internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapRouter);
+
+        
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -420,6 +448,26 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         wantToClaimMap[sender].lastActionTime = block.timestamp;
 
+    }
+
+    function restrictClaiming(PriceNumDen memory newMinimumPrice) external onlyManagers() {
+        FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
+        FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
+        FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
+        if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
+            revert ShouldBeMoreThenMinClaimPrice();
+        }
+        if (
+            newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
+            lastMinClaimPriceUpdatedTime <= block.timestamp + MIN_CLAIM_PRICE_UPDATED_TIME
+        ) {
+            revert MinClaimPriceGrowTooFast();
+        }
+
+        lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
+            
+        minClaimPrice.numerator = newMinimumPrice.numerator;
+        minClaimPrice.denominator = newMinimumPrice.denominator;
     }
 
     /**
