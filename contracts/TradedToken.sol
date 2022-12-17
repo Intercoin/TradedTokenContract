@@ -144,7 +144,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error ClaimsEnabledTimeAlreadySetup();
     error ClaimTooFast(uint256 untilTime);
     
-    modifier onlyManagers() {
+    modifier onlyOwnerAndManagers() {
         // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
         // } else {
         //     revert ManagersOnly();
@@ -299,7 +299,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address manager
     )
         external
-        onlyManagers
+        onlyOwnerAndManagers
     {
         if (manager == address(0)) {revert EmptyManagerAddress();}
         managers[manager] = _currentBlockTimestamp();
@@ -369,7 +369,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param tradedTokenAmount amount of traded token to claim
      * @custom:calledby owner
      */
-    function claim(uint256 tradedTokenAmount) external onlyManagers {
+    function claim(uint256 tradedTokenAmount) external onlyOwnerAndManagers {
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, msg.sender);
     }
@@ -382,7 +382,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function claim(uint256 tradedTokenAmount, address account)
         external
-        onlyManagers
+        onlyOwnerAndManagers
     {
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, account);
@@ -461,7 +461,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @dev claims, sells, adds liquidity, sends LP to 0x0
      * @custom:calledby owner
      */
-    function addLiquidity(uint256 tradedTokenAmount) external onlyManagers initialLiquidityRequired {
+    function addLiquidity(uint256 tradedTokenAmount) external onlyOwnerAndManagers initialLiquidityRequired {
         if (tradedTokenAmount == 0) {
             revert CanNotBeZero();
         }
