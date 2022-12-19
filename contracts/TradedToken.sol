@@ -373,7 +373,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert InsufficientAmount();
         }
 
-        _claim(amountTradedToken, address(this));
+        __claim(amountTradedToken, address(this));
 
         ERC777(tradedToken).safeTransfer(address(internalLiquidity), amountTradedToken);
         ERC777(reserveToken).safeTransfer(address(internalLiquidity), amountReserveToken);
@@ -592,7 +592,23 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    
+
+    /**
+    * @return (this is called clamping a value or sum to fit into a range, in this case 0….availableToClaimTotal).
+    */
+    function availableToClaimByAddress(
+        address account
+    ) 
+        public 
+        view 
+        returns(uint256) 
+    {
+        uint256 a = availableToClaim(); 
+        uint256 w = wantToClaimMap[account].amount; 
+        return wantToClaimTotal <= a ? w : w * a / wantToClaimTotal; 
+        
+    }
+
     function transferFrom(
         address holder,
         address recipient,
@@ -691,12 +707,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     * @notice 
         validate params when user claims
         here we should simulate swap totalCumulativeClaimed to reserve token and check price
-        price should be less than minClaimPrice
+        price shouldnt be less than minClaimPrice
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
         if (tradedTokenAmount == 0) {
             revert CanNotBeZero();
         }
+
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
@@ -716,34 +733,34 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert PriceHasBecomeALowerThanMinClaimPrice();
         }
 
+
     }
-    
-
-    // FixedPoint.fraction(_reserve1, _reserve0)._x -
-    // FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + totalCumulativeClaimed + tradedTokenAmount )._x =
-    // FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
-
-    // seems need to look UFIXED types
-// type UFixed is uint256;
-// https://ethereum.stackexchange.com/questions/136342/multiplying-fixed-point-types-in-solidity
-
+    /**
+    * returns the currently available maximum amount that can be claimed, that if it was all immediately sold would drop price by 10%.
+    */
     function availableToClaim() public view returns(uint256 tradedTokenAmount) {
-        
-
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-
-
         uint256 numDen =  2 ** 64;
-
-        tradedTokenAmount = (numDen * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/numDen - _reserve0 - totalCumulativeClaimed;
-
-
+        //tradedTokenAmount = (numDen * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/numDen - _reserve0 - totalCumulativeClaimed;
+        tradedTokenAmount = (numDen * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/numDen;
+        if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
+            tradedTokenAmount -= (_reserve0 + totalCumulativeClaimed);
+        } else {
+            tradedTokenAmount = 0;
+        }
     }
 
+    function _claim(uint256 tradedTokenAmount, address account) internal {
+        // scaling will be here
+        
+        //
+
+        __claim(tradedTokenAmount, account);
+    }
     /**
      * @notice do claim to the `account` and locked tokens if
      */
-    function _claim(uint256 tradedTokenAmount, address account) internal {
+    function __claim(uint256 tradedTokenAmount, address account) internal {
         
         if (account == address(0)) {
             revert EmptyAccountAddress();

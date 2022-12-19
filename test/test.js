@@ -292,6 +292,7 @@ describe("TradedTokenInstance", function () {
             });
 
             describe("internal", function () {
+                const AmountToClaim = ONE_ETH.mul(HUN);
                 before("make snapshot", async() => {
                     // make snapshot before time manipulations
                     snapId = await ethers.provider.send('evm_snapshot', []);
@@ -305,16 +306,22 @@ describe("TradedTokenInstance", function () {
                 });
 
                 it("should claim", async() => {
+                    
                     await expect(
-                        mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
+                        mainInstance.connect(bob)["claim(uint256)"](AmountToClaim)
                     ).to.be.revertedWith("OwnerAndManagersOnly()");
 
                     await expect(
-                        mainInstance.connect(bob)["claim(uint256,address)"](ONE_ETH,bob.address)
+                        mainInstance.connect(bob)["claim(uint256,address)"](AmountToClaim, bob.address)
                     ).to.be.revertedWith("OwnerAndManagersOnly()");
+                    
+                    let availableToClaim = await mainInstance.availableToClaim();
+                    await expect(
+                        mainInstance.connect(owner)["claim(uint256)"](availableToClaim.mul(HUN))
+                    ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
 
-                    await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
-                    expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
+                    await mainInstance.connect(owner)["claim(uint256)"](AmountToClaim);
+                    expect(await mainInstance.balanceOf(owner.address)).to.be.eq(AmountToClaim);
                 });
                 
                 it("should addManagers", async() => {
@@ -713,10 +720,6 @@ describe("TradedTokenInstance", function () {
                         maxliquidity = tradedReserve2.sub(tradedReserve1);
 
                         add2Liquidity = maxliquidity.abs().mul(1).div(1000);
-console.log("maxliquidity       = ", maxliquidity.toString());
-let t = await mainInstance.availableToClaim();
-
-console.log("availableToClaim   = ", t.toString());
 
                         // math presicion!!!  left can be like values less then 10
                         expect(await mainInstance.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
