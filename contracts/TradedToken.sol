@@ -18,6 +18,8 @@ import "./libs/FixedPoint.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
+import "./interfaces/IFund.sol";
+
 //import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
@@ -722,6 +724,26 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             return taxesInfo.toSellTax;
         }
     }
+
+    function presaleAdd(
+        address account,
+        uint256 amount
+    )
+        public
+        initialLiquidityRequired
+        onlyOwner
+    {
+        _mint(address, amount, "", "");
+        emit Presale(account, amount);
+    }
+
+    function presaleBurnRemaining(contract) public {
+        uint64 endTime = IPresale(contract).endTime();
+        if (block.timestamp > endTime) {
+            _burn(contract, balanceOf(contract), "", "");
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
