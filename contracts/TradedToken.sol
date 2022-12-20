@@ -75,7 +75,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint32 duration; // for time ranges, 32 bits are enough, can also define constants like DAY, WEEK, MONTH
         uint32 fraction; // out of 10,000
     }
-    mapping (address => RateLimit) public rateLimit;
+    mapping (address => RateLimit) public panicSellRateLimit;
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
@@ -176,7 +176,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
     error NotAuthorized();
-    error AntiDumpFeature();
+    error PanicSellRateExceeded();
     
     modifier onlyOwnerAndManagers() {
         // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
@@ -184,7 +184,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //     revert OwnerAndManagersOnly();
         // }
         // lets transform via de'Morgan law
-        if (owner() != _msgSender() && managers[_msgSender()] == 0) {
+        address msgSender = _msgSender();
+        if (owner() != msgSender && managers[msgSender] == 0) {
             revert OwnerAndManagersOnly();
         }
         _;
@@ -326,7 +327,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     function setRateLimit(
         address recipient, 
-        RateLimit memory _rateLimit
+        RateLimit memory _panicSellRateLimit
     ) 
         external 
     {
@@ -357,8 +358,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert NotAuthorized();
         }
         
-        rateLimit[recipient].duration = _rateLimit.duration;
-        rateLimit[recipient].fraction = _rateLimit.fraction;
+        panicSellRateLimit[recipient].duration = _panicSellRateLimit.duration;
+        panicSellRateLimit[recipient].fraction = _panicSellRateLimit.fraction;
     }
 
     /**
@@ -610,7 +611,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-        amount = antiDumpFeature(holder, recipient, amount);
+        amount = preventPanic(holder, recipient, amount);
         if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
             
             uint256 taxAmount = (amount * sellTax()) / FRACTION;
@@ -622,7 +623,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         return super.transferFrom(holder, recipient, amount);
     }
 
-    function antiDumpFeature(
+    function preventPanic(
         address holder,
         address recipient,
         uint256 amount
@@ -630,33 +631,31 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         internal 
         returns(uint256 adjustedAmount)
     {
-        adjustedAmount = amount;
+        if (holder == address(internalLiquidity)) {
+            return amount;
+        }
 
-        if (holder != address(internalLiquidity)) {
-            ////////////////////////
-            // somewhere in this function
-            uint256 currentBalance = balanceOf(holder);
-            uint256 max = currentBalance * rateLimit[recipient].fraction / FRACTION;
-            uint32 duration = rateLimit[recipient].duration;
-            if (block.timestamp / duration * duration > _buckets[recipient].lastBucketTime) {
-                _buckets[recipient].lastBucketTime = uint64(block.timestamp);
-                _buckets[recipient].alreadySentInCurrentBucket = 0;
+        adjustedAmount = amount;
+        uint256 currentBalance = balanceOf(holder);
+        uint256 max = currentBalance * panicSellRateLimit[recipient].fraction / FRACTION;
+        uint32 duration = panicSellRateLimit[recipient].duration;
+        if (block.timestamp / duration * duration > _buckets[recipient].lastBucketTime) {
+            _buckets[recipient].lastBucketTime = uint64(block.timestamp);
+            _buckets[recipient].alreadySentInCurrentBucket = 0;
+        }
+        if (_buckets[recipient].alreadySentInCurrentBucket + amount <= max) {
+            // proceed with transfer normally
+            _buckets[recipient].alreadySentInCurrentBucket += amount;
+            
+        } else {
+            // exceeded rate limit. But we control the token and how much gets transferred,
+            // so let's just transfer whatever is left, and UniSwap will have to use the FeeOnTransfer method versions
+            _buckets[recipient].alreadySentInCurrentBucket = max;
+            //transfer only max - _alreadySentInCurrentBucket[to];
+            if (_buckets[recipient].alreadySentInCurrentBucket > max) {
+                revert PanicSellRateExceeded();
             }
-            if (_buckets[recipient].alreadySentInCurrentBucket + amount <= max) {
-                // proceed with transfer normally
-                _buckets[recipient].alreadySentInCurrentBucket += amount;
-                
-            } else {
-                // exceeded rate limit. But we control the token and how much gets transferred,
-                // so let's just transfer whatever is left, and UniSwap will have to use the FeeOnTransfer method versions
-                _buckets[recipient].alreadySentInCurrentBucket = max;
-                //transfer only max - _alreadySentInCurrentBucket[to];
-                adjustedAmount = max > _buckets[recipient].alreadySentInCurrentBucket ? max - _buckets[recipient].alreadySentInCurrentBucket : 0 ;
-                if (adjustedAmount == 0) {
-                    revert AntiDumpFeature();
-                }
-            }
-            ////////////////////////
+            adjustedAmount = max - _buckets[recipient].alreadySentInCurrentBucket;
         }
     }
 
@@ -664,16 +663,18 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         
         //address from = _msgSender();
+        address msgSender = _msgSender();
+        amount = preventPanic(msgSender, recipient, amount);
 
         // inject into transfer and burn tax from sender
         // two ways:
         // 1. make calculations, burn taxes from sender and do transaction with substracted values
-        if (uniswapV2Pair == _msgSender()) {
+        if (uniswapV2Pair == msgSender) {
             uint256 taxAmount = (amount * buyTax()) / FRACTION;
 
             if (taxAmount != 0) {
                 amount -= taxAmount;
-                _burn(_msgSender(), taxAmount, "", "");
+                _burn(msgSender, taxAmount, "", "");
             }
         }
         return super.transfer(recipient, amount);
