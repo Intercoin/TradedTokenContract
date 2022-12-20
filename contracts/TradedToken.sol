@@ -117,10 +117,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint64 internal immutable startupTimestamp;
     uint64 internal immutable lockupIntervalAmount;
 
-    uint64 public immutable buyTaxMax;
-    uint64 public immutable sellTaxMax;
-    uint64 public buyTax;
-    uint64 public sellTax;
+    uint16 public immutable buyTaxMax;
+    uint16 public immutable sellTaxMax;
     uint256 public totalCumulativeClaimed;
 
     Liquidity internal internalLiquidity;
@@ -218,8 +216,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint64 lockupIntervalAmount_,
         ClaimSettings memory claimSettings,
         TaxesInfoInit memory taxesInfoInit,
-        uint64 buyTaxMax_,
-        uint64 sellTaxMax_
+        uint16 buyTaxMax_,
+        uint16 sellTaxMax_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
 
         //setup
@@ -348,28 +346,33 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
     /**
      * @notice setting buy tax
-     * @param fraction buy tax
+     * @param newTax buy tax
      * @custom:calledby owner
      */
-    function setBuyTax(uint64 fraction) external onlyOwner {
-        if (fraction > buyTaxMax) {
+    function setBuyTax(uint16 newTax) external onlyOwner {
+        if (newTax > buyTaxMax) {
             revert TaxCanNotBeMoreThen(buyTaxMax);
         }
-        buyTax = fraction;
-        emit UpdatedTaxes(sellTax, buyTax);
+        taxesInfo.fromBuyTax = taxesInfo.toBuyTax;
+        taxesInfo.toBuyTax = newTax;
+        taxesInfo.buyTaxTimestamp = uint64(block.timestamp);
+        
+        emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
     }
 
     /**
      * @notice setting sell tax
-     * @param fraction sell tax
+     * @param newTax sell tax
      * @custom:calledby owner
      */
-    function setSellTax(uint64 fraction) external onlyOwner {
-        if (fraction > sellTaxMax) {
+    function setSellTax(uint16 newTax) external onlyOwner {
+        if (newTax > sellTaxMax) {
             revert TaxCanNotBeMoreThen(sellTaxMax);
         }
-        sellTax = fraction;
-        emit UpdatedTaxes(sellTax, buyTax);
+        taxesInfo.fromSellTax = taxesInfo.toSellTax;
+        taxesInfo.toSellTax = newTax;
+        taxesInfo.sellTaxTimestamp = uint64(block.timestamp);
+        emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
     }
 
     /**
@@ -553,7 +556,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 amount
     ) public virtual override returns (bool) {
         if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
-            uint256 taxAmount = (amount * sellTax) / FRACTION;
+            uint256 taxAmount = (amount * sellTax()) / FRACTION;
             if (taxAmount != 0) {
                 amount -= taxAmount;
                 _burn(holder, taxAmount, "", "");
@@ -569,7 +572,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // two ways:
         // 1. make calculations, burn taxes from sender and do transaction with substracted values
         if (uniswapV2Pair == _msgSender()) {
-            uint256 taxAmount = (amount * buyTax) / FRACTION;
+            uint256 taxAmount = (amount * buyTax()) / FRACTION;
 
             if (taxAmount != 0) {
                 amount -= taxAmount;
@@ -583,10 +586,47 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // and than be send to some1 else in recipient contract callback
     }
 
+    function buyTax() public view returns(uint256) {
+        if (taxesInfo.buyTaxDuration == 0) {
+            return taxesInfo.toBuyTax;
+        }
+        if (block.timestamp < (taxesInfo.buyTaxDuration + taxesInfo.buyTaxTimestamp)) {
+            if (taxesInfo.buyTaxGradual) {
+                if (taxesInfo.toBuyTax > taxesInfo.fromBuyTax) {
+                    return taxesInfo.fromBuyTax + (taxesInfo.toBuyTax - taxesInfo.fromBuyTax) * (block.timestamp - taxesInfo.buyTaxTimestamp) / taxesInfo.buyTaxDuration;
+                } else {
+                    return taxesInfo.fromBuyTax - (taxesInfo.fromBuyTax - taxesInfo.toBuyTax) * (block.timestamp - taxesInfo.buyTaxTimestamp) / taxesInfo.buyTaxDuration;
+                }
+            } else {
+                return taxesInfo.fromBuyTax;
+            }
+        } else {
+            return taxesInfo.toBuyTax;
+        }
+    }
+
+    function sellTax() public view returns(uint256) {
+        if (taxesInfo.sellTaxDuration == 0) {
+            return taxesInfo.toSellTax;
+        }
+        if (block.timestamp < (taxesInfo.sellTaxDuration + taxesInfo.sellTaxTimestamp)) {
+            if (taxesInfo.sellTaxGradual) {
+                if (taxesInfo.toSellTax > taxesInfo.fromSellTax) {
+                    return taxesInfo.fromSellTax + (taxesInfo.toSellTax - taxesInfo.fromSellTax) * (block.timestamp - taxesInfo.sellTaxTimestamp) / taxesInfo.sellTaxDuration;
+                } else {
+                    return taxesInfo.fromSellTax - (taxesInfo.fromSellTax - taxesInfo.toSellTax) * (block.timestamp - taxesInfo.sellTaxTimestamp) / taxesInfo.sellTaxDuration;
+                }
+            } else {
+                return taxesInfo.fromSellTax;
+            }
+                
+        } else {
+            return taxesInfo.toSellTax;
+        }
+    }
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    
     function _beforeTokenTransfer(
         address, /*operator*/
         address from,

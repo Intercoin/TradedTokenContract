@@ -504,6 +504,90 @@ describe("TradedTokenInstance", function () {
                     expect(value).to.be.eq(newValue);
                 }); 
 
+                it("should setup sellTax gradually", async() => {
+                    await mainInstance.setTaxesInfoInit([1000,1000,true,true]);
+                    const oldValue = await mainInstance.sellTax();
+
+                    const value = maxSellTax.sub(ONE);
+                    await mainInstance.setSellTax(value);
+
+                    const newValueStart = await mainInstance.sellTax();
+                    
+                    await network.provider.send("evm_increaseTime", [500]);
+                    await network.provider.send("evm_mine");
+
+                    const newValueHalf = await mainInstance.sellTax();
+
+                    await network.provider.send("evm_increaseTime", [10000]);
+                    await network.provider.send("evm_mine");
+
+                    const newValueOverFinal = await mainInstance.sellTax();
+                    
+                    expect(oldValue).to.be.eq(newValueStart);
+                    expect(newValueStart).to.be.lt(newValueHalf);
+                    expect(newValueHalf).to.be.lt(newValueOverFinal);
+                    expect(value).to.be.eq(newValueOverFinal);
+
+                }); 
+
+                it("should setup buyTax gradually", async() => {
+                    await mainInstance.setTaxesInfoInit([1000,1000,true,true]);
+                    const oldValue = await mainInstance.buyTax();
+
+                    const value = maxBuyTax.sub(ONE);
+                    await mainInstance.setBuyTax(value);
+
+                    const newValueStart = await mainInstance.buyTax();
+
+                    await network.provider.send("evm_increaseTime", [500]);
+                    await network.provider.send("evm_mine");
+
+                    const newValueHalf = await mainInstance.buyTax();
+
+                    await network.provider.send("evm_increaseTime", [10000]);
+                    await network.provider.send("evm_mine");
+
+                    const newValueOverFinal = await mainInstance.buyTax();
+                    
+                    expect(oldValue).to.be.eq(newValueStart);
+                    expect(newValueStart).to.be.lt(newValueHalf);
+                    expect(newValueHalf).to.be.lt(newValueOverFinal);
+                    expect(value).to.be.eq(newValueOverFinal);
+
+                }); 
+
+                it("should setup buyTax gradually down", async() => {
+                    
+                    const value = maxBuyTax.sub(ONE);
+                    await mainInstance.setBuyTax(value);
+                    const oldValue = await mainInstance.buyTax();
+
+                    await mainInstance.setTaxesInfoInit([1000,1000,true,true]);
+
+                    const value2 = ONE;
+                    await mainInstance.setBuyTax(value2);
+
+                    const newValueStart = await mainInstance.buyTax();
+
+                    await network.provider.send("evm_increaseTime", [500]);
+                    await network.provider.send("evm_mine");
+
+                    const newValueHalf = await mainInstance.buyTax();
+
+                    await network.provider.send("evm_increaseTime", [10000]);
+                    await network.provider.send("evm_mine");
+
+                    const newValueOverFinal = await mainInstance.buyTax();
+                    
+                    expect(oldValue).to.be.eq(newValueStart);
+                    expect(newValueStart).to.be.gt(newValueHalf);
+                    expect(newValueHalf).to.be.gt(newValueOverFinal);
+                    expect(value2).to.be.eq(newValueOverFinal);
+
+                }); 
+
+                
+
                 it("should burn buyTax", async() => {
 
                     let ts, timeUntil;
