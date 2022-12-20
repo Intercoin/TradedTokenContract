@@ -60,7 +60,12 @@ describe("TradedTokenInstance", function () {
 
     const maxBuyTax = FRACTION.mul(15).div(100); // 0.15*fraction
     const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
-
+    const taxesInfo = [
+        0,
+        0,
+        false,
+        false
+    ];
     // vars
     var mainInstance, erc20ReservedToken;
     var MainFactory, ERC20Factory;
@@ -102,6 +107,7 @@ describe("TradedTokenInstance", function () {
                 [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
                 [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
             ],
+            taxesInfo,
             maxBuyTax,
             maxSellTax
         );
@@ -134,6 +140,7 @@ describe("TradedTokenInstance", function () {
                 [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
                 [customExternalTokenExchangePriceNumerator, customExternalTokenExchangePriceDenominator],
             ],
+            taxesInfo,
             0,
             0
         );
@@ -179,6 +186,7 @@ describe("TradedTokenInstance", function () {
                         [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
                         [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
                     ],
+                    taxesInfo,
                     maxBuyTax,
                     maxSellTax
                 )
@@ -205,6 +213,7 @@ describe("TradedTokenInstance", function () {
                     [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
                     [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
                 ],
+                taxesInfo,
                 maxBuyTax,
                 maxSellTax
             );

@@ -41,6 +41,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         PriceNumDen claimingTokenExchangePrice;
        
     }
+    struct TaxesInfoInit { 
+        uint16 buyTaxDuration;
+        uint16 sellTaxDuration;
+        bool buyTaxGradual;
+        bool sellTaxGradual;
+    }
 
     struct TaxesInfo { 
         uint16 fromBuyTax;
@@ -211,6 +217,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 priceDrop_,
         uint64 lockupIntervalAmount_,
         ClaimSettings memory claimSettings,
+        TaxesInfoInit memory taxesInfoInit,
         uint64 buyTaxMax_,
         uint64 sellTaxMax_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
@@ -241,6 +248,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         claimingTokenExchangePrice.denominator = claimSettings.claimingTokenExchangePrice.denominator;
 
         lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
+
+        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
 
         //validations
         if (
