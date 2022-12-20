@@ -42,6 +42,20 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
        
     }
 
+    struct TaxesInfo { 
+        uint16 fromBuyTax;
+        uint16 toBuyTax;
+        uint16 fromSellTax;
+        uint16 toSellTax;
+        uint64 buyTaxTimestamp;
+        uint64 sellTaxTimestamp;
+        uint16 buyTaxDuration;
+        uint16 sellTaxDuration;
+        bool buyTaxGradual;
+        bool sellTaxGradual;
+    } 
+    TaxesInfo public taxesInfo;
+
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
