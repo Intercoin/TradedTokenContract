@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
@@ -22,6 +24,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
     using SafeERC20 for ERC777;
+    using Address for address;
 
     struct PriceNumDen {
         uint256 numerator;
@@ -61,6 +64,18 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         bool sellTaxGradual;
     } 
     TaxesInfo public taxesInfo;
+
+    struct Bucket {
+        uint256 alreadySentInCurrentBucket; //alreadySentInCurrentBucket
+        uint64 lastBucketTime; //lastBucketTime
+    }
+    mapping (address => Bucket) private _buckets;
+
+    struct RateLimit {
+        uint32 duration; // for time ranges, 32 bits are enough, can also define constants like DAY, WEEK, MONTH
+        uint32 fraction; // out of 100,000
+    }
+    mapping (address => RateLimit) public rateLimit;
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
@@ -160,6 +175,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error ClaimTooFast(uint256 untilTime);
     error ShouldBeMoreThenMinClaimPrice();
     error MinClaimPriceGrowTooFast();
+    error NotAuthorized();
+    error AntiDumpFeature();
     
     modifier onlyOwnerAndManagers() {
         // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
@@ -306,6 +323,44 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+
+    function setRateLimit(
+        address recipient, 
+        RateLimit memory _rateLimit
+    ) 
+        external 
+    {
+        
+        address sender = _msgSender();
+
+        // if (
+        //     sender == recipient ||
+        //     sender == owner() ||
+        //     (
+        //         recipient.isContract() && 
+        //         (sender == Ownable(recipient).owner())
+        //     )
+        // ) {
+        //     // ok
+        // } else {
+        //     revert NotAuthorized();
+        // }
+
+        if (
+            sender != recipient &&
+            sender != owner() &&
+            (
+                !recipient.isContract() ||
+                (sender != Ownable(recipient).owner())
+            )
+        ) {
+            revert NotAuthorized();
+        }
+        
+        rateLimit[recipient].duration = _rateLimit.duration;
+        rateLimit[recipient].fraction = _rateLimit.fraction;
+    }
+
     /**
      * @notice part of IERC777Recipient
      */
@@ -555,7 +610,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
+        amount = antiDumpFeature(holder, recipient, amount);
         if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
+            
             uint256 taxAmount = (amount * sellTax()) / FRACTION;
             if (taxAmount != 0) {
                 amount -= taxAmount;
@@ -565,7 +622,47 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         return super.transferFrom(holder, recipient, amount);
     }
 
+    function antiDumpFeature(
+        address holder,
+        address recipient,
+        uint256 amount
+    ) 
+        internal 
+        returns(uint256 adjustedAmount)
+    {
+        adjustedAmount = amount;
+
+        if (holder != address(internalLiquidity)) {
+            ////////////////////////
+            // somewhere in this function
+            uint256 currentBalance = balanceOf(holder);
+            uint256 max = currentBalance * rateLimit[recipient].fraction / FRACTION;
+            uint32 duration = rateLimit[recipient].duration;
+            if (block.timestamp / duration * duration > _buckets[recipient].lastBucketTime) {
+                _buckets[recipient].lastBucketTime = uint64(block.timestamp);
+                _buckets[recipient].alreadySentInCurrentBucket = 0;
+            }
+            if (_buckets[recipient].alreadySentInCurrentBucket + amount <= max) {
+                // proceed with transfer normally
+                _buckets[recipient].alreadySentInCurrentBucket += amount;
+                
+            } else {
+                // exceeded rate limit. But we control the token and how much gets transferred,
+                // so let's just transfer whatever is left, and UniSwap will have to use the FeeOnTransfer method versions
+                _buckets[recipient].alreadySentInCurrentBucket = max;
+                //transfer only max - _alreadySentInCurrentBucket[to];
+                adjustedAmount = max > _buckets[recipient].alreadySentInCurrentBucket ? max - _buckets[recipient].alreadySentInCurrentBucket : 0 ;
+                if (adjustedAmount == 0) {
+                    revert AntiDumpFeature();
+                }
+            }
+            ////////////////////////
+        }
+    }
+
+
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        
         //address from = _msgSender();
 
         // inject into transfer and burn tax from sender
