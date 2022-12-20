@@ -14,9 +14,10 @@ contract TradedTokenMock is TradedToken {
         uint256 priceDrop_,
         uint64 lockupIntervalAmount,
         ClaimSettings memory claimSettings,
-        uint64 buyTaxMax_,
-        uint64 sellTaxMax_
-    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, buyTaxMax_, sellTaxMax_)
+        TaxesInfoInit memory taxesInfoInit,
+        uint16 buyTaxMax_,
+        uint16 sellTaxMax_
+    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, buyTaxMax_, sellTaxMax_)
     {
     }
 
@@ -90,10 +91,18 @@ contract TradedTokenMock is TradedToken {
         price0Average = pairObservation.price0Average._x;
         
     }
-
-
     
-    
+    function setTaxesInfoInit(
+        TaxesInfoInit memory taxesInfoInit
+    ) 
+        public 
+    {
+        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+ 
+    }
     // function uniswapPrices(
     // ) 
     //     //internal  
