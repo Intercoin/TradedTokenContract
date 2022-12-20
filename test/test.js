@@ -473,11 +473,11 @@ describe("TradedTokenInstance", function () {
                 }); 
 
                 it("shouldt setup buyTax value more then buyTaxMax", async() => {
-                    await expect(mainInstance.setBuyTax(maxBuyTax.add(ONE))).to.be.revertedWith(`TaxCanNotBeMoreThen(${maxBuyTax})`);
+                    await expect(mainInstance.setBuyTax(maxBuyTax.add(ONE))).to.be.revertedWith(`TaxCanNotBeMoreThan(${maxBuyTax})`);
                 }); 
 
                 it("shouldt setup sellTax value more then sellTaxMax", async() => {
-                    await expect(mainInstance.setSellTax(maxSellTax.add(ONE))).to.be.revertedWith(`TaxCanNotBeMoreThen(${maxSellTax})`);
+                    await expect(mainInstance.setSellTax(maxSellTax.add(ONE))).to.be.revertedWith(`TaxCanNotBeMoreThan(${maxSellTax})`);
                 }); 
                 
                 it("should setup sellTax", async() => {

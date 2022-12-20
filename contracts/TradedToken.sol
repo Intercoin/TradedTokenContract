@@ -161,7 +161,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error CanNotBeZero();
     error InputAmountCanNotBeZero();
     error InsufficientAmount();
-    error TaxCanNotBeMoreThen(uint64 fraction);
+    error TaxCanNotBeMoreThan(uint64 fraction);
     error PriceDropTooBig();
     error OwnerAndManagersOnly();
     error ManagersOnly();
@@ -173,7 +173,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error PriceHasBecomeALowerThanMinClaimPrice();
     error ClaimsEnabledTimeAlreadySetup();
     error ClaimTooFast(uint256 untilTime);
-    error ShouldBeMoreThenMinClaimPrice();
+    error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
     error NotAuthorized();
     error AntiDumpFeature();
@@ -290,7 +290,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
        
         if (buyTaxMax > FRACTION || sellTaxMax > FRACTION) {
-            revert TaxCanNotBeMoreThen(FRACTION);
+            revert TaxCanNotBeMoreThan(FRACTION);
         }
         
 
@@ -406,7 +406,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function setBuyTax(uint16 newTax) external onlyOwner {
         if (newTax > buyTaxMax) {
-            revert TaxCanNotBeMoreThen(buyTaxMax);
+            revert TaxCanNotBeMoreThan(buyTaxMax);
         }
         taxesInfo.fromBuyTax = taxesInfo.toBuyTax;
         taxesInfo.toBuyTax = newTax;
@@ -422,7 +422,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function setSellTax(uint16 newTax) external onlyOwner {
         if (newTax > sellTaxMax) {
-            revert TaxCanNotBeMoreThen(sellTaxMax);
+            revert TaxCanNotBeMoreThan(sellTaxMax);
         }
         taxesInfo.fromSellTax = taxesInfo.toSellTax;
         taxesInfo.toSellTax = newTax;
@@ -491,7 +491,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
         FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
         if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
-            revert ShouldBeMoreThenMinClaimPrice();
+            revert ShouldBeMoreThanMinClaimPrice();
         }
         if (
             newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
