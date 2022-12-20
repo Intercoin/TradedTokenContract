@@ -353,7 +353,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (newTax > buyTaxMax) {
             revert TaxCanNotBeMoreThen(buyTaxMax);
         }
-        taxesInfo.fromBuyTax = taxesInfo.toBuyTax;
+        taxesInfo.fromBuyTax = buyTax();
         taxesInfo.toBuyTax = newTax;
         taxesInfo.buyTaxTimestamp = uint64(block.timestamp);
         
@@ -369,7 +369,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (newTax > sellTaxMax) {
             revert TaxCanNotBeMoreThen(sellTaxMax);
         }
-        taxesInfo.fromSellTax = taxesInfo.toSellTax;
+        taxesInfo.fromSellTax = sellTax();
         taxesInfo.toSellTax = newTax;
         taxesInfo.sellTaxTimestamp = uint64(block.timestamp);
         emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
