@@ -73,7 +73,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     struct RateLimit {
         uint32 duration; // for time ranges, 32 bits are enough, can also define constants like DAY, WEEK, MONTH
-        uint32 fraction; // out of 100,000
+        uint32 fraction; // out of 10,000
     }
     mapping (address => RateLimit) public rateLimit;
 
