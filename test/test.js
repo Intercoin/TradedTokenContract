@@ -52,6 +52,9 @@ describe("TradedTokenInstance", function () {
     const minClaimPriceNumerator = 1;
     const minClaimPriceDenominator = 1000;
 
+    const minClaimPriceGrowNumerator = 1;
+    const minClaimPriceGrowDenominator = 1000;
+
     const externalTokenExchangePriceNumerator = 1;
     const externalTokenExchangePriceDenominator = 1;
 
@@ -93,9 +96,12 @@ describe("TradedTokenInstance", function () {
             erc20ReservedToken.address, //” (USDC)
             priceDrop,
             lockupIntervalAmount,
-            [minClaimPriceNumerator, minClaimPriceDenominator],
-            ZERO_ADDRESS, //externalToken.address,
-            [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+            [
+                ZERO_ADDRESS, //externalToken.address,
+                [minClaimPriceNumerator, minClaimPriceDenominator],
+                [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
+                [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+            ],
             maxBuyTax,
             maxSellTax
         );
@@ -122,9 +128,12 @@ describe("TradedTokenInstance", function () {
             erc20ReservedToken.address, //” (USDC)
             priceDrop,
             lockupIntervalAmount,
-            [minClaimPriceNumerator, minClaimPriceDenominator],
-            externalToken.address,
-            [customExternalTokenExchangePriceNumerator, customExternalTokenExchangePriceDenominator],
+            [
+                externalToken.address,
+                [minClaimPriceNumerator, minClaimPriceDenominator],
+                [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
+                [customExternalTokenExchangePriceNumerator, customExternalTokenExchangePriceDenominator],
+            ],
             0,
             0
         );
@@ -164,9 +173,12 @@ describe("TradedTokenInstance", function () {
                     ZERO_ADDRESS, //” (USDC)
                     priceDrop,
                     lockupIntervalAmount,
-                    [minClaimPriceNumerator, minClaimPriceDenominator],
-                    ZERO_ADDRESS,
-                    [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                    [
+                        ZERO_ADDRESS, //externalToken.address,
+                        [minClaimPriceNumerator, minClaimPriceDenominator],
+                        [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
+                        [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                    ],
                     maxBuyTax,
                     maxSellTax
                 )
@@ -187,9 +199,12 @@ describe("TradedTokenInstance", function () {
                 erc20ReservedToken.address, //” (USDC)
                 priceDrop,
                 lockupIntervalAmount,
-                [minClaimPriceNumerator, minClaimPriceDenominator],
-                externalToken.address,
-                [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                [
+                    externalToken.address,
+                    [minClaimPriceNumerator, minClaimPriceDenominator],
+                    [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
+                    [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                ],
                 maxBuyTax,
                 maxSellTax
             );
@@ -292,7 +307,7 @@ describe("TradedTokenInstance", function () {
                 it("should addManagers", async() => {
                     await expect(
                         mainInstance.connect(bob).addManagers(charlie.address)
-                    ).to.be.revertedWith("ManagersOnly()");
+                    ).to.be.revertedWith("OwnerAndManagersOnly()");
                     await mainInstance.connect(owner).addManagers(bob.address);
                     await mainInstance.connect(bob).addManagers(charlie.address);
                 });
@@ -306,11 +321,11 @@ describe("TradedTokenInstance", function () {
                 it("shouldnt `claim` if the price has become lower than minClaimPrice", async() => {
                     await expect(
                         mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
-                    ).to.be.revertedWith("ManagersOnly()");
+                    ).to.be.revertedWith("OwnerAndManagersOnly()");
 
                     await expect(
                         mainInstance.connect(bob)["claim(uint256,address)"](ONE_ETH,bob.address)
-                    ).to.be.revertedWith("ManagersOnly()");
+                    ).to.be.revertedWith("OwnerAndManagersOnly()");
 
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
