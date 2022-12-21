@@ -117,7 +117,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @custom:shortd uniswap v2 pair
      * @notice uniswap v2 pair
      */
-    address public immutable uniswapV2Pair;
+    address internal immutable uniswapV2Pair;
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
