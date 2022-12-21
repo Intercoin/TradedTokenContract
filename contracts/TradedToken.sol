@@ -181,50 +181,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error MinClaimPriceGrowTooFast();
     error NotAuthorized();
     error PanicSellRateExceeded();
-    
-    modifier onlyOwnerAndManagers() {
-        // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
-        // } else {
-        //     revert OwnerAndManagersOnly();
-        // }
-        // lets transform via de'Morgan law
-        address msgSender = _msgSender();
-        if (owner() != msgSender && managers[msgSender] == 0) {
-            revert OwnerAndManagersOnly();
-        }
-        _;
-    }
-    // real only managers.  owner cant be run of it
-    modifier onlyManagers() {
-        if (managers[_msgSender()] == 0) {
-            revert ManagersOnly();
-        }
-        _;
-    }
-
-    modifier runOnlyOnce() {
-        if (addedInitialLiquidityRun) {
-            revert AlreadyCalled();
-        }
-        addedInitialLiquidityRun = true;
-        _;
-    }
-
-    modifier initialLiquidityRequired() {
-        
-        if (!addedInitialLiquidityRun) {
-            revert InitialLiquidityRequired();
-        }
-        _;
-    }
-
-    modifier onlyBeforeInitialLiquidity() {
-        if (addedInitialLiquidityRun) {
-            revert BeforeInitialLiquidityRequired();
-        }
-        _;
-    }
-
+   
     /**
      * @param tokenName_ token name
      * @param tokenSymbol_ token symbol
@@ -405,8 +362,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address manager
     )
         external
-        onlyOwnerAndManagers
     {
+        onlyOwnerAndManagers();
         if (manager == address(0)) {revert EmptyManagerAddress();}
         managers[manager] = _currentBlockTimestamp();
 
@@ -448,7 +405,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param amountTradedToken amount of traded token which will be claimed into contract and adding as liquidity
      * @param amountReserveToken amount of reserve token which must be donate into contract by user and adding as liquidity
      */
-    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external onlyOwner runOnlyOnce {
+    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external onlyOwner {
+        runOnlyOnce();
         if (amountTradedToken == 0 || amountReserveToken == 0) {
             revert InputAmountCanNotBeZero();
         }
@@ -480,7 +438,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param tradedTokenAmount amount of traded token to claim
      * @custom:calledby owner
      */
-    function claim(uint256 tradedTokenAmount) external onlyOwnerAndManagers {
+    function claim(uint256 tradedTokenAmount) external {
+        onlyOwnerAndManagers();
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, msg.sender);
     }
@@ -493,13 +452,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function claim(uint256 tradedTokenAmount, address account)
         external
-        onlyOwnerAndManagers
     {
+        onlyOwnerAndManagers();
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, account);
     }
 
-    function restrictClaiming(PriceNumDen memory newMinimumPrice) external onlyManagers() {
+    function restrictClaiming(PriceNumDen memory newMinimumPrice) external  {
+        onlyManagers();
         FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
         FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
         FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
@@ -549,8 +509,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @dev claims, sells, adds liquidity, sends LP to 0x0
      * @custom:calledby owner
      */
-    function addLiquidity(uint256 tradedTokenAmount) external initialLiquidityRequired onlyOwnerAndManagers {
-        
+    function addLiquidity(uint256 tradedTokenAmount) external {
+        initialLiquidityRequired();
+        onlyOwnerAndManagers();
         if (tradedTokenAmount == 0) {
             revert CanNotBeZero();
         }
@@ -741,9 +702,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 amount
     )
         public
-        onlyBeforeInitialLiquidity
         onlyOwner
     {
+        onlyBeforeInitialLiquidity();
         _mint(account, amount, "", "");
         emit Presale(account, amount);
     }
@@ -758,6 +719,44 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+     
+    function onlyOwnerAndManagers() internal view {
+        // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
+        // } else {
+        //     revert OwnerAndManagersOnly();
+        // }
+        // lets transform via de'Morgan law
+        address msgSender = _msgSender();
+        if (owner() != msgSender && managers[msgSender] == 0) {
+            revert OwnerAndManagersOnly();
+        }
+    }
+    // real only managers.  owner cant be run of it
+    function onlyManagers() internal view {
+        if (managers[_msgSender()] == 0) {
+            revert ManagersOnly();
+        }
+    }
+
+    function runOnlyOnce() internal {
+        if (addedInitialLiquidityRun) {
+            revert AlreadyCalled();
+        }
+        addedInitialLiquidityRun = true;
+    }
+
+    function initialLiquidityRequired() internal view {
+        if (!addedInitialLiquidityRun) {
+            revert InitialLiquidityRequired();
+        }
+    }
+
+    function onlyBeforeInitialLiquidity() internal view{
+        if (addedInitialLiquidityRun) {
+            revert BeforeInitialLiquidityRequired();
+        }
+    }
+
     function _beforeTokenTransfer(
         address, /*operator*/
         address from,
