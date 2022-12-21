@@ -18,7 +18,7 @@ import "./libs/FixedPoint.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
-import "./interfaces/IFund.sol";
+import "./interfaces/IPresale.sol";
 
 //import "hardhat/console.sol";
 
@@ -152,9 +152,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     event AddedInitialLiquidity(uint256 tradedTokenAmount, uint256 reserveTokenAmount);
     event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
     event Claimed(address account, uint256 amount);
+    event Presale(address account, uint256 amount);
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
+    error BeforeInitialLiquidityRequired();
     error reserveTokenInvalid();
     error EmptyAddress();
     error EmptyAccountAddress();
@@ -209,8 +211,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     modifier initialLiquidityRequired() {
+        
         if (!addedInitialLiquidityRun) {
             revert InitialLiquidityRequired();
+        }
+        _;
+    }
+
+    modifier onlyBeforeInitialLiquidity() {
+        if (addedInitialLiquidityRun) {
+            revert BeforeInitialLiquidityRequired();
         }
         _;
     }
@@ -540,6 +550,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @custom:calledby owner
      */
     function addLiquidity(uint256 tradedTokenAmount) external initialLiquidityRequired onlyOwnerAndManagers {
+        
         if (tradedTokenAmount == 0) {
             revert CanNotBeZero();
         }
@@ -730,17 +741,17 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 amount
     )
         public
-        initialLiquidityRequired
+        onlyBeforeInitialLiquidity
         onlyOwner
     {
-        _mint(address, amount, "", "");
+        _mint(account, amount, "", "");
         emit Presale(account, amount);
     }
 
-    function presaleBurnRemaining(contract) public {
-        uint64 endTime = IPresale(contract).endTime();
+    function presaleBurnRemaining(address _contract) public {
+        uint64 endTime = IPresale(_contract).endTime();
         if (block.timestamp > endTime) {
-            _burn(contract, balanceOf(contract), "", "");
+            _burn(_contract, balanceOf(_contract), "", "");
         }
     }
 
