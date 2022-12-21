@@ -585,7 +585,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-        amount = preventPanic(holder, recipient, amount);
+        //amount = preventPanic(holder, recipient, amount);
         if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
             
             uint256 taxAmount = (amount * sellTax()) / FRACTION;
@@ -605,14 +605,26 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         internal 
         returns(uint256 adjustedAmount)
     {
-        if (holder == address(internalLiquidity)) {
+        
+        if (
+            holder == address(internalLiquidity) ||
+            recipient == address(internalLiquidity) ||
+            panicSellRateLimit[recipient].fraction == 0 ||
+            panicSellRateLimit[recipient].duration == 0
+
+        ) {
             return amount;
         }
 
-        adjustedAmount = amount;
+
+        
         uint256 currentBalance = balanceOf(holder);
         uint256 max = currentBalance * panicSellRateLimit[recipient].fraction / FRACTION;
         uint32 duration = panicSellRateLimit[recipient].duration;
+        duration = (duration == 0) ? 1 : duration; // make no sense if duration eq 0      
+
+        adjustedAmount = amount;
+        
         if (block.timestamp / duration * duration > _buckets[recipient].lastBucketTime) {
             _buckets[recipient].lastBucketTime = uint64(block.timestamp);
             _buckets[recipient].alreadySentInCurrentBucket = 0;
@@ -622,14 +634,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             _buckets[recipient].alreadySentInCurrentBucket += amount;
             
         } else {
+
+            
             // exceeded rate limit. But we control the token and how much gets transferred,
             // so let's just transfer whatever is left, and UniSwap will have to use the FeeOnTransfer method versions
-            _buckets[recipient].alreadySentInCurrentBucket = max;
-            //transfer only max - _alreadySentInCurrentBucket[to];
-            if (_buckets[recipient].alreadySentInCurrentBucket > max) {
+
+            if (max <= _buckets[recipient].alreadySentInCurrentBucket) {
                 revert PanicSellRateExceeded();
             }
             adjustedAmount = max - _buckets[recipient].alreadySentInCurrentBucket;
+            _buckets[recipient].alreadySentInCurrentBucket = max;
         }
     }
 

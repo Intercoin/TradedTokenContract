@@ -363,6 +363,68 @@ describe("TradedTokenInstance", function () {
 
                 }); 
 
+                it("should preventPanic", async() => {
+                    // make a test when Bob can send to Alice only 50% of their tokens through a day
+
+                    const InitialSendFunds = ONE_ETH;
+                    const bobTokensBefore = await mainInstance.balanceOf(bob.address);
+                    const aliceTokensBefore = await mainInstance.balanceOf(alice.address);
+
+                    await mainInstance.connect(owner)["claim(uint256,address)"](InitialSendFunds, bob.address);
+
+                    const bobTokensAfterClaim = await mainInstance.balanceOf(bob.address);
+                    const aliceTokensAfterClaim = await mainInstance.balanceOf(alice.address);
+
+                    expect(bobTokensAfterClaim.sub(bobTokensBefore)).to.be.eq(InitialSendFunds);
+                    expect(aliceTokensAfterClaim.sub(aliceTokensBefore)).to.be.eq(ZERO);
+                    
+                    const DurationForAlice = 24*60*60; // day
+                    const RateForAlice = 5000; // 50%
+                    await mainInstance.connect(owner).setRateLimit(alice.address, [DurationForAlice, RateForAlice])
+
+                    await mainInstance.connect(bob).transfer(alice.address, bobTokensAfterClaim);
+
+                    const bobTokensAfterTransfer = await mainInstance.balanceOf(bob.address);
+                    const aliceTokensAfterTransfer = await mainInstance.balanceOf(alice.address);
+
+                    console.log("bobTokensBefore            = ", bobTokensBefore.toString());
+// console.log("bobTokensAfterClaim        = ", bobTokensAfterClaim.toString());
+// console.log("bobTokensAfterTransfer     = ", bobTokensAfterTransfer.toString());
+// console.log(" -------------------------------- ");
+// console.log("aliceTokensBefore          = ", aliceTokensBefore.toString());
+// console.log("aliceTokensAfterClaim      = ", aliceTokensAfterClaim.toString());
+// console.log("aliceTokensAfterTransfer   = ", aliceTokensAfterTransfer.toString());
+                    expect(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION)).to.be.eq(bobTokensAfterTransfer);
+                    expect(bobTokensAfterClaim.sub(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION))).to.be.eq(aliceTokensAfterTransfer);
+
+                    // try to send all that left
+                    await expect(
+                        mainInstance.connect(bob).transfer(alice.address, bobTokensAfterTransfer)
+                    ).to.be.revertedWith("PanicSellRateExceeded()");
+
+                    // pass time to clear bucket
+                    await network.provider.send("evm_increaseTime", [DurationForAlice+50]);
+                    await network.provider.send("evm_mine");
+
+                    const bobTokensBeforeTransferAndTimePassed = await mainInstance.balanceOf(bob.address);
+                    const aliceTokensBeforeTransferAndTimePassed = await mainInstance.balanceOf(alice.address);
+
+                    await mainInstance.connect(bob).transfer(alice.address, bobTokensBeforeTransferAndTimePassed);
+
+                    const bobTokensAfterTransferAndTimePassed = await mainInstance.balanceOf(bob.address);
+                    const aliceTokensAfterTransferAndTimePassed = await mainInstance.balanceOf(alice.address);
+
+                    // console.log("bobTokensBeforeTransferAndTimePassed   = ", bobTokensBeforeTransferAndTimePassed.toString());
+                    // console.log("bobTokensAfterTransferAndTimePassed    = ", bobTokensAfterTransferAndTimePassed.toString());
+                    // console.log(" -------------------------------- ");
+                    // console.log("aliceTokensBeforeTransferAndTimePassed = ", aliceTokensBeforeTransferAndTimePassed.toString());
+                    // console.log("aliceTokensAfterTransferAndTimePassed  = ", aliceTokensAfterTransferAndTimePassed.toString());
+                    
+                    expect(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION)).to.be.eq(bobTokensAfterTransferAndTimePassed);
+                    expect(bobTokensAfterTransfer.add(bobTokensBeforeTransferAndTimePassed.sub(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION)))).to.be.eq(aliceTokensAfterTransferAndTimePassed);
+
+                }); 
+
                 it("shouldnt locked up tokens if owner claim to himself", async() => {
                     await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
