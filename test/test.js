@@ -870,6 +870,42 @@ describe("TradedTokenInstance", function () {
                         expect(await erc20ReservedToken.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
                     });
 
+                    it.only("should preventPanic", async() => {
+                        const uniswapV2Pair = await mainInstance.uniswapV2Pair();
+console.log("uniswapV2Pair          = ", uniswapV2Pair);
+console.log("uniswapRouterInstance  = ", uniswapRouterInstance.address);
+console.log("mainInstance           = ", mainInstance.address);
+console.log("erc20ReservedToken     = ", erc20ReservedToken.address);
+console.log("bob.address            = ", bob.address);
+                        const DurationForUniswap = 24*60*60; // day
+                        const RateForUniswap = 1000; // 10%
+                        await mainInstance.connect(owner).setRateLimit(uniswapV2Pair, [DurationForUniswap, RateForUniswap])
+
+                        const InitialSendFunds = ONE_ETH;
+
+                        await mainInstance.connect(owner)["claim(uint256,address)"](InitialSendFunds, bob.address);
+                        
+                        await mainInstance.connect(bob).approve(uniswapRouterInstance.address, InitialSendFunds);
+                        let ts = await time.latest();
+                        let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+console.log("balance[uniswapV2Pair] = ", await mainInstance.balanceOf(uniswapV2Pair));
+                        await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                            ONE_ETH.div(2), //uint amountIn,
+                            0, //uint amountOutMin,
+                            [mainInstance.address, erc20ReservedToken.address], //address[] calldata path,
+                            bob.address, //address to,
+                            timeUntil //uint deadline   
+
+                        );
+console.log("balance[uniswapV2Pair] = ", await mainInstance.balanceOf(uniswapV2Pair));
+                    // // try to send all that left
+                    // await expect(
+                    //     mainInstance.connect(bob).transfer(alice.address, bobTokensAfterTransfer)
+                    // ).to.be.revertedWith("PanicSellRateExceeded()");
+
+                }); 
+
+
                     it("shouldnt add liquidity", async() => {
                         let tradedReserve1,tradedReserve2,priceAv, maxliquidity, add2Liquidity;
                         [tradedReserve1, tradedReserve2, priceAv] = await mainInstance.connect(owner).maxAddLiquidity();

@@ -20,7 +20,7 @@ import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
     using FixedPoint for *;
@@ -117,7 +117,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @custom:shortd uniswap v2 pair
      * @notice uniswap v2 pair
      */
-    address internal immutable uniswapV2Pair;
+    address public immutable uniswapV2Pair;
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
@@ -585,7 +585,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-        //amount = preventPanic(holder, recipient, amount);
+console.log("==transferFrom==");   
+console.log("[!]amount = ", amount);
+        amount = preventPanic(holder, recipient, amount);
+console.log("[!]amount = ", amount);
         if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
             
             uint256 taxAmount = (amount * sellTax()) / FRACTION;
@@ -605,10 +608,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         internal 
         returns(uint256 adjustedAmount)
     {
-        
+console.log("==preventPanic==");        
+console.log("holder     = ", holder);
+console.log("recipient  = ", recipient);
+console.log("amount     = ", amount);
         if (
-            holder == address(internalLiquidity) ||
-            recipient == address(internalLiquidity) ||
+            // holder == address(internalLiquidity) ||
+            // recipient == address(internalLiquidity) ||
             panicSellRateLimit[recipient].fraction == 0 ||
             panicSellRateLimit[recipient].duration == 0
 
@@ -620,6 +626,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         
         uint256 currentBalance = balanceOf(holder);
         uint256 max = currentBalance * panicSellRateLimit[recipient].fraction / FRACTION;
+        
+console.log("holder         = ", holder);
+console.log("currentBalance = ", currentBalance);
+console.log("max            = ", max);
         uint32 duration = panicSellRateLimit[recipient].duration;
         duration = (duration == 0) ? 1 : duration; // make no sense if duration eq 0      
 
@@ -652,6 +662,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         
         //address from = _msgSender();
         address msgSender = _msgSender();
+        console.log("==transfer==");   
         amount = preventPanic(msgSender, recipient, amount);
 
         // inject into transfer and burn tax from sender

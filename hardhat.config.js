@@ -26,7 +26,7 @@ const mumbaiURL = `https://matic-mumbai.chainstacklabs.com`;
 module.exports = {
   networks: {
     hardhat: {
-      allowUnlimitedContractSize: false,
+      allowUnlimitedContractSize: true,
       forking: {
         url: mainnetURL,
         //blockNumber: 13539017
