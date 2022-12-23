@@ -387,7 +387,6 @@ describe("TradedTokenInstance", function () {
                     const bobTokensAfterTransfer = await mainInstance.balanceOf(bob.address);
                     const aliceTokensAfterTransfer = await mainInstance.balanceOf(alice.address);
 
-                    console.log("bobTokensBefore            = ", bobTokensBefore.toString());
 // console.log("bobTokensAfterClaim        = ", bobTokensAfterClaim.toString());
 // console.log("bobTokensAfterTransfer     = ", bobTokensAfterTransfer.toString());
 // console.log(" -------------------------------- ");
@@ -398,9 +397,37 @@ describe("TradedTokenInstance", function () {
                     expect(bobTokensAfterClaim.sub(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION))).to.be.eq(aliceTokensAfterTransfer);
 
                     // try to send all that left
-                    await expect(
-                        mainInstance.connect(bob).transfer(alice.address, bobTokensAfterTransfer)
-                    ).to.be.revertedWith("PanicSellRateExceeded()");
+                    let tx = await mainInstance.connect(bob).transfer(alice.address, bobTokensAfterTransfer)
+                    const bobTokensAfterTransfer2 = await mainInstance.balanceOf(bob.address);
+                    const aliceTokensAfterTransfer2 = await mainInstance.balanceOf(alice.address);
+                    let rc = await tx.wait();
+                        
+                    // here fast and stupid way to find event PanicSellRateExceeded that cann't decoded if happens in external contract
+                    let arr2compare = [
+                        ethers.utils.id("PanicSellRateExceeded(address,address,uint256)"), // keccak256
+                        '0x'+(bob.address.replace('0x','')).padStart(64, '0'),
+                        '0x'+(alice.address.replace('0x','')).padStart(64, '0')
+                    ]
+                    let event = rc.events.find(event => JSON.stringify(JSON.stringify(event.topics)).toLowerCase() === JSON.stringify(JSON.stringify(arr2compare)).toLowerCase());
+                    let eventExists = (typeof(event) !== 'undefined') ? true : false;
+                    expect(eventExists).to.be.eq(true);
+                    if (eventExists) {
+                        // address: '0x2d13826359803522cCe7a4Cfa2c1b582303DD0B4',
+                        // topics: [
+                        //     '0xda8c6cfc61f9766da27a11e69038df366444016f44f525a2907f393407bfc6c3',
+                        //     '0x00000000000000000000000090f79bf6eb2c4f870365e785982e1f101e93b906',
+                        //     '0x0000000000000000000000009b7889734ac75060202410362212d365e9ee1ef5'
+                        // ],
+                        expect(event.address).to.be.eq(mainInstance.address);
+                        expect(ethers.utils.getAddress( event.topics[1].replace('000000000000000000000000','') )).to.be.eq(bob.address);
+                        expect(ethers.utils.getAddress( event.topics[2].replace('000000000000000000000000','') )).to.be.eq(alice.address);
+
+                        // we will adjust value in panic situation from amount to 5
+                        // so transaction didn't revert but emitted event "PanicSellRateExceeded"
+
+                        expect(bobTokensAfterTransfer.sub(5)).to.be.eq(bobTokensAfterTransfer2);
+                        expect(aliceTokensAfterTransfer.add(5)).to.be.eq(aliceTokensAfterTransfer2);
+                    }
 
                     // pass time to clear bucket
                     await network.provider.send("evm_increaseTime", [DurationForAlice+50]);
@@ -413,6 +440,8 @@ describe("TradedTokenInstance", function () {
 
                     const bobTokensAfterTransferAndTimePassed = await mainInstance.balanceOf(bob.address);
                     const aliceTokensAfterTransferAndTimePassed = await mainInstance.balanceOf(alice.address);
+                    
+                    //----------------------
 
                     // console.log("bobTokensBeforeTransferAndTimePassed   = ", bobTokensBeforeTransferAndTimePassed.toString());
                     // console.log("bobTokensAfterTransferAndTimePassed    = ", bobTokensAfterTransferAndTimePassed.toString());
@@ -420,9 +449,12 @@ describe("TradedTokenInstance", function () {
                     // console.log("aliceTokensBeforeTransferAndTimePassed = ", aliceTokensBeforeTransferAndTimePassed.toString());
                     // console.log("aliceTokensAfterTransferAndTimePassed  = ", aliceTokensAfterTransferAndTimePassed.toString());
                     
-                    expect(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION)).to.be.eq(bobTokensAfterTransferAndTimePassed);
-                    expect(bobTokensAfterTransfer.add(bobTokensBeforeTransferAndTimePassed.sub(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION)))).to.be.eq(aliceTokensAfterTransferAndTimePassed);
+                    expect(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION).add(ONE)).to.be.eq(bobTokensAfterTransferAndTimePassed);
+                    expect(aliceTokensBeforeTransferAndTimePassed.add(bobTokensBeforeTransferAndTimePassed.sub(ONE).sub(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION)))).to.be.eq(aliceTokensAfterTransferAndTimePassed);
 
+
+
+                        
                 }); 
 
                 it("shouldnt locked up tokens if owner claim to himself", async() => {
@@ -870,40 +902,80 @@ describe("TradedTokenInstance", function () {
                         expect(await erc20ReservedToken.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
                     });
 
-                    it.only("should preventPanic", async() => {
+                    it("should preventPanic", async() => {
+
                         const uniswapV2Pair = await mainInstance.uniswapV2Pair();
-console.log("uniswapV2Pair          = ", uniswapV2Pair);
-console.log("uniswapRouterInstance  = ", uniswapRouterInstance.address);
-console.log("mainInstance           = ", mainInstance.address);
-console.log("erc20ReservedToken     = ", erc20ReservedToken.address);
-console.log("bob.address            = ", bob.address);
+
                         const DurationForUniswap = 24*60*60; // day
-                        const RateForUniswap = 1000; // 10%
+                        const RateForUniswap = 5000; // 50%
                         await mainInstance.connect(owner).setRateLimit(uniswapV2Pair, [DurationForUniswap, RateForUniswap])
 
                         const InitialSendFunds = ONE_ETH;
 
-                        await mainInstance.connect(owner)["claim(uint256,address)"](InitialSendFunds, bob.address);
-                        
-                        await mainInstance.connect(bob).approve(uniswapRouterInstance.address, InitialSendFunds);
+                        await mainInstance.connect(owner)["claim(uint256,address)"](InitialSendFunds, charlie.address);
+                        await mainInstance.connect(charlie).approve(uniswapRouterInstance.address, InitialSendFunds.div(2));
                         let ts = await time.latest();
                         let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
-console.log("balance[uniswapV2Pair] = ", await mainInstance.balanceOf(uniswapV2Pair));
-                        await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-                            ONE_ETH.div(2), //uint amountIn,
+
+                        //swapExactTokensForTokensSupportingFeeOnTransferTokens
+                        //swapExactTokensForTokens
+                        await uniswapRouterInstance.connect(charlie).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                            InitialSendFunds.div(2), //uint amountIn,
                             0, //uint amountOutMin,
                             [mainInstance.address, erc20ReservedToken.address], //address[] calldata path,
-                            bob.address, //address to,
+                            charlie.address, //address to,
                             timeUntil //uint deadline   
 
                         );
-console.log("balance[uniswapV2Pair] = ", await mainInstance.balanceOf(uniswapV2Pair));
-                    // // try to send all that left
-                    // await expect(
-                    //     mainInstance.connect(bob).transfer(alice.address, bobTokensAfterTransfer)
-                    // ).to.be.revertedWith("PanicSellRateExceeded()");
+                        // // try to send all that left
+                        await mainInstance.connect(charlie).approve(uniswapRouterInstance.address, InitialSendFunds.div(2));
 
-                }); 
+                        //PanicSellRateExceeded()
+                        let charlieBalanceBeforePanic = await mainInstance.balanceOf(charlie.address);
+                        let charlieBalanceReservedBeforePanic = await erc20ReservedToken.balanceOf(charlie.address);
+                        let tx = await uniswapRouterInstance.connect(charlie).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                                InitialSendFunds.div(2), //uint amountIn,
+                                0, //uint amountOutMin,
+                                [mainInstance.address, erc20ReservedToken.address], //address[] calldata path,
+                                charlie.address, //address to,
+                                timeUntil //uint deadline   
+
+                        );
+                        let charlieBalanceAfterPanic = await mainInstance.balanceOf(charlie.address);
+                        let charlieBalanceReservedAfterPanic = await erc20ReservedToken.balanceOf(charlie.address);
+                        let rc = await tx.wait(); // 0ms, as tx is already confirmed
+                        // let event = rc.events.find(event => event.event === 'PanicSellRateExceeded');
+                        // console.log(rc.events);
+
+                        // here fast and stupid way to find event PanicSellRateExceeded that cann't decoded if happens in external contract
+                        let arr2compare = [
+                            ethers.utils.id("PanicSellRateExceeded(address,address,uint256)"), // keccak256
+                            '0x'+(charlie.address.replace('0x','')).padStart(64, '0'),
+                            '0x'+(uniswapV2Pair.replace('0x','')).padStart(64, '0')
+                        ]
+                        let event = rc.events.find(event => JSON.stringify(JSON.stringify(event.topics)).toLowerCase() === JSON.stringify(JSON.stringify(arr2compare)).toLowerCase());
+                        let eventExists = (typeof(event) !== 'undefined') ? true : false;
+                        expect(eventExists).to.be.eq(true);
+                        if (eventExists) {
+                            // address: '0x2d13826359803522cCe7a4Cfa2c1b582303DD0B4',
+                            // topics: [
+                            //     '0xda8c6cfc61f9766da27a11e69038df366444016f44f525a2907f393407bfc6c3',
+                            //     '0x00000000000000000000000090f79bf6eb2c4f870365e785982e1f101e93b906',
+                            //     '0x0000000000000000000000009b7889734ac75060202410362212d365e9ee1ef5'
+                            // ],
+                            expect(event.address).to.be.eq(mainInstance.address);
+                            expect(ethers.utils.getAddress( event.topics[1].replace('000000000000000000000000','') )).to.be.eq(charlie.address);
+                            expect(ethers.utils.getAddress( event.topics[2].replace('000000000000000000000000','') )).to.be.eq(uniswapV2Pair);
+
+                            // we will adjust value in panic situation from amount to 5
+                            // so transaction didn't revert but emitted event "PanicSellRateExceeded"
+
+                            expect(charlieBalanceBeforePanic.sub(5)).to.be.eq(charlieBalanceAfterPanic);
+                            expect(charlieBalanceReservedBeforePanic.add(4)).to.be.eq(charlieBalanceReservedAfterPanic);
+                        }
+                        //----------------------
+                    
+                    }); 
 
 
                     it("shouldnt add liquidity", async() => {

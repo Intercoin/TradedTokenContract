@@ -20,7 +20,7 @@ import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
     using FixedPoint for *;
@@ -153,6 +153,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
     event Claimed(address account, uint256 amount);
     event Presale(address account, uint256 amount);
+    event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
@@ -180,7 +181,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
     error NotAuthorized();
-    error PanicSellRateExceeded();
+    
    
     /**
      * @param tokenName_ token name
@@ -571,7 +572,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert PriceDropTooBig();
         }
 
-
         // trade trade tokens and add liquidity
         _doSellTradedAndLiquidity(traded2Swap, traded2Liq);
 
@@ -585,12 +585,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-console.log("==transferFrom==");   
-console.log("[!]amount = ", amount);
         amount = preventPanic(holder, recipient, amount);
-console.log("[!]amount = ", amount);
         if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
-            
             uint256 taxAmount = (amount * sellTax()) / FRACTION;
             if (taxAmount != 0) {
                 amount -= taxAmount;
@@ -608,28 +604,20 @@ console.log("[!]amount = ", amount);
         internal 
         returns(uint256 adjustedAmount)
     {
-console.log("==preventPanic==");        
-console.log("holder     = ", holder);
-console.log("recipient  = ", recipient);
-console.log("amount     = ", amount);
+
         if (
-            // holder == address(internalLiquidity) ||
-            // recipient == address(internalLiquidity) ||
+            holder == address(internalLiquidity) ||
+            recipient == address(internalLiquidity) ||
             panicSellRateLimit[recipient].fraction == 0 ||
             panicSellRateLimit[recipient].duration == 0
 
         ) {
             return amount;
         }
-
-
         
         uint256 currentBalance = balanceOf(holder);
         uint256 max = currentBalance * panicSellRateLimit[recipient].fraction / FRACTION;
-        
-console.log("holder         = ", holder);
-console.log("currentBalance = ", currentBalance);
-console.log("max            = ", max);
+
         uint32 duration = panicSellRateLimit[recipient].duration;
         duration = (duration == 0) ? 1 : duration; // make no sense if duration eq 0      
 
@@ -639,32 +627,27 @@ console.log("max            = ", max);
             _buckets[recipient].lastBucketTime = uint64(block.timestamp);
             _buckets[recipient].alreadySentInCurrentBucket = 0;
         }
+        
+        if (max <= _buckets[recipient].alreadySentInCurrentBucket) {
+            emit PanicSellRateExceeded(holder, recipient, amount);
+            return 5;
+        }
+
         if (_buckets[recipient].alreadySentInCurrentBucket + amount <= max) {
             // proceed with transfer normally
             _buckets[recipient].alreadySentInCurrentBucket += amount;
             
         } else {
 
-            
-            // exceeded rate limit. But we control the token and how much gets transferred,
-            // so let's just transfer whatever is left, and UniSwap will have to use the FeeOnTransfer method versions
-
-            if (max <= _buckets[recipient].alreadySentInCurrentBucket) {
-                revert PanicSellRateExceeded();
-            }
             adjustedAmount = max - _buckets[recipient].alreadySentInCurrentBucket;
             _buckets[recipient].alreadySentInCurrentBucket = max;
         }
     }
 
-
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
-        
         //address from = _msgSender();
         address msgSender = _msgSender();
-        console.log("==transfer==");   
         amount = preventPanic(msgSender, recipient, amount);
-
         // inject into transfer and burn tax from sender
         // two ways:
         // 1. make calculations, burn taxes from sender and do transaction with substracted values
