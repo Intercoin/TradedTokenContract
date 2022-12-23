@@ -163,8 +163,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error EmptyAccountAddress();
     error EmptyManagerAddress();
     error EmptyTokenAddress();
-    error CanNotBeZero();
     error InputAmountCanNotBeZero();
+    error ZeroDenominator();
     error InsufficientAmount();
     error TaxCanNotBeMoreThan(uint64 fraction);
     error PriceDropTooBig();
@@ -242,12 +242,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         //validations
         if (
-            claimSettings.claimingTokenExchangePrice.numerator == 0 || 
             claimSettings.claimingTokenExchangePrice.denominator == 0 || 
-            claimSettings.minClaimPrice.numerator == 0 || 
+            claimSettings.minClaimPriceGrow.denominator == 0
             claimSettings.minClaimPrice.denominator == 0
         ) { 
-            revert CanNotBeZero();
+            revert ZeroDenominator();
         }
 
         
@@ -379,7 +378,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (newTax > buyTaxMax) {
             revert TaxCanNotBeMoreThan(buyTaxMax);
         }
-        taxesInfo.fromBuyTax = taxesInfo.toBuyTax;
+        taxesInfo.fromBuyTax = buyTax();
         taxesInfo.toBuyTax = newTax;
         taxesInfo.buyTaxTimestamp = uint64(block.timestamp);
         
@@ -395,7 +394,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (newTax > sellTaxMax) {
             revert TaxCanNotBeMoreThan(sellTaxMax);
         }
-        taxesInfo.fromSellTax = taxesInfo.toSellTax;
+        taxesInfo.fromSellTax = sellTax();
         taxesInfo.toSellTax = newTax;
         taxesInfo.sellTaxTimestamp = uint64(block.timestamp);
         emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
@@ -409,7 +408,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external onlyOwner {
         runOnlyOnce();
         if (amountTradedToken == 0 || amountReserveToken == 0) {
-            revert InputAmountCanNotBeZero();
+            revert ZeroDenominator();
         }
         if (amountReserveToken > ERC777(reserveToken).balanceOf(address(this))) {
             revert InsufficientAmount();
@@ -459,8 +458,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         _claim(tradedTokenAmount, account);
     }
 
-    function restrictClaiming(PriceNumDen memory newMinimumPrice) external  {
-        onlyManagers();
+    function restrictClaiming(PriceNumDen memory newMinimumPrice) external onlyManagers() {
+
+        if (newMinimumPrice.denominator == 0) {
+            revert ZeroDenominator();
+        }
+
         FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
         FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
         FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
@@ -514,7 +517,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         initialLiquidityRequired();
         onlyOwnerAndManagers();
         if (tradedTokenAmount == 0) {
-            revert CanNotBeZero();
+            revert InputAmountCanNotBeZero();
         }
         
         uint256 tradedReserve1;
@@ -827,7 +830,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
         if (tradedTokenAmount == 0) {
-            revert CanNotBeZero();
+            revert InputAmountCanNotBeZero();
         }
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
