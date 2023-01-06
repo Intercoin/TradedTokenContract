@@ -459,8 +459,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         _claim(tradedTokenAmount, account);
     }
 
-    function restrictClaiming(PriceNumDen memory newMinimumPrice) external onlyManagers() {
-
+    function restrictClaiming(PriceNumDen memory newMinimumPrice) external {
+        
+        onlyManagers();
         if (newMinimumPrice.denominator == 0) {
             revert ZeroDenominator();
         }
@@ -670,16 +671,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // and than be send to some1 else in recipient contract callback
     }
 
-    function buyTax() public view returns(uint256) {
+    function buyTax() public view returns(uint16) {
         if (taxesInfo.buyTaxDuration == 0) {
             return taxesInfo.toBuyTax;
         }
-        if (block.timestamp < (taxesInfo.buyTaxDuration + taxesInfo.buyTaxTimestamp)) {
+        if (
+            block.timestamp < (taxesInfo.buyTaxDuration + taxesInfo.buyTaxTimestamp) &&
+            block.timestamp >= taxesInfo.buyTaxTimestamp
+        ) {
             if (taxesInfo.buyTaxGradual) {
                 if (taxesInfo.toBuyTax > taxesInfo.fromBuyTax) {
-                    return taxesInfo.fromBuyTax + (taxesInfo.toBuyTax - taxesInfo.fromBuyTax) * (block.timestamp - taxesInfo.buyTaxTimestamp) / taxesInfo.buyTaxDuration;
+                    return taxesInfo.fromBuyTax + uint16(uint32(taxesInfo.toBuyTax - taxesInfo.fromBuyTax) * uint32(block.timestamp - taxesInfo.buyTaxTimestamp) / uint32(taxesInfo.buyTaxDuration));
                 } else {
-                    return taxesInfo.fromBuyTax - (taxesInfo.fromBuyTax - taxesInfo.toBuyTax) * (block.timestamp - taxesInfo.buyTaxTimestamp) / taxesInfo.buyTaxDuration;
+                    return taxesInfo.fromBuyTax - uint16(uint32(taxesInfo.fromBuyTax - taxesInfo.toBuyTax) * (block.timestamp - taxesInfo.buyTaxTimestamp) / uint32(taxesInfo.buyTaxDuration));
                 }
             } else {
                 return taxesInfo.fromBuyTax;
@@ -689,16 +693,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
     }
 
-    function sellTax() public view returns(uint256) {
+    function sellTax() public view returns(uint16) {
         if (taxesInfo.sellTaxDuration == 0) {
             return taxesInfo.toSellTax;
         }
-        if (block.timestamp < (taxesInfo.sellTaxDuration + taxesInfo.sellTaxTimestamp)) {
+        if (
+            block.timestamp < (taxesInfo.sellTaxDuration + taxesInfo.sellTaxTimestamp) &&
+            block.timestamp >= taxesInfo.sellTaxTimestamp
+        ) {
             if (taxesInfo.sellTaxGradual) {
                 if (taxesInfo.toSellTax > taxesInfo.fromSellTax) {
-                    return taxesInfo.fromSellTax + (taxesInfo.toSellTax - taxesInfo.fromSellTax) * (block.timestamp - taxesInfo.sellTaxTimestamp) / taxesInfo.sellTaxDuration;
+                    return taxesInfo.fromSellTax + uint16(uint32(taxesInfo.toSellTax - taxesInfo.fromSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
                 } else {
-                    return taxesInfo.fromSellTax - (taxesInfo.fromSellTax - taxesInfo.toSellTax) * (block.timestamp - taxesInfo.sellTaxTimestamp) / taxesInfo.sellTaxDuration;
+                    return taxesInfo.fromSellTax - uint16(uint32(taxesInfo.fromSellTax - taxesInfo.toSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
                 }
             } else {
                 return taxesInfo.fromSellTax;
