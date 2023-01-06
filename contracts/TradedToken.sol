@@ -679,8 +679,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             block.timestamp >= taxesInfo.buyTaxTimestamp
         ) {
             if (taxesInfo.buyTaxGradual) {
-                if (block.timestamp > taxesInfo.buyTaxTimestamp + taxesinfo.buyTaxDuration) {
-                    return taxes.toBuyTax;
+                if (block.timestamp > taxesInfo.buyTaxTimestamp + taxesInfo.buyTaxDuration) {
+                    return taxesInfo.toBuyTax;
                 } else if (taxesInfo.toBuyTax > taxesInfo.fromBuyTax) {
                     return taxesInfo.fromBuyTax + uint16(uint32(taxesInfo.toBuyTax - taxesInfo.fromBuyTax) * uint32(block.timestamp - taxesInfo.buyTaxTimestamp) / uint32(taxesInfo.buyTaxDuration));
                 } else {
