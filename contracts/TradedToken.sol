@@ -460,7 +460,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     function restrictClaiming(PriceNumDen memory newMinimumPrice) external {
-        
         onlyManagers();
         if (newMinimumPrice.denominator == 0) {
             revert ZeroDenominator();

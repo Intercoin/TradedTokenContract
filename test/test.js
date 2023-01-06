@@ -657,8 +657,14 @@ describe("TradedTokenInstance", function () {
                     const oldValue = await mainInstance.buyTax();
 
                     await mainInstance.setTaxesInfoInit([1000,1000,true,true]);
+                    // to make setup fromTax as `maxBuyTax.sub(ONE)` need to pass full time duration. 
+                    // if call setTax in the middle of period then contract will calculate taxFrom as (from+to)/2
+                    await network.provider.send("evm_increaseTime", [10000]);
+                    await network.provider.send("evm_mine");
+                    //----------------------------------
 
                     const value2 = ONE;
+
                     await mainInstance.setBuyTax(value2);
 
                     const newValueStart = await mainInstance.buyTax();
