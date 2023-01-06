@@ -153,6 +153,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
     event Claimed(address account, uint256 amount);
     event Presale(address account, uint256 amount);
+    event PresaleTokensBurnt(address account, uint256 burnedAmount);
     event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
 
     error AlreadyCalled();
@@ -243,7 +244,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //validations
         if (
             claimSettings.claimingTokenExchangePrice.denominator == 0 || 
-            claimSettings.minClaimPriceGrow.denominator == 0
+            claimSettings.minClaimPriceGrow.denominator == 0 ||
             claimSettings.minClaimPrice.denominator == 0
         ) { 
             revert ZeroDenominator();
@@ -707,24 +708,50 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             return taxesInfo.toSellTax;
         }
     }
+    /**
+    * @notice presale enable before added initial liquidity
+    * @param account contract that implement interface IPresale
+    * @param amount tokens that would be added to account before contract added initial liquidity
+    * @param minimumPresaleTimeAmount minimum time before `IPresale.endTime` that tokens will be able to mint for `account`
+    */
+    function presaleAdd(address account, uint256 amount, uint64 minimumPresaleTimeAmount) public onlyOwner {
 
-    function presaleAdd(
-        address account,
-        uint256 amount
-    )
-        public
-        onlyOwner
-    {
         onlyBeforeInitialLiquidity();
-        _mint(account, amount, "", "");
-        emit Presale(account, amount);
+
+        uint64 endTime = IPresale(account).endTime();
+        if (
+            endTime >= minimumPresaleTimeAmount &&
+            block.timestamp < endTime - minimumPresaleTimeAmount
+        ) {
+
+            _mint(account, amount, "", "");
+            emit Presale(account, amount);
+        }
     }
 
+// withdrawAll() is called by owner, to withdraw tokens.
+
+// but presaleBurnRemaining can be called by everyone
+// let's allow anyone to call it 1 hour before the endTime (third parameter of presaleAdd can be uint32 duration)
+// So this way the public can guarantee that the presale contract owner (e.g. of FundContract) won't take the tokens.
+
+    /**
+    * @notice any tokens of presale contract can be burned by anyone after `endTime` passed
+    */
     function presaleBurnRemaining(address _contract) public {
         uint64 endTime = IPresale(_contract).endTime();
-        if (block.timestamp > endTime) {
-            _burn(_contract, balanceOf(_contract), "", "");
+        if (block.timestamp <= endTime) {
+            return;
         }
+        
+        uint256 toBurn = balanceOf(_contract);
+        if (toBurn == 0) {
+            return;
+        }
+
+        _burn(_contract, toBurn, "", "");
+        emit PresaleTokensBurnt(_contract, toBurn);
+        
     }
 
     ////////////////////////////////////////////////////////////////////////
