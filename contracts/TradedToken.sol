@@ -155,6 +155,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error PriceHasBecomeALowerThanMinClaimPrice();
     error ClaimsEnabledTimeAlreadySetup();
     error ClaimTooFast(uint256 untilTime);
+    error InsufficientAmountToClaim(uint256 requested, uint256 maxAvailable);
     error ShouldBeMoreThenMinClaimPrice();
     error MinClaimPriceGrowTooFast();
     
@@ -373,7 +374,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert InsufficientAmount();
         }
 
-        __claim(amountTradedToken, address(this));
+        _claim(amountTradedToken, address(this));
 
         ERC777(tradedToken).safeTransfer(address(internalLiquidity), amountTradedToken);
         ERC777(reserveToken).safeTransfer(address(internalLiquidity), amountReserveToken);
@@ -498,11 +499,24 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
             claimingTokenExchangePrice.denominator;
 
+        uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(sender);
+
+        if (scalingMaxTradedTokenAmount < tradedTokenAmount) {
+            revert InsufficientAmountToClaim(tradedTokenAmount, scalingMaxTradedTokenAmount);
+        }
+
         _validateClaim(tradedTokenAmount);
 
         _claim(tradedTokenAmount, account);
 
         wantToClaimMap[sender].lastActionTime = block.timestamp;
+        // wantToClaimTotal -= tradedTokenAmount;
+        // wantToClaimMap[account].amount -= tradedTokenAmount;
+        // or just empty all wantToClaimMap
+        wantToClaimTotal -= wantToClaimMap[account].amount;
+        delete wantToClaimMap[account].amount;
+        
+        
     }
 
     /**
@@ -750,17 +764,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
     }
 
-    function _claim(uint256 tradedTokenAmount, address account) internal {
-        // scaling will be here
-        
-        //
-
-        __claim(tradedTokenAmount, account);
-    }
     /**
      * @notice do claim to the `account` and locked tokens if
      */
-    function __claim(uint256 tradedTokenAmount, address account) internal {
+    function _claim(uint256 tradedTokenAmount, address account) internal {
         
         if (account == address(0)) {
             revert EmptyAccountAddress();
