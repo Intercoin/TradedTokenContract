@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
@@ -16,12 +18,15 @@ import "./libs/FixedPoint.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
+import "./interfaces/IPresale.sol";
+
 //import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
    // using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
     using SafeERC20 for ERC777;
+    using Address for address;
 
     struct PriceNumDen {
         uint256 numerator;
@@ -42,6 +47,46 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint16 claimFrequency;
         
     }
+
+    struct ClaimSettings {
+        address claimingToken;
+        PriceNumDen minClaimPrice;
+        PriceNumDen minClaimPriceGrow;
+        PriceNumDen claimingTokenExchangePrice;
+       
+    }
+    struct TaxesInfoInit { 
+        uint16 buyTaxDuration;
+        uint16 sellTaxDuration;
+        bool buyTaxGradual;
+        bool sellTaxGradual;
+    }
+
+    struct TaxesInfo { 
+        uint16 fromBuyTax;
+        uint16 toBuyTax;
+        uint16 fromSellTax;
+        uint16 toSellTax;
+        uint64 buyTaxTimestamp;
+        uint64 sellTaxTimestamp;
+        uint16 buyTaxDuration;
+        uint16 sellTaxDuration;
+        bool buyTaxGradual;
+        bool sellTaxGradual;
+    } 
+    TaxesInfo public taxesInfo;
+
+    struct Bucket {
+        uint256 alreadySentInCurrentBucket; //alreadySentInCurrentBucket
+        uint64 lastBucketTime; //lastBucketTime
+    }
+    mapping (address => Bucket) private _buckets;
+
+    struct RateLimit {
+        uint32 duration; // for time ranges, 32 bits are enough, can also define constants like DAY, WEEK, MONTH
+        uint32 fraction; // out of 10,000
+    }
+    mapping (address => RateLimit) public panicSellRateLimit;
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
@@ -76,14 +121,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     PriceNumDen minClaimPrice;
     uint64 internal lastMinClaimPriceUpdatedTime;
     PriceNumDen minClaimPriceGrow;
+
     /**
      * @custom:shortd external token
      * @notice external token
      */
     address public immutable claimingToken;
     PriceNumDen claimingTokenExchangePrice;
-    
-    
+
     /**
      * @custom:shortd uniswap v2 pair
      * @notice uniswap v2 pair
@@ -96,7 +141,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     // keep gas when try to get reserves
     // if token01 == true then (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) so reserve0 it's reserves of TradedToken
     bool internal immutable token01;
-    
+
     uint64 internal constant MIN_CLAIM_PRICE_UPDATED_TIME = 1 days;
     uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
     uint64 internal constant FRACTION = 10000;
@@ -104,11 +149,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint64 internal immutable startupTimestamp;
     uint64 internal immutable lockupIntervalAmount;
 
-    uint64 public immutable buyTaxMax;
-    uint64 public immutable sellTaxMax;
-    
-    uint64 public buyTax;
-    uint64 public sellTax;
+    uint16 public immutable buyTaxMax;
+    uint16 public immutable sellTaxMax;
+
     uint256 public totalCumulativeClaimed;
 
     Liquidity internal internalLiquidity;
@@ -132,18 +175,22 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     event AddedInitialLiquidity(uint256 tradedTokenAmount, uint256 reserveTokenAmount);
     event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
     event Claimed(address account, uint256 amount);
+    event Presale(address account, uint256 amount);
+    event PresaleTokensBurnt(address account, uint256 burnedAmount);
+    event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
+    error BeforeInitialLiquidityRequired();
     error reserveTokenInvalid();
     error EmptyAddress();
     error EmptyAccountAddress();
     error EmptyManagerAddress();
     error EmptyTokenAddress();
-    error CanNotBeZero();
     error InputAmountCanNotBeZero();
+    error ZeroDenominator();
     error InsufficientAmount();
-    error TaxCanNotBeMoreThen(uint64 fraction);
+    error TaxCanNotBeMoreThan(uint64 fraction);
     error PriceDropTooBig();
     error OwnerAndManagersOnly();
     error ManagersOnly();
@@ -155,45 +202,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error PriceHasBecomeALowerThanMinClaimPrice();
     error ClaimsEnabledTimeAlreadySetup();
     error ClaimTooFast(uint256 untilTime);
-    error InsufficientAmountToClaim(uint256 requested, uint256 maxAvailable);
-    error ShouldBeMoreThenMinClaimPrice();
+    error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
-    
-    modifier onlyOwnerAndManagers() {
-        // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
-        // } else {
-        //     revert OwnerAndManagersOnly();
-        // }
-        // lets transform via de'Morgan law
-        if (owner() != _msgSender() && managers[_msgSender()] == 0) {
-            revert OwnerAndManagersOnly();
-        }
-        _;
-    }
-    // real only managers.  owner cant be run of it
-    modifier onlyManagers() {
-        if (managers[_msgSender()] == 0) {
-            revert ManagersOnly();
-        }
-        _;
-    }
+    error NotAuthorized();
 
-    modifier runOnlyOnce() {
-        if (addedInitialLiquidityRun) {
-            revert AlreadyCalled();
-        }
-        addedInitialLiquidityRun = true;
-        _;
-    }
-
-    modifier initialLiquidityRequired() {
-        if (!addedInitialLiquidityRun) {
-            revert InitialLiquidityRequired();
-        }
-        _;
-    }
-
-    /**
+/**
      * @param tokenName_ token name
      * @param tokenSymbol_ token symbol
      * @param reserveToken_ reserve token address
@@ -214,14 +227,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 priceDrop_,
         uint64 lockupIntervalAmount_,
         ClaimSettings memory claimSettings,
-        uint64 buyTaxMax_,
-        uint64 sellTaxMax_
+        TaxesInfoInit memory taxesInfoInit,
+        uint16 buyTaxMax_,
+        uint16 sellTaxMax_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
 
         //setup
         buyTaxMax = buyTaxMax_;
         sellTaxMax = sellTaxMax_;
-        claimFrequency = claimSettings.claimFrequency;
 
         tradedToken = address(this);
         reserveToken = reserveToken_;
@@ -246,14 +259,18 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
 
+        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+
         //validations
         if (
-            claimSettings.claimingTokenExchangePrice.numerator == 0 || 
             claimSettings.claimingTokenExchangePrice.denominator == 0 || 
-            claimSettings.minClaimPrice.numerator == 0 || 
+            claimSettings.minClaimPriceGrow.denominator == 0 ||
             claimSettings.minClaimPrice.denominator == 0
         ) { 
-            revert CanNotBeZero();
+            revert ZeroDenominator();
         }
 
         
@@ -267,7 +284,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
        
         if (buyTaxMax > FRACTION || sellTaxMax > FRACTION) {
-            revert TaxCanNotBeMoreThen(FRACTION);
+            revert TaxCanNotBeMoreThan(FRACTION);
         }
         
 
@@ -300,6 +317,44 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+
+    function setRateLimit(
+        address recipient, 
+        RateLimit memory _panicSellRateLimit
+    ) 
+        external 
+    {
+        
+        address sender = _msgSender();
+
+        // if (
+        //     sender == recipient ||
+        //     sender == owner() ||
+        //     (
+        //         recipient.isContract() && 
+        //         (sender == Ownable(recipient).owner())
+        //     )
+        // ) {
+        //     // ok
+        // } else {
+        //     revert NotAuthorized();
+        // }
+
+        if (
+            sender != recipient &&
+            sender != owner() &&
+            (
+                !recipient.isContract() ||
+                (sender != Ownable(recipient).owner())
+            )
+        ) {
+            revert NotAuthorized();
+        }
+        
+        panicSellRateLimit[recipient].duration = _panicSellRateLimit.duration;
+        panicSellRateLimit[recipient].fraction = _panicSellRateLimit.fraction;
+    }
+
     /**
      * @notice part of IERC777Recipient
      */
@@ -328,8 +383,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address manager
     )
         external
-        onlyOwnerAndManagers
     {
+        onlyOwnerAndManagers();
         if (manager == address(0)) {revert EmptyManagerAddress();}
         managers[manager] = _currentBlockTimestamp();
 
@@ -337,28 +392,33 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
     /**
      * @notice setting buy tax
-     * @param fraction buy tax
+     * @param newTax buy tax
      * @custom:calledby owner
      */
-    function setBuyTax(uint64 fraction) external onlyOwner {
-        if (fraction > buyTaxMax) {
-            revert TaxCanNotBeMoreThen(buyTaxMax);
+    function setBuyTax(uint16 newTax) external onlyOwner {
+        if (newTax > buyTaxMax) {
+            revert TaxCanNotBeMoreThan(buyTaxMax);
         }
-        buyTax = fraction;
-        emit UpdatedTaxes(sellTax, buyTax);
+        taxesInfo.fromBuyTax = buyTax();
+        taxesInfo.toBuyTax = newTax;
+        taxesInfo.buyTaxTimestamp = uint64(block.timestamp);
+        
+        emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
     }
 
     /**
      * @notice setting sell tax
-     * @param fraction sell tax
+     * @param newTax sell tax
      * @custom:calledby owner
      */
-    function setSellTax(uint64 fraction) external onlyOwner {
-        if (fraction > sellTaxMax) {
-            revert TaxCanNotBeMoreThen(sellTaxMax);
+    function setSellTax(uint16 newTax) external onlyOwner {
+        if (newTax > sellTaxMax) {
+            revert TaxCanNotBeMoreThan(sellTaxMax);
         }
-        sellTax = fraction;
-        emit UpdatedTaxes(sellTax, buyTax);
+        taxesInfo.fromSellTax = sellTax();
+        taxesInfo.toSellTax = newTax;
+        taxesInfo.sellTaxTimestamp = uint64(block.timestamp);
+        emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
     }
 
     /**
@@ -366,9 +426,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param amountTradedToken amount of traded token which will be claimed into contract and adding as liquidity
      * @param amountReserveToken amount of reserve token which must be donate into contract by user and adding as liquidity
      */
-    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external onlyOwner runOnlyOnce {
+    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external onlyOwner {
+        runOnlyOnce();
         if (amountTradedToken == 0 || amountReserveToken == 0) {
-            revert InputAmountCanNotBeZero();
+            revert ZeroDenominator();
         }
         if (amountReserveToken > ERC777(reserveToken).balanceOf(address(this))) {
             revert InsufficientAmount();
@@ -398,7 +459,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param tradedTokenAmount amount of traded token to claim
      * @custom:calledby owner
      */
-    function claim(uint256 tradedTokenAmount) external onlyOwnerAndManagers {
+    function claim(uint256 tradedTokenAmount) external {
+        onlyOwnerAndManagers();
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, msg.sender);
     }
@@ -411,8 +473,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function claim(uint256 tradedTokenAmount, address account)
         external
-        onlyOwnerAndManagers
     {
+        onlyOwnerAndManagers();
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, account);
     }
@@ -451,7 +513,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     }
 
-    function restrictClaiming(PriceNumDen memory newMinimumPrice) external onlyManagers() {
+    function restrictClaiming(PriceNumDen memory newMinimumPrice) external {
+        onlyManagers();
+        if (newMinimumPrice.denominator == 0) {
+            revert ZeroDenominator();
+        }
+
         FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
         FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
         FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
@@ -486,13 +553,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (claimingTokenAmount == 0) { 
             revert InputAmountCanNotBeZero();
         }
+        
         if (claimingTokenAmount > ERC777(claimingToken).allowance(sender, address(this))) {
             revert InsufficientAmount();
         }
         if (wantToClaimMap[sender].lastActionTime + claimFrequency > block.timestamp) {
             revert ClaimTooFast(wantToClaimMap[sender].lastActionTime + claimFrequency);
         }
-        
         
         ERC777(claimingToken).safeTransferFrom(sender, DEAD_ADDRESS, claimingTokenAmount);
 
@@ -523,9 +590,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @dev claims, sells, adds liquidity, sends LP to 0x0
      * @custom:calledby owner
      */
-    function addLiquidity(uint256 tradedTokenAmount) external onlyOwnerAndManagers initialLiquidityRequired {
+    function addLiquidity(uint256 tradedTokenAmount) external {
+        initialLiquidityRequired();
+        onlyOwnerAndManagers();
         if (tradedTokenAmount == 0) {
-            revert CanNotBeZero();
+            revert InputAmountCanNotBeZero();
         }
         
         uint256 tradedReserve1;
@@ -594,7 +663,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert PriceDropTooBig();
         }
 
-
         // trade trade tokens and add liquidity
         _doSellTradedAndLiquidity(traded2Swap, traded2Liq);
 
@@ -628,8 +696,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
+        amount = preventPanic(holder, recipient, amount);
         if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
-            uint256 taxAmount = (amount * sellTax) / FRACTION;
+            uint256 taxAmount = (amount * sellTax()) / FRACTION;
             if (taxAmount != 0) {
                 amount -= taxAmount;
                 _burn(holder, taxAmount, "", "");
@@ -638,18 +707,67 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         return super.transferFrom(holder, recipient, amount);
     }
 
+    function preventPanic(
+        address holder,
+        address recipient,
+        uint256 amount
+    ) 
+        internal 
+        returns(uint256 adjustedAmount)
+    {
+
+        if (
+            holder == address(internalLiquidity) ||
+            recipient == address(internalLiquidity) ||
+            panicSellRateLimit[recipient].fraction == 0 ||
+            panicSellRateLimit[recipient].duration == 0
+
+        ) {
+            return amount;
+        }
+        
+        uint256 currentBalance = balanceOf(holder);
+        uint256 max = currentBalance * panicSellRateLimit[recipient].fraction / FRACTION;
+
+        uint32 duration = panicSellRateLimit[recipient].duration;
+        duration = (duration == 0) ? 1 : duration; // make no sense if duration eq 0      
+
+        adjustedAmount = amount;
+        
+        if (block.timestamp / duration * duration > _buckets[recipient].lastBucketTime) {
+            _buckets[recipient].lastBucketTime = uint64(block.timestamp);
+            _buckets[recipient].alreadySentInCurrentBucket = 0;
+        }
+        
+        if (max <= _buckets[recipient].alreadySentInCurrentBucket) {
+            emit PanicSellRateExceeded(holder, recipient, amount);
+            return 5;
+        }
+
+        if (_buckets[recipient].alreadySentInCurrentBucket + amount <= max) {
+            // proceed with transfer normally
+            _buckets[recipient].alreadySentInCurrentBucket += amount;
+            
+        } else {
+
+            adjustedAmount = max - _buckets[recipient].alreadySentInCurrentBucket;
+            _buckets[recipient].alreadySentInCurrentBucket = max;
+        }
+    }
+
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         //address from = _msgSender();
-
+        address msgSender = _msgSender();
+        amount = preventPanic(msgSender, recipient, amount);
         // inject into transfer and burn tax from sender
         // two ways:
         // 1. make calculations, burn taxes from sender and do transaction with substracted values
-        if (uniswapV2Pair == _msgSender()) {
-            uint256 taxAmount = (amount * buyTax) / FRACTION;
+        if (uniswapV2Pair == msgSender) {
+            uint256 taxAmount = (amount * buyTax()) / FRACTION;
 
             if (taxAmount != 0) {
                 amount -= taxAmount;
-                _burn(_msgSender(), taxAmount, "", "");
+                _burn(msgSender, taxAmount, "", "");
             }
         }
         return super.transfer(recipient, amount);
@@ -659,10 +777,137 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // and than be send to some1 else in recipient contract callback
     }
 
+    function buyTax() public view returns(uint16) {
+        if (taxesInfo.buyTaxDuration == 0) {
+            return taxesInfo.toBuyTax;
+        }
+        if (
+            block.timestamp < (taxesInfo.buyTaxDuration + taxesInfo.buyTaxTimestamp) &&
+            block.timestamp >= taxesInfo.buyTaxTimestamp
+        ) {
+            if (taxesInfo.buyTaxGradual) {
+                if (taxesInfo.toBuyTax > taxesInfo.fromBuyTax) {
+                    return taxesInfo.fromBuyTax + uint16(uint32(taxesInfo.toBuyTax - taxesInfo.fromBuyTax) * uint32(block.timestamp - taxesInfo.buyTaxTimestamp) / uint32(taxesInfo.buyTaxDuration));
+                } else {
+                    return taxesInfo.fromBuyTax - uint16(uint32(taxesInfo.fromBuyTax - taxesInfo.toBuyTax) * uint32(block.timestamp - taxesInfo.buyTaxTimestamp) / uint32(taxesInfo.buyTaxDuration));
+                }
+            } else {
+                return taxesInfo.fromBuyTax;
+            }
+        } else {
+            return taxesInfo.toBuyTax;
+        }
+    }
+
+    function sellTax() public view returns(uint16) {
+        if (taxesInfo.sellTaxDuration == 0) {
+            return taxesInfo.toSellTax;
+        }
+        if (
+            block.timestamp < (taxesInfo.sellTaxDuration + taxesInfo.sellTaxTimestamp) &&
+            block.timestamp >= taxesInfo.sellTaxTimestamp
+        ) {
+            if (taxesInfo.sellTaxGradual) {
+                if (taxesInfo.toSellTax > taxesInfo.fromSellTax) {
+                    return taxesInfo.fromSellTax + uint16(uint32(taxesInfo.toSellTax - taxesInfo.fromSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
+                } else {
+                    return taxesInfo.fromSellTax - uint16(uint32(taxesInfo.fromSellTax - taxesInfo.toSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
+                }
+            } else {
+                return taxesInfo.fromSellTax;
+            }
+                
+        } else {
+            return taxesInfo.toSellTax;
+        }
+    }
+    /**
+    * @notice presale enable before added initial liquidity
+    * @param account contract that implement interface IPresale
+    * @param amount tokens that would be added to account before contract added initial liquidity
+    * @param minimumPresaleTimeAmount minimum time before `IPresale.endTime` that tokens will be able to mint for `account`
+    */
+    function presaleAdd(address account, uint256 amount, uint64 minimumPresaleTimeAmount) public onlyOwner {
+
+        onlyBeforeInitialLiquidity();
+
+        uint64 endTime = IPresale(account).endTime();
+        if (
+            endTime >= minimumPresaleTimeAmount &&
+            block.timestamp < endTime - minimumPresaleTimeAmount
+        ) {
+
+            _mint(account, amount, "", "");
+            emit Presale(account, amount);
+        }
+    }
+
+// withdrawAll() is called by owner, to withdraw tokens.
+
+// but presaleBurnRemaining can be called by everyone
+// let's allow anyone to call it 1 hour before the endTime (third parameter of presaleAdd can be uint32 duration)
+// So this way the public can guarantee that the presale contract owner (e.g. of FundContract) won't take the tokens.
+
+    /**
+    * @notice any tokens of presale contract can be burned by anyone after `endTime` passed
+    */
+    function presaleBurnRemaining(address _contract) public {
+        uint64 endTime = IPresale(_contract).endTime();
+        if (block.timestamp <= endTime) {
+            return;
+        }
+        
+        uint256 toBurn = balanceOf(_contract);
+        if (toBurn == 0) {
+            return;
+        }
+
+        _burn(_contract, toBurn, "", "");
+        emit PresaleTokensBurnt(_contract, toBurn);
+        
+    }
+
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    
+     
+    function onlyOwnerAndManagers() internal view {
+        // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
+        // } else {
+        //     revert OwnerAndManagersOnly();
+        // }
+        // lets transform via de'Morgan law
+        address msgSender = _msgSender();
+        if (owner() != msgSender && managers[msgSender] == 0) {
+            revert OwnerAndManagersOnly();
+        }
+    }
+    // real only managers.  owner cant be run of it
+    function onlyManagers() internal view {
+        if (managers[_msgSender()] == 0) {
+            revert ManagersOnly();
+        }
+    }
+
+    function runOnlyOnce() internal {
+        if (addedInitialLiquidityRun) {
+            revert AlreadyCalled();
+        }
+        addedInitialLiquidityRun = true;
+    }
+
+    function initialLiquidityRequired() internal view {
+        if (!addedInitialLiquidityRun) {
+            revert InitialLiquidityRequired();
+        }
+    }
+
+    function onlyBeforeInitialLiquidity() internal view{
+        if (addedInitialLiquidityRun) {
+            revert BeforeInitialLiquidityRequired();
+        }
+    }
+
     function _beforeTokenTransfer(
         address, /*operator*/
         address from,
@@ -725,7 +970,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
         if (tradedTokenAmount == 0) {
-            revert CanNotBeZero();
+            revert InputAmountCanNotBeZero();
         }
 
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();

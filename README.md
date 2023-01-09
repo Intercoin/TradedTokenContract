@@ -46,3 +46,13 @@ ValidateClaim --> MintTokens
 MintTokens --> [*]
 ```
 
+
+## Common features
+####<b>to be described</b><br>
+&nbsp;&nbsp;<b>1.</b> Params (eg PreventPanic)<br>
+&nbsp;&nbsp;<b>2.</b>Presale<br>
+&nbsp;&nbsp;<b>3.</b>AddInitialLiquidity<br>
+&nbsp;&nbsp;<b>4.</b>GradualTaxes<br>
+&nbsp;&nbsp;<b>5.</b>Claiming and RestrictClaiming<br>
+&nbsp;&nbsp;<b>6.</b>AddLiquidity<br>
+
