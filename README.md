@@ -15,6 +15,38 @@ The list of main features:<br>
 <b>e.</b> any buy/sell operations on uniswap will cut tokens by sell/buy taxes<br>
 <b>f.</b> owner(and managers) can add any person to managers role, but can't remove from it<br>
 
+## About Claim
+Simple diagram represent ways to claim TradedTokens   
+
+```mermaid
+stateDiagram-v2
+
+[*] --> claim
+[*] --> сlaimViaExternal
+
+    state claim {
+        onlyOwnerAndManagers
+    }
+    state сlaimViaExternal {
+      сlaimViaExternalValidate1: check allowance, ClaimFrequency
+      сlaimViaExternalSafeTransferFrom: transfer to DEAD Address
+      сlaimViaExternalConvert: convert via claimingTokenExchangePrice
+      
+        сlaimViaExternalValidate1 --> approve
+        approve --> сlaimViaExternalSafeTransferFrom
+        сlaimViaExternalSafeTransferFrom --> сlaimViaExternalConvert
+        сlaimViaExternalConvert --> scaling
+    }
+    state ValidateClaim {
+        ValidateClaim1: Price can not be drop more than minClaimPrice
+    }
+claim --> ValidateClaim
+сlaimViaExternal --> ValidateClaim
+ValidateClaim --> MintTokens
+MintTokens --> [*]
+```
+
+
 ## Common features
 ####<b>to be described</b><br>
 &nbsp;&nbsp;<b>1.</b> Params (eg PreventPanic)<br>
@@ -23,3 +55,4 @@ The list of main features:<br>
 &nbsp;&nbsp;<b>4.</b>GradualTaxes<br>
 &nbsp;&nbsp;<b>5.</b>Claiming and RestrictClaiming<br>
 &nbsp;&nbsp;<b>6.</b>AddLiquidity<br>
+

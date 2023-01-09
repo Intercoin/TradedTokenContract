@@ -60,12 +60,16 @@ describe("TradedTokenInstance", function () {
 
     const maxBuyTax = FRACTION.mul(15).div(100); // 0.15*fraction
     const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
+
+    const claimFrequency = 0; 
+
     const taxesInfo = [
         0,
         0,
         false,
         false
     ];
+
     // vars
     var mainInstance, erc20ReservedToken;
     var MainFactory, ERC20Factory;
@@ -102,10 +106,11 @@ describe("TradedTokenInstance", function () {
             priceDrop,
             lockupIntervalAmount,
             [
-                ZERO_ADDRESS, //externalToken.address,
-                [minClaimPriceNumerator, minClaimPriceDenominator],
-                [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
-                [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+            ZERO_ADDRESS, //externalToken.address,
+            [minClaimPriceNumerator, minClaimPriceDenominator],
+            [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
+            [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+            claimFrequency
             ],
             taxesInfo,
             maxBuyTax,
@@ -139,12 +144,16 @@ describe("TradedTokenInstance", function () {
                 [minClaimPriceNumerator, minClaimPriceDenominator],
                 [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
                 [customExternalTokenExchangePriceNumerator, customExternalTokenExchangePriceDenominator],
+                claimFrequency
             ],
             taxesInfo,
             0,
             0
         );
-        
+        await expect(
+            mainInstance.availableToClaimByAddress(bob.address)
+        ).to.be.revertedWith(`EmptyReserves()`);
+
         await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
         await erc20ReservedToken.connect(owner).transfer(mainInstance.address, ONE_ETH.mul(TEN));
 
@@ -156,6 +165,12 @@ describe("TradedTokenInstance", function () {
 
         await externalToken.connect(bob).approve(mainInstance.address, ONE_ETH);
 
+        await expect(
+            mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address)
+        ).to.be.revertedWith(`InsufficientAmountToClaim(${ONE_ETH.mul(customExternalTokenExchangePriceNumerator).div(customExternalTokenExchangePriceDenominator)}, ${ZERO})`);
+
+
+        await mainInstance.connect(bob).wantToClaim(ONE_ETH);
         await mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address);
 
         let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);
@@ -166,6 +181,71 @@ describe("TradedTokenInstance", function () {
         expect(mainInstanceExternalTokenBalanceAfter.sub(mainInstanceExternalTokenBalanceBefore)).to.be.eq(ZERO);
 
         // restore snapshot
+        await ethers.provider.send('evm_revert', [snapId]);
+    });
+
+    it("should external claim (scale 1:2 applying) ", async() => {
+
+        let snapId = await ethers.provider.send('evm_snapshot', []);
+
+        var erc20ReservedToken  = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
+        var externalToken       = await ERC20Factory.deploy("ERC20 External Token", "ERC20-EXT");
+        
+        mainInstance = await MainFactory.connect(owner).deploy(
+            "Intercoin Investor Token",
+            "ITR",
+            erc20ReservedToken.address, //” (USDC)
+            priceDrop,
+            lockupIntervalAmount,
+            [
+                externalToken.address,
+                [minClaimPriceNumerator, minClaimPriceDenominator],
+                [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
+                [1, 1],
+                claimFrequency
+            ],
+            0,
+            0
+        );
+        
+        await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
+        await erc20ReservedToken.connect(owner).transfer(mainInstance.address, ONE_ETH.mul(TEN));
+
+        await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
+
+        let availableToClaim = await mainInstance.availableToClaim();
+
+        let userWantToClaim = ONE_ETH; 
+        await externalToken.connect(owner).mint(bob.address, userWantToClaim);
+        await externalToken.connect(owner).mint(charlie.address, availableToClaim.mul(TWO));
+        let bobExternalTokenBalanceBefore = await externalToken.balanceOf(bob.address);
+        let mainInstanceExternalTokenBalanceBefore = await externalToken.balanceOf(mainInstance.address);
+
+        
+        await externalToken.connect(bob).approve(mainInstance.address, userWantToClaim);
+        await externalToken.connect(charlie).approve(mainInstance.address, availableToClaim.mul(TWO));
+
+        // two users want to get all available amount of tokens
+        let wantToClaimTotal = ZERO;
+        await mainInstance.connect(bob).wantToClaim(userWantToClaim);
+        wantToClaimTotal = wantToClaimTotal.add(userWantToClaim);
+        await mainInstance.connect(charlie).wantToClaim(availableToClaim.mul(TWO));
+        wantToClaimTotal = wantToClaimTotal.add(availableToClaim.mul(TWO));
+
+        await expect(
+            mainInstance.connect(bob).claimViaExternal(userWantToClaim, bob.address)
+        ).to.be.revertedWith(`InsufficientAmountToClaim(${userWantToClaim}, ${userWantToClaim.mul(availableToClaim).div(wantToClaimTotal)})`);
+
+        let scaledAmount = userWantToClaim.mul(availableToClaim).div(wantToClaimTotal);
+        await mainInstance.connect(bob).claimViaExternal(scaledAmount, bob.address);
+
+        let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);
+        let mainInstanceExternalTokenBalanceAfter = await externalToken.balanceOf(mainInstance.address);
+
+        expect(await mainInstance.balanceOf(bob.address)).to.be.eq(scaledAmount);
+        expect(bobExternalTokenBalanceBefore.sub(bobExternalTokenBalanceAfter)).to.be.eq(scaledAmount);
+        expect(mainInstanceExternalTokenBalanceAfter.sub(mainInstanceExternalTokenBalanceBefore)).to.be.eq(ZERO);
+
         await ethers.provider.send('evm_revert', [snapId]);
     });
 
@@ -185,6 +265,7 @@ describe("TradedTokenInstance", function () {
                         [minClaimPriceNumerator, minClaimPriceDenominator],
                         [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
                         [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                        claimFrequency
                     ],
                     taxesInfo,
                     maxBuyTax,
@@ -212,6 +293,7 @@ describe("TradedTokenInstance", function () {
                     [minClaimPriceNumerator, minClaimPriceDenominator],
                     [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
                     [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                    claimFrequency
                 ],
                 taxesInfo,
                 maxBuyTax,
@@ -222,6 +304,14 @@ describe("TradedTokenInstance", function () {
             // itrv2 = await ethers.getContractAt("ITRv2",erc777);
 
             
+        });
+
+        it("should valid ClamedEnabledTime", async() => {
+            expect(await mainInstance.claimsEnabledTime()).to.be.eq(ZERO);
+            await expect(mainInstance.connect(bob).enableClaims()).revertedWith("Ownable: caller is not the owner");
+            await mainInstance.connect(owner).enableClaims();
+            expect(await mainInstance.claimsEnabledTime()).not.to.be.eq(ZERO);
+            await expect(mainInstance.connect(owner).enableClaims()).revertedWith("ClaimsEnabledTimeAlreadySetup()");
         });
 
         it("cover sqrt func", async() => {
@@ -288,6 +378,7 @@ describe("TradedTokenInstance", function () {
             });
 
             describe("internal", function () {
+                const AmountToClaim = ONE_ETH.mul(HUN);
                 before("make snapshot", async() => {
                     // make snapshot before time manipulations
                     snapId = await ethers.provider.send('evm_snapshot', []);
@@ -301,16 +392,24 @@ describe("TradedTokenInstance", function () {
                 });
 
                 it("should claim", async() => {
+                    
                     await expect(
-                        mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
-                    ).to.be.revertedWith("ManagersOnly()");
+                        mainInstance.connect(bob)["claim(uint256)"](AmountToClaim)
+                    ).to.be.revertedWith("OwnerAndManagersOnly()");
 
                     await expect(
-                        mainInstance.connect(bob)["claim(uint256,address)"](ONE_ETH,bob.address)
-                    ).to.be.revertedWith("ManagersOnly()");
+                        mainInstance.connect(bob)["claim(uint256,address)"](AmountToClaim, bob.address)
+                    ).to.be.revertedWith("OwnerAndManagersOnly()");
+                    
+                    let availableToClaim = await mainInstance.availableToClaim();
+                    let availableToClaimByAddress = await mainInstance.availableToClaimByAddress(owner.address);
 
-                    await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
-                    expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
+                    await expect(
+                        mainInstance.connect(owner)["claim(uint256)"](availableToClaim.mul(HUN))
+                    ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
+
+                    await mainInstance.connect(owner)["claim(uint256)"](AmountToClaim);
+                    expect(await mainInstance.balanceOf(owner.address)).to.be.eq(AmountToClaim);
                 });
                 
                 it("should addManagers", async() => {
@@ -472,6 +571,7 @@ describe("TradedTokenInstance", function () {
             }); 
 
             describe("external", function () {
+                
                 before("make snapshot", async() => {
                     // make snapshot before time manipulations
                     snapId = await ethers.provider.send('evm_snapshot', []);
@@ -498,6 +598,11 @@ describe("TradedTokenInstance", function () {
 
                     await externalToken.connect(bob).approve(mainInstance.address, ONE_ETH);
 
+                    await expect(
+                        mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address)
+                    ).to.be.revertedWith(`InsufficientAmountToClaim(${ONE_ETH}, ${ZERO})`);
+
+                    await mainInstance.connect(bob).wantToClaim(ONE_ETH);
                     await mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address);
 
                     let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);

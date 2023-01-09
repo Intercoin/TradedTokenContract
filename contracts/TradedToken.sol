@@ -23,7 +23,7 @@ import "./interfaces/IPresale.sol";
 //import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
-    using FixedPoint for *;
+   // using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
     using SafeERC20 for ERC777;
     using Address for address;
@@ -37,6 +37,15 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint64 timestampLast;
         uint256 price0CumulativeLast;
         FixedPoint.uq112x112 price0Average;
+    }
+    
+    struct ClaimSettings {
+        address claimingToken;
+        PriceNumDen minClaimPrice;
+        PriceNumDen minClaimPriceGrow;
+        PriceNumDen claimingTokenExchangePrice;
+        uint16 claimFrequency;
+        
     }
 
     struct ClaimSettings {
@@ -83,7 +92,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
     address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
-
+    
+    uint64 public claimsEnabledTime;
+    
+    /**
+     * @custom:shortd claimFrequency
+     * @notice claimFrequency
+     */
+    uint16 public immutable claimFrequency;
     /**
      * @custom:shortd traded token address
      * @notice traded token address
@@ -125,7 +141,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     // keep gas when try to get reserves
     // if token01 == true then (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) so reserve0 it's reserves of TradedToken
     bool internal immutable token01;
-    bool internal alreadyRunStartupSync;
 
     uint64 internal constant MIN_CLAIM_PRICE_UPDATED_TIME = 1 days;
     uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
@@ -136,6 +151,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     uint16 public immutable buyTaxMax;
     uint16 public immutable sellTaxMax;
+
     uint256 public totalCumulativeClaimed;
 
     Liquidity internal internalLiquidity;
@@ -145,6 +161,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     mapping(address => uint64) internal managers;
 
+    struct ClaimStruct {
+        uint256 amount;
+        uint256 lastActionTime;
+    }
+    mapping(address => ClaimStruct) public wantToClaimMap;
+    uint256 public wantToClaimTotal; // value that accomulated all users `wantToClaim requests`
+    
     bool private addedInitialLiquidityRun;
 
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
@@ -182,9 +205,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
     error NotAuthorized();
-    
-   
-    /**
+
+/**
      * @param tokenName_ token name
      * @param tokenSymbol_ token symbol
      * @param reserveToken_ reserve token address
@@ -194,6 +216,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * param claimSettings.claimingToken_ external token address that used to change their tokens to traded
      * param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
      * param claimSettings.claimingTokenExchangePrice_ (numerator,denominator) exchange price. used when user trying to change external token to Traded
+     * param claimSettings.claimFrequency_ claimFrequency_
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
      */
@@ -356,9 +379,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         bytes calldata operatorData
     ) external {}
 
-    ////////////////////////////////////////////////////////////////////////
-    // public section //////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
     function addManagers(
         address manager
     )
@@ -459,6 +479,40 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         _claim(tradedTokenAmount, account);
     }
 
+    function enableClaims() external onlyOwner {
+        if (claimsEnabledTime != 0) {
+            revert ClaimsEnabledTimeAlreadySetup();
+        }
+        claimsEnabledTime = uint64(block.timestamp);
+    }
+
+    /**
+    * If there is a claimingToken, then they have to pass an amount that is <= claimingToken.balanceOf(caller). 
+    * If they pass zero here, it will actually look up and use their entire balance.
+    */
+    function wantToClaim(
+        uint256 amount
+    ) 
+        external 
+    {
+        address sender = _msgSender();
+        uint256 availableAmount = ERC777(claimingToken).balanceOf(sender);
+        
+        if (amount == 0) {
+            amount = availableAmount;
+        }
+
+        if (availableAmount < amount || amount == 0) {
+            revert InsufficientAmount();
+        }
+
+        wantToClaimTotal += amount - wantToClaimMap[sender].amount;
+        wantToClaimMap[sender].amount = amount;
+
+        wantToClaimMap[sender].lastActionTime = block.timestamp;
+
+    }
+
     function restrictClaiming(PriceNumDen memory newMinimumPrice) external {
         onlyManagers();
         if (newMinimumPrice.denominator == 0) {
@@ -469,7 +523,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
         FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
         if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
-            revert ShouldBeMoreThanMinClaimPrice();
+            revert ShouldBeMoreThenMinClaimPrice();
         }
         if (
             newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
@@ -490,24 +544,46 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param account address to claim for
      */
     function claimViaExternal(uint256 claimingTokenAmount, address account) external nonReentrant() {
+
+        address sender = _msgSender();
+
         if (claimingToken == address(0)) { 
             revert EmptyTokenAddress();
         }
         if (claimingTokenAmount == 0) { 
             revert InputAmountCanNotBeZero();
         }
-        if (claimingTokenAmount > ERC777(claimingToken).allowance(msg.sender, address(this))) {
+        
+        if (claimingTokenAmount > ERC777(claimingToken).allowance(sender, address(this))) {
             revert InsufficientAmount();
         }
+        if (wantToClaimMap[sender].lastActionTime + claimFrequency > block.timestamp) {
+            revert ClaimTooFast(wantToClaimMap[sender].lastActionTime + claimFrequency);
+        }
         
-        ERC777(claimingToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
+        ERC777(claimingToken).safeTransferFrom(sender, DEAD_ADDRESS, claimingTokenAmount);
 
         uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
             claimingTokenExchangePrice.denominator;
 
+        uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(sender);
+
+        if (scalingMaxTradedTokenAmount < tradedTokenAmount) {
+            revert InsufficientAmountToClaim(tradedTokenAmount, scalingMaxTradedTokenAmount);
+        }
+
         _validateClaim(tradedTokenAmount);
 
         _claim(tradedTokenAmount, account);
+
+        wantToClaimMap[sender].lastActionTime = block.timestamp;
+        // wantToClaimTotal -= tradedTokenAmount;
+        // wantToClaimMap[account].amount -= tradedTokenAmount;
+        // or just empty all wantToClaimMap
+        wantToClaimTotal -= wantToClaimMap[account].amount;
+        delete wantToClaimMap[account].amount;
+        
+        
     }
 
     /**
@@ -553,11 +629,22 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 tradedTokenAmount
             );
 
+            // averageWithPriceDrop = (
+            //     FixedPoint
+            //         .uq112x112(uint224(priceAverageData))
+            //         .muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)))
+            //         .muluq(FixedPoint.fraction(1, FRACTION))
+            // );
+
             averageWithPriceDrop = (
-                FixedPoint
-                    .uq112x112(uint224(priceAverageData))
-                    .muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)))
-                    .muluq(FixedPoint.fraction(1, FRACTION))
+                FixedPoint.muluq(
+                    FixedPoint.uq112x112(uint224(priceAverageData)),
+                    FixedPoint.muluq(
+                        FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)),
+                        FixedPoint.fraction(1, FRACTION)
+                    )   
+                )
+                    
             );
 
             // "new_current_price" should be more than "average_price(1-price_drop)"
@@ -582,6 +669,26 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         emit AddedLiquidity(tradedTokenAmount, priceAverageData);
 
         _update();
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    // public section //////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+
+    /**
+    * @return (this is called clamping a value or sum to fit into a range, in this case 0….availableToClaimTotal).
+    */
+    function availableToClaimByAddress(
+        address account
+    ) 
+        public 
+        view 
+        returns(uint256) 
+    {
+        uint256 a = availableToClaim(); 
+        uint256 w = wantToClaimMap[account].amount; 
+        return wantToClaimTotal <= a ? w : w * a / wantToClaimTotal; 
+        
     }
 
     function transferFrom(
@@ -859,12 +966,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     * @notice 
         validate params when user claims
         here we should simulate swap totalCumulativeClaimed to reserve token and check price
-        price should be less than minClaimPrice
+        price shouldnt be less than minClaimPrice
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
         if (tradedTokenAmount == 0) {
             revert InputAmountCanNotBeZero();
         }
+
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
@@ -884,6 +992,21 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert PriceHasBecomeALowerThanMinClaimPrice();
         }
 
+
+    }
+    /**
+    * returns the currently available maximum amount that can be claimed, that if it was all immediately sold would drop price by 10%.
+    */
+    function availableToClaim() public view returns(uint256 tradedTokenAmount) {
+        (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
+        uint256 numDen =  2 ** 64;
+        //tradedTokenAmount = (numDen * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/numDen - _reserve0 - totalCumulativeClaimed;
+        tradedTokenAmount = (numDen * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/numDen;
+        if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
+            tradedTokenAmount -= (_reserve0 + totalCumulativeClaimed);
+        } else {
+            tradedTokenAmount = 0;
+        }
     }
 
     /**
@@ -970,9 +1093,15 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (timeElapsed > windowSize && timeElapsed > 0) {
             uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
 
-            pairObservation.price0Average = FixedPoint
-                .uq112x112(uint224(price0Cumulative - pairObservation.price0CumulativeLast))
-                .divuq(FixedPoint.encode(timeElapsed));
+            // pairObservation.price0Average = FixedPoint
+            //     .uq112x112(uint224(price0Cumulative - pairObservation.price0CumulativeLast))
+            //     .divuq(FixedPoint.encode(timeElapsed));
+
+            pairObservation.price0Average = FixedPoint.divuq(
+                FixedPoint.uq112x112(uint224(price0Cumulative - pairObservation.price0CumulativeLast)),
+                FixedPoint.encode(timeElapsed)
+            );
+                
             pairObservation.price0CumulativeLast = price0Cumulative;
 
             pairObservation.timestampLast = blockTimestamp;
@@ -1039,22 +1168,47 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(_sqrt(traded)));
         FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(_sqrt(reserved)));
-        FixedPoint.uq112x112 memory q3 = (
-            priceAverageData.muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).muluq(
-                FixedPoint.fraction(1, FRACTION)
+        // FixedPoint.uq112x112 memory q3 = (
+        //     priceAverageData.muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).muluq(
+        //         FixedPoint.fraction(1, FRACTION)
+        //     )
+        // ).sqrt();
+        FixedPoint.uq112x112 memory q3 = FixedPoint.sqrt(
+            FixedPoint.muluq(
+                priceAverageData,
+                FixedPoint.muluq(
+                    FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)),
+                    FixedPoint.fraction(1, FRACTION)
+                )
             )
-        ).sqrt();
+        );
+
         //FixedPoint.uq112x112 memory q4 = FixedPoint.encode(uint112(1)).divuq(q3);
 
         //traded1*reserve1/(priceaverage*pricedrop)
 
         //traded1 * reserve1*(1/(priceaverage*pricedrop))
 
-        uint256 tradedNew = (
-            q1.muluq(q2).muluq(FixedPoint.encode(uint112(_sqrt(FRACTION)))).muluq(
-                FixedPoint.encode(uint112(1)).divuq(q3)
+        // uint256 tradedNew = (
+        //     q1.muluq(q2).muluq(FixedPoint.encode(uint112(_sqrt(FRACTION)))).muluq(
+        //         FixedPoint.encode(uint112(1)).divuq(q3)
+        //     )
+        // ).decode();
+        uint256 tradedNew = FixedPoint.decode(
+            FixedPoint.muluq(
+                FixedPoint.muluq(
+                    q1,
+                    q2
+                ),
+                FixedPoint.muluq(
+                    FixedPoint.encode(uint112(_sqrt(FRACTION))),
+                    FixedPoint.divuq(
+                        FixedPoint.encode(uint112(1)), 
+                        q3
+                    )
+                )
             )
-        ).decode();
+        );
 
         return (traded, tradedNew, priceAverageData._x);
     }
