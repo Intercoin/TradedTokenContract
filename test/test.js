@@ -204,6 +204,7 @@ describe("TradedTokenInstance", function () {
                 [1, 1],
                 claimFrequency
             ],
+            taxesInfo,
             0,
             0
         );

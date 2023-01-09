@@ -48,13 +48,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         
     }
 
-    struct ClaimSettings {
-        address claimingToken;
-        PriceNumDen minClaimPrice;
-        PriceNumDen minClaimPriceGrow;
-        PriceNumDen claimingTokenExchangePrice;
-       
-    }
     struct TaxesInfoInit { 
         uint16 buyTaxDuration;
         uint16 sellTaxDuration;
@@ -202,6 +195,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error PriceHasBecomeALowerThanMinClaimPrice();
     error ClaimsEnabledTimeAlreadySetup();
     error ClaimTooFast(uint256 untilTime);
+    error InsufficientAmountToClaim(uint256 requested, uint256 maxAvailable);
     error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
     error NotAuthorized();
@@ -235,6 +229,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //setup
         buyTaxMax = buyTaxMax_;
         sellTaxMax = sellTaxMax_;
+        claimFrequency = claimSettings.claimFrequency;
 
         tradedToken = address(this);
         reserveToken = reserveToken_;
@@ -523,7 +518,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
         FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
         if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
-            revert ShouldBeMoreThenMinClaimPrice();
+            revert ShouldBeMoreThanMinClaimPrice();
         }
         if (
             newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
