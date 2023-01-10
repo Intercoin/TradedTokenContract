@@ -61,12 +61,25 @@ sellTaxMax: 10000 (10%)
         bUSD, // address reserveToken_, //” (USDC)
         1000, // uint256 priceDrop_,
         365,// uint64 lockupIntervalAmount_,
-        [1,10],// PriceNumDen memory minClaimPrice_,
-        ZERO_ADDRESS, // address externalToken_,
-        [1,1], // PriceNumDen memory externalTokenExchangePrice_,
+		// ClaimSettings memory claimSettings,
+		[
+			ZERO_ADDRESS,// address claimingToken;
+			[1,1000], // PriceNumDen minClaimPrice;
+			[1,1000], // PriceNumDen minClaimPriceGrow;
+			[1,1], // PriceNumDen claimingTokenExchangePrice;
+			0 // uint16 claimFrequency;
+		],
+		// TaxesLib.TaxesInfoInit memory taxesInfoInit,
+		[
+			0, //uint16 buyTaxDuration;
+			0, //uint16 sellTaxDuration;
+			false, //bool buyTaxGradual;
+			false //bool sellTaxGradual;
+		],
         1000, // uint256 buyTaxMax_,
         1000 // uint256 sellTaxMax_
 	];
+	
 	let params = [
 		..._params,
 		options
@@ -74,13 +87,22 @@ sellTaxMax: 10000 (10%)
 
 	console.log("Account balance:", (await deployer.getBalance()).toString());
 
-	const MainF = await ethers.getContractFactory("TradedToken");
+	const TaxesLib = await ethers.getContractFactory("TaxesLib");
+	const library = await TaxesLib.deploy();
+	await library.deployed();
+
+	const MainF = await ethers.getContractFactory("TradedToken",  {
+		libraries: {
+			TaxesLib:library.address
+		}
+	});
 
 	this.instance = await MainF.connect(deployer).deploy(...params);
 
 	
 	console.log("Instance deployed at:", this.instance.address);
 	console.log("with params:", [..._params]);
+	console.log("TaxesLib.library deployed at:", library.address);
 
 }
 
