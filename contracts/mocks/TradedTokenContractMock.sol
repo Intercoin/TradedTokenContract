@@ -21,6 +21,10 @@ contract TradedTokenMock is TradedToken {
     {
     }
 
+    function mint(address account, uint256 amount) public  {
+        _mint(account, amount, "", "");
+    }
+
     function getInternalLiquidity() public view returns (address) {
         return address(internalLiquidity);
     }

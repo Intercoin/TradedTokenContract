@@ -333,7 +333,35 @@ describe("TradedTokenInstance", function () {
                 mainInstance.connect(owner).addLiquidity(ONE_ETH)
             ).to.be.revertedWith("InitialLiquidityRequired()");
         }); 
-    
+
+        it("shouldnt addLiquidity manually without method `addInitialLiquidity`", async() => {
+            let uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+            await erc20ReservedToken.mint(bob.address, ONE_ETH);
+            await mainInstance.mint(bob.address, ONE_ETH);
+
+            await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH);
+            await mainInstance.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH);
+
+            let ts = await time.latest();
+            let timeUntil = parseInt(ts)+parseInt(8*DAY);
+
+            // handle TransferHelper error although it's happens in our contract
+            await expect(
+                uniswapRouterInstance.connect(bob).addLiquidity(
+                    mainInstance.address, //address tokenA,
+                    erc20ReservedToken.address, //address tokenB,
+                    ONE_ETH, //uint amountADesired,
+                    ONE_ETH, //uint amountBDesired,
+                    ONE_ETH, //uint amountAMin,
+                    ONE_ETH, //uint amountBMin,
+                    bob.address, //address to,
+                    timeUntil //uint deadline
+                )
+            ).to.be.revertedWith("TransferHelper: TRANSFER_FROM_FAILED");
+
+        }); 
+
         describe("claim", function () {
             beforeEach("adding liquidity", async() => {
 
