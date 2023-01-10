@@ -88,10 +88,17 @@ describe("TradedTokenInstance", function () {
         console.log("blockTimestamp = ",x5.toString());
 
     }                
-                
 
     beforeEach("deploying", async() => {
-        MainFactory = await ethers.getContractFactory("TradedTokenMock");
+        const TaxesLib = await ethers.getContractFactory("TaxesLib");
+        const library = await TaxesLib.deploy();
+        await library.deployed();
+
+        MainFactory = await ethers.getContractFactory("TradedTokenMock",  {
+            libraries: {
+                TaxesLib:library.address
+            }
+        });
         
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
     });

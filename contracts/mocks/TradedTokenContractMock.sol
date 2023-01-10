@@ -15,7 +15,7 @@ contract TradedTokenMock is TradedToken {
         uint256 priceDrop_,
         uint64 lockupIntervalAmount,
         ClaimSettings memory claimSettings,
-        TaxesInfoInit memory taxesInfoInit,
+        TaxesLib.TaxesInfoInit memory taxesInfoInit,
         uint16 buyTaxMax_,
         uint16 sellTaxMax_
     ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, buyTaxMax_, sellTaxMax_)
@@ -89,7 +89,7 @@ contract TradedTokenMock is TradedToken {
     }
     
     function setTaxesInfoInit(
-        TaxesInfoInit memory taxesInfoInit
+        TaxesLib.TaxesInfoInit memory taxesInfoInit
     ) 
         public 
     {

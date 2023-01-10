@@ -13,6 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./libs/SwapSettingsLib.sol";
 import "./libs/FixedPoint.sol";
+import "./libs/TaxesLib.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
@@ -26,6 +27,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     using MinimumsLib for MinimumsLib.UserStruct;
     using SafeERC20 for ERC777;
     using Address for address;
+    using TaxesLib for TaxesLib.TaxesInfo;
 
     struct PriceNumDen {
         uint256 numerator;
@@ -47,26 +49,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         
     }
 
-    struct TaxesInfoInit { 
-        uint16 buyTaxDuration;
-        uint16 sellTaxDuration;
-        bool buyTaxGradual;
-        bool sellTaxGradual;
-    }
-
-    struct TaxesInfo { 
-        uint16 fromBuyTax;
-        uint16 toBuyTax;
-        uint16 fromSellTax;
-        uint16 toSellTax;
-        uint64 buyTaxTimestamp;
-        uint64 sellTaxTimestamp;
-        uint16 buyTaxDuration;
-        uint16 sellTaxDuration;
-        bool buyTaxGradual;
-        bool sellTaxGradual;
-    } 
-    TaxesInfo public taxesInfo;
+    TaxesLib.TaxesInfo public taxesInfo;
 
     struct Bucket {
         uint256 alreadySentInCurrentBucket; //alreadySentInCurrentBucket
@@ -220,7 +203,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 priceDrop_,
         uint64 lockupIntervalAmount_,
         ClaimSettings memory claimSettings,
-        TaxesInfoInit memory taxesInfoInit,
+        TaxesLib.TaxesInfoInit memory taxesInfoInit,
         uint16 buyTaxMax_,
         uint16 sellTaxMax_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
@@ -253,10 +236,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
 
-        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
-        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
-        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
-        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+        taxesInfo.init(taxesInfoInit);
 
         //validations
         if (
@@ -391,9 +371,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (newTax > buyTaxMax) {
             revert TaxCanNotBeMoreThan(buyTaxMax);
         }
-        taxesInfo.fromBuyTax = buyTax();
-        taxesInfo.toBuyTax = newTax;
-        taxesInfo.buyTaxTimestamp = uint64(block.timestamp);
+        taxesInfo.setBuyTax(newTax);
         
         emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
     }
@@ -407,9 +385,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (newTax > sellTaxMax) {
             revert TaxCanNotBeMoreThan(sellTaxMax);
         }
-        taxesInfo.fromSellTax = sellTax();
-        taxesInfo.toSellTax = newTax;
-        taxesInfo.sellTaxTimestamp = uint64(block.timestamp);
+        taxesInfo.setSellTax(newTax);
+
         emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
     }
 
@@ -772,48 +749,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     function buyTax() public view returns(uint16) {
-        if (taxesInfo.buyTaxDuration == 0) {
-            return taxesInfo.toBuyTax;
-        }
-        if (
-            block.timestamp < (taxesInfo.buyTaxDuration + taxesInfo.buyTaxTimestamp) &&
-            block.timestamp >= taxesInfo.buyTaxTimestamp
-        ) {
-            if (taxesInfo.buyTaxGradual) {
-                if (taxesInfo.toBuyTax > taxesInfo.fromBuyTax) {
-                    return taxesInfo.fromBuyTax + uint16(uint32(taxesInfo.toBuyTax - taxesInfo.fromBuyTax) * uint32(block.timestamp - taxesInfo.buyTaxTimestamp) / uint32(taxesInfo.buyTaxDuration));
-                } else {
-                    return taxesInfo.fromBuyTax - uint16(uint32(taxesInfo.fromBuyTax - taxesInfo.toBuyTax) * uint32(block.timestamp - taxesInfo.buyTaxTimestamp) / uint32(taxesInfo.buyTaxDuration));
-                }
-            } else {
-                return taxesInfo.fromBuyTax;
-            }
-        } else {
-            return taxesInfo.toBuyTax;
-        }
+        return taxesInfo.buyTax();
     }
 
     function sellTax() public view returns(uint16) {
-        if (taxesInfo.sellTaxDuration == 0) {
-            return taxesInfo.toSellTax;
-        }
-        if (
-            block.timestamp < (taxesInfo.sellTaxDuration + taxesInfo.sellTaxTimestamp) &&
-            block.timestamp >= taxesInfo.sellTaxTimestamp
-        ) {
-            if (taxesInfo.sellTaxGradual) {
-                if (taxesInfo.toSellTax > taxesInfo.fromSellTax) {
-                    return taxesInfo.fromSellTax + uint16(uint32(taxesInfo.toSellTax - taxesInfo.fromSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
-                } else {
-                    return taxesInfo.fromSellTax - uint16(uint32(taxesInfo.fromSellTax - taxesInfo.toSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
-                }
-            } else {
-                return taxesInfo.fromSellTax;
-            }
-                
-        } else {
-            return taxesInfo.toSellTax;
-        }
+        return taxesInfo.sellTax();
     }
     /**
     * @notice presale enable before added initial liquidity
