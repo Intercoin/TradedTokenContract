@@ -11,6 +11,7 @@ require("@nomiclabs/hardhat-web3")
 require("@nomiclabs/hardhat-etherscan")
 require("solidity-coverage")
 require("hardhat-gas-reporter")
+require('hardhat-contract-sizer');
 
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`

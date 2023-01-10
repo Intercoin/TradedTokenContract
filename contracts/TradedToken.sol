@@ -692,11 +692,18 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 amount
     ) public virtual override returns (bool) {
         amount = preventPanic(holder, recipient, amount);
-        if(uniswapV2Pair == recipient && holder != address(internalLiquidity)) {
-            uint256 taxAmount = (amount * sellTax()) / FRACTION;
-            if (taxAmount != 0) {
-                amount -= taxAmount;
-                _burn(holder, taxAmount, "", "");
+        
+        if(uniswapV2Pair == recipient) {
+            if(!addedInitialLiquidityRun) {
+                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                revert InitialLiquidityRequired();
+            }
+            if(holder != address(internalLiquidity)) {
+                uint256 taxAmount = (amount * sellTax()) / FRACTION;
+                if (taxAmount != 0) {
+                    amount -= taxAmount;
+                    _burn(holder, taxAmount, "", "");
+                }
             }
         }
         return super.transferFrom(holder, recipient, amount);
@@ -758,6 +765,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // two ways:
         // 1. make calculations, burn taxes from sender and do transaction with substracted values
         if (uniswapV2Pair == msgSender) {
+            if(!addedInitialLiquidityRun) {
+                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                revert InitialLiquidityRequired();
+            }
             uint256 taxAmount = (amount * buyTax()) / FRACTION;
 
             if (taxAmount != 0) {
