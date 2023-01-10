@@ -10,15 +10,14 @@ import "@openzeppelin/contracts/utils/Address.sol";
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+
 import "./libs/SwapSettingsLib.sol";
 import "./libs/FixedPoint.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
+import "./interfaces/IUniswapCustom.sol";
 
 //import "hardhat/console.sol";
 
@@ -288,7 +287,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
 
         //create Pair
-        uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).createPair(tradedToken, reserveToken);
+        uniswapV2Pair = IUniswapCustom(uniswapRouterFactory).createPair(tradedToken, reserveToken);
 
         if (uniswapV2Pair == address(0)) {
             revert CantCreatePair(tradedToken, reserveToken);
@@ -296,13 +295,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
 
         // TypeError: Cannot write to immutable here: Immutable variables cannot be initialized inside an if statement.
-        // if (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) {
+        // if (IUniswapCustom(uniswapV2Pair).token0() == tradedToken) {
         //     token01 = true;
         // }
         // but can do if use ternary operator :)
-        token01 = (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) ? true : false;
-
-        // IUniswapV2Pair(uniswapV2Pair).sync(); !!!! not created yet
+        token01 = (IUniswapCustom(uniswapV2Pair).token0() == tradedToken) ? true : false;
 
         internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapRouter);
 
@@ -438,15 +435,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         internalLiquidity.addLiquidity();
 
         emit AddedInitialLiquidity(amountTradedToken, amountReserveToken);
-        // singlePairSync() ??
-
-        // console.log("force sync start");
-
-        //force sync
-        //IUniswapV2Pair(uniswapV2Pair).sync();
-
-        // // and update
-        // _update();
     }
 
     /**
@@ -956,7 +944,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             uint32
         )
     {
-        (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(uniswapV2Pair).getReserves();
+        (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapCustom(uniswapV2Pair).getReserves();
         if (reserve0 == 0 || reserve1 == 0) {
             revert EmptyReserves();
         }
@@ -982,7 +970,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
-        uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
+        uint256 amountOut = IUniswapCustom(uniswapRouter).getAmountOut(
             currentIterationTotalCumulativeClaimed,
             _reserve0,
             _reserve1
@@ -1055,7 +1043,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         path[1] = address(tokenOut);
         // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
 
-        uint256[] memory outputAmounts = IUniswapV2Router02(uniswapRouter).swapExactTokensForTokens(
+        uint256[] memory outputAmounts = IUniswapCustom(uniswapRouter).swapExactTokensForTokens(
             amountIn,
             0,
             path,
@@ -1071,7 +1059,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function _tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
         uint64 blockTimestamp = _currentBlockTimestamp();
-        uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+        uint256 price0Cumulative = IUniswapCustom(uniswapV2Pair).price0CumulativeLast();
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
         uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
@@ -1097,7 +1085,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
         if (timeElapsed > windowSize && timeElapsed > 0) {
-            uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+            uint256 price0Cumulative = IUniswapCustom(uniswapV2Pair).price0CumulativeLast();
 
             // pairObservation.price0Average = FixedPoint
             //     .uq112x112(uint224(price0Cumulative - pairObservation.price0CumulativeLast))
@@ -1136,7 +1124,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         require(traded2Swap > 0 && incomingTradedToken > traded2Swap, "BAD_AMOUNT");
 
-        reserved2Liq = IUniswapV2Router02(uniswapRouter).getAmountOut(traded2Swap, rTraded, rReserved);
+        reserved2Liq = IUniswapCustom(uniswapRouter).getAmountOut(traded2Swap, rTraded, rReserved);
         traded2Liq = incomingTradedToken - traded2Swap;
     }
 
