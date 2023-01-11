@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import "../TradedToken.sol";
-import "./IUniswapCustomMock.sol";
 
 contract TradedTokenMock is TradedToken {
 
@@ -44,7 +43,7 @@ contract TradedTokenMock is TradedToken {
     ) 
         public 
     {
-        IUniswapCustomMock(uniswapV2Pair).sync();
+        IUniswapV2Pair(uniswapV2Pair).sync();
     }
 
     function maxAddLiquidity(
@@ -78,8 +77,8 @@ contract TradedTokenMock is TradedToken {
         )
     {
         (r0, r1, blockTimestamp) = _uniswapReserves();
-        price0Cumulative = IUniswapCustom(uniswapV2Pair).price0CumulativeLast();
-        price1Cumulative = IUniswapCustomMock(uniswapV2Pair).price1CumulativeLast();
+        price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+        price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
 
         timestampLast = pairObservation.timestampLast;
         price0CumulativeLast = pairObservation.price0CumulativeLast;
