@@ -151,7 +151,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
     event Claimed(address account, uint256 amount);
     event Presale(address account, uint256 amount);
-    event PresaleTokensBurnt(address account, uint256 burnedAmount);
+    event PresaleTokensBurned(address account, uint256 burnedAmount);
     event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
 
     error AlreadyCalled();
@@ -797,7 +797,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
 
         _burn(_contract, toBurn, "", "");
-        emit PresaleTokensBurnt(_contract, toBurn);
+        emit PresaleTokensBurned(_contract, toBurn);
         
     }
 
