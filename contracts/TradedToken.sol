@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL
 pragma solidity 0.8.15;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
-import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
-import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
@@ -24,11 +24,11 @@ import "./interfaces/IPresale.sol";
 
 //import "hardhat/console.sol";
 
-contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
+contract TradedToken is OwnableUpgradeable, IERC777RecipientUpgradeable, IERC777SenderUpgradeable, ERC777Upgradeable, ReentrancyGuardUpgradeable {
    // using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
-    using SafeERC20 for ERC777;
-    using Address for address;
+    using SafeERC20Upgradeable for ERC777Upgradeable;
+    using AddressUpgradeable for address;
     using TaxesLib for TaxesLib.TaxesInfo;
 
     struct PriceNumDen {
@@ -76,24 +76,24 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @custom:shortd claimFrequency
      * @notice claimFrequency
      */
-    uint16 public immutable claimFrequency;
+    uint16 public claimFrequency;
     /**
      * @custom:shortd traded token address
      * @notice traded token address
      */
-    address public immutable tradedToken;
+    address public tradedToken;
 
     /**
      * @custom:shortd reserve token address
      * @notice reserve token address
      */
-    address public immutable reserveToken;
+    address public reserveToken;
 
     /**
      * @custom:shortd price drop (mul by fraction)
      * @notice price drop (mul by fraction)
      */
-    uint256 public immutable priceDrop;
+    uint256 public priceDrop;
 
     PriceNumDen minClaimPrice;
     uint64 internal lastMinClaimPriceUpdatedTime;
@@ -103,31 +103,31 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @custom:shortd external token
      * @notice external token
      */
-    address public immutable claimingToken;
+    address public claimingToken;
     PriceNumDen claimingTokenExchangePrice;
 
     /**
      * @custom:shortd uniswap v2 pair
      * @notice uniswap v2 pair
      */
-    address public immutable uniswapV2Pair;
+    address public uniswapV2Pair;
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
 
     // keep gas when try to get reserves
     // if token01 == true then (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) so reserve0 it's reserves of TradedToken
-    bool internal immutable token01;
+    bool internal token01;
 
     uint64 internal constant MIN_CLAIM_PRICE_UPDATED_TIME = 1 days;
     uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant LOCKUP_INTERVAL = 1 days; //24 * 60 * 60; // day in seconds
-    uint64 internal immutable startupTimestamp;
-    uint64 internal immutable lockupIntervalAmount;
+    uint64 internal startupTimestamp;
+    uint64 internal lockupIntervalAmount;
 
-    uint16 public immutable buyTaxMax;
-    uint16 public immutable sellTaxMax;
+    uint16 public buyTaxMax;
+    uint16 public sellTaxMax;
 
     uint256 public totalCumulativeClaimed;
 
@@ -198,7 +198,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
      */
-    constructor(
+    function initialize(
         string memory tokenName_,
         string memory tokenSymbol_,
         address reserveToken_, //” (USDC)
@@ -208,7 +208,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         uint16 buyTaxMax_,
         uint16 sellTaxMax_
-    ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
+    ) public initializer {
+
+        __Ownable_init();
+        __ReentrancyGuard_init();
+
+        __ERC777_init(tokenName_, tokenSymbol_, new address[](0));
 
         //setup
         buyTaxMax = buyTaxMax_;
@@ -306,7 +311,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //     sender == owner() ||
         //     (
         //         recipient.isContract() && 
-        //         (sender == Ownable(recipient).owner())
+        //         (sender == OwnableUpgradeable(recipient).owner())
         //     )
         // ) {
         //     // ok
@@ -319,7 +324,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             sender != owner() &&
             (
                 !recipient.isContract() ||
-                (sender != Ownable(recipient).owner())
+                (sender != OwnableUpgradeable(recipient).owner())
             )
         ) {
             revert NotAuthorized();
@@ -402,14 +407,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (amountTradedToken == 0 || amountReserveToken == 0) {
             revert ZeroDenominator();
         }
-        if (amountReserveToken > ERC777(reserveToken).balanceOf(address(this))) {
+        if (amountReserveToken > ERC777Upgradeable(reserveToken).balanceOf(address(this))) {
             revert InsufficientAmount();
         }
 
         _claim(amountTradedToken, address(this));
 
-        ERC777(tradedToken).safeTransfer(address(internalLiquidity), amountTradedToken);
-        ERC777(reserveToken).safeTransfer(address(internalLiquidity), amountReserveToken);
+        ERC777Upgradeable(tradedToken).safeTransfer(address(internalLiquidity), amountTradedToken);
+        ERC777Upgradeable(reserveToken).safeTransfer(address(internalLiquidity), amountReserveToken);
 
         internalLiquidity.addLiquidity();
 
@@ -458,7 +463,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         external 
     {
         address sender = _msgSender();
-        uint256 availableAmount = ERC777(claimingToken).balanceOf(sender);
+        uint256 availableAmount = ERC777Upgradeable(claimingToken).balanceOf(sender);
         
         if (amount == 0) {
             amount = availableAmount;
@@ -516,14 +521,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert InputAmountCanNotBeZero();
         }
         
-        if (claimingTokenAmount > ERC777(claimingToken).allowance(sender, address(this))) {
+        if (claimingTokenAmount > ERC777Upgradeable(claimingToken).allowance(sender, address(this))) {
             revert InsufficientAmount();
         }
         if (wantToClaimMap[sender].lastActionTime + claimFrequency > block.timestamp) {
             revert ClaimTooFast(wantToClaimMap[sender].lastActionTime + claimFrequency);
         }
         
-        ERC777(claimingToken).safeTransferFrom(sender, DEAD_ADDRESS, claimingTokenAmount);
+        ERC777Upgradeable(claimingToken).safeTransferFrom(sender, DEAD_ADDRESS, claimingTokenAmount);
 
         uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
             claimingTokenExchangePrice.denominator;
@@ -978,7 +983,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 amountIn,
         address beneficiary
     ) internal returns (uint256 amountOut) {
-        require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn));
+        require(ERC777Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn));
 
         address[] memory path = new address[](2);
         path[0] = address(tokenIn);
