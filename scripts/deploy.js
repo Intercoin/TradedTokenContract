@@ -56,8 +56,8 @@ sellTaxMax: 10000 (10%)
 	let bUSD = await getBUSDAddress();
 	//const FRACTION = 10000;
 	let _params = [
-		"Intercoin", // string memory tokenName_,
-        "ITR",// string memory tokenSymbol_,
+		"Intercoin-Test", // string memory tokenName_,
+        "ITRt",// string memory tokenSymbol_,
         bUSD, // address reserveToken_, //” (USDC)
         1000, // uint256 priceDrop_,
         365,// uint64 lockupIntervalAmount_,
