@@ -22,7 +22,7 @@ import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
    // using FixedPoint for *;
@@ -274,8 +274,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         //create Pair
         uniswapV2Pair = IUniswapV2Factory(uniswapRouterFactory).createPair(tradedToken, reserveToken);
-console.log("tradedToken    =", tradedToken);
-console.log("reserveToken   =", reserveToken);
+
         if (uniswapV2Pair == address(0)) {
             revert CantCreatePair(tradedToken, reserveToken);
         }
@@ -1007,10 +1006,6 @@ console.log("reserveToken   =", reserveToken);
     function _tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
         uint64 blockTimestamp = _currentBlockTimestamp();
         uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
-console.log("uniswapRouter          =",uniswapRouter);
-console.log("uniswapRouterFactory   =",uniswapRouterFactory);
-console.log("uniswapV2Pair    =",uniswapV2Pair);
-console.log("price0Cumulative =",price0Cumulative);
         uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
         uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
@@ -1143,16 +1138,6 @@ console.log("price0Cumulative =",price0Cumulative);
         //         FixedPoint.encode(uint112(1)).divuq(q3)
         //     )
         // ).decode();
-
-        
-console.log("traded             =",traded);
-console.log("reserved           =",reserved);
-console.log("priceAverageData   =",priceAverageData._x);
-console.log("blockTimestampLast =",blockTimestampLast);
-console.log("q1                 =",q1._x);
-console.log("q2                 =",q2._x);
-console.log("q3                 =",q3._x);
-
 
         uint256 tradedNew = FixedPoint.decode(
             FixedPoint.muluq(
