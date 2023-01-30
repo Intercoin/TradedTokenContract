@@ -91,9 +91,14 @@ sellTaxMax: 10000 (10%)
 	const library = await TaxesLib.deploy();
 	await library.deployed();
 
+	const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
+	const library2 = await SwapSettingsLib.deploy();
+	await library2.deployed();
+
 	const MainF = await ethers.getContractFactory("TradedToken",  {
 		libraries: {
-			TaxesLib:library.address
+			TaxesLib:library.address,
+			SwapSettingsLib:library2.address
 		}
 	});
 
