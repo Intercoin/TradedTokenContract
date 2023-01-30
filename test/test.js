@@ -94,9 +94,14 @@ describe("TradedTokenInstance", function () {
         const library = await TaxesLib.deploy();
         await library.deployed();
 
+        const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
+        const library2 = await SwapSettingsLib.deploy();
+        await library2.deployed();
+
         MainFactory = await ethers.getContractFactory("TradedTokenMock",  {
             libraries: {
-                TaxesLib:library.address
+                TaxesLib:library.address,
+                SwapSettingsLib:library.address
             }
         });
         
@@ -522,12 +527,7 @@ describe("TradedTokenInstance", function () {
                     const bobTokensAfterTransfer = await mainInstance.balanceOf(bob.address);
                     const aliceTokensAfterTransfer = await mainInstance.balanceOf(alice.address);
 
-// console.log("bobTokensAfterClaim        = ", bobTokensAfterClaim.toString());
-// console.log("bobTokensAfterTransfer     = ", bobTokensAfterTransfer.toString());
-// console.log(" -------------------------------- ");
-// console.log("aliceTokensBefore          = ", aliceTokensBefore.toString());
-// console.log("aliceTokensAfterClaim      = ", aliceTokensAfterClaim.toString());
-// console.log("aliceTokensAfterTransfer   = ", aliceTokensAfterTransfer.toString());
+
                     expect(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION)).to.be.eq(bobTokensAfterTransfer);
                     expect(bobTokensAfterClaim.sub(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION))).to.be.eq(aliceTokensAfterTransfer);
 

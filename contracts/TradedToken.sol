@@ -114,6 +114,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
+    uint256 internal k1;
+    uint256 internal k2;
+    uint256 internal k3;
+    uint256 internal k4;
 
     // keep gas when try to get reserves
     // if token01 == true then (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) so reserve0 it's reserves of TradedToken
@@ -222,7 +226,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         pairObservation.timestampLast = _currentBlockTimestamp();
         
         // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
+        (uniswapRouter, uniswapRouterFactory, k1, k2, k3, k4) = SwapSettingsLib.netWorkSettings();
 
         priceDrop = priceDrop_;
         lockupIntervalAmount = lockupIntervalAmount_;
@@ -1062,7 +1066,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         ) = _uniswapReserves();
 
         // inspired by https://blog.alphaventuredao.io/onesideduniswap/
-        traded2Swap = (_sqrt(rTraded*(incomingTradedToken*3988000 + rTraded*3988009)) - rTraded*1997) / 1994;
+        // uint256 k1=3988000;
+        // uint256 k2=3988009;
+        // uint256 k3=1997;
+        // uint256 k4=1994;
+        traded2Swap = (_sqrt(rTraded*(incomingTradedToken*k1 + rTraded*k2)) - rTraded*k3) / k4;
+        //traded2Swap = (_sqrt(rTraded*(incomingTradedToken*3988000 + rTraded*3988009)) - rTraded*1997) / 1994;
 
         require(traded2Swap > 0 && incomingTradedToken > traded2Swap, "BAD_AMOUNT");
 
