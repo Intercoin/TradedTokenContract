@@ -522,12 +522,7 @@ describe("TradedTokenInstance", function () {
                     const bobTokensAfterTransfer = await mainInstance.balanceOf(bob.address);
                     const aliceTokensAfterTransfer = await mainInstance.balanceOf(alice.address);
 
-// console.log("bobTokensAfterClaim        = ", bobTokensAfterClaim.toString());
-// console.log("bobTokensAfterTransfer     = ", bobTokensAfterTransfer.toString());
-// console.log(" -------------------------------- ");
-// console.log("aliceTokensBefore          = ", aliceTokensBefore.toString());
-// console.log("aliceTokensAfterClaim      = ", aliceTokensAfterClaim.toString());
-// console.log("aliceTokensAfterTransfer   = ", aliceTokensAfterTransfer.toString());
+
                     expect(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION)).to.be.eq(bobTokensAfterTransfer);
                     expect(bobTokensAfterClaim.sub(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION))).to.be.eq(aliceTokensAfterTransfer);
 
