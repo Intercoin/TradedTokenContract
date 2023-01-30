@@ -6,17 +6,13 @@ library SwapSettingsLib {
     )
         external
         view
-        returns(address, address, uint256, uint256, uint256, uint256)
+        returns(address, address, uint256 k1, uint256 k2, uint256 k3, uint256 k4)
     {
         uint256 chainId;
         assembly {
             chainId := chainid()
         }
 
-        uint256 k1;
-        uint256 k2;
-        uint256 k3;
-        uint256 k4;
         if ((chainId == 0x1) || (chainId == 0x3) || (chainId == 0x4) || (chainId == 0x539) || (chainId == 0x7a69)) {  //+ localganache chainId, used for fork 
             // Ethereum-Uniswap
             (k1,k2,k3,k4) = _koefficients(1000, 3);
