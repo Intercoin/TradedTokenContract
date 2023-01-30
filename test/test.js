@@ -101,7 +101,7 @@ describe("TradedTokenInstance", function () {
         MainFactory = await ethers.getContractFactory("TradedTokenMock",  {
             libraries: {
                 TaxesLib:library.address,
-                SwapSettingsLib:library.address
+                SwapSettingsLib:library2.address
             }
         });
         
@@ -1028,6 +1028,7 @@ describe("TradedTokenInstance", function () {
                     });
 
                     it("should add liquidity. liquidity contract middleware shouldn't have funds left after added liquidity", async() => {
+                        
                         let tradedReserve1,tradedReserve2,priceAv, maxliquidity, add2Liquidity;
                         [tradedReserve1, tradedReserve2, priceAv] = await mainInstance.connect(owner).maxAddLiquidity();
 
