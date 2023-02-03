@@ -161,6 +161,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     event Presale(address account, uint256 amount);
     event PresaleTokensBurned(address account, uint256 burnedAmount);
     event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
+    event IncreasedHoldersMax(uint16 newHoldersMax);
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
@@ -203,6 +204,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * param claimSettings.claimFrequency_ claimFrequency_
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
+     * @param holdersMax the maximum number of holders, may be increased by owner later
      */
     constructor(
         string memory tokenName_,
@@ -397,6 +399,18 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         taxesInfo.setSellTax(newTax);
 
         emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
+    }
+    
+    /**
+     * @notice increasing limit on number of holders
+     * @param newMax new maximum
+     * @custom:calledby owner
+     */
+    function increaseHoldersMax(uint16 newMax) external onlyOwner {
+        if (newMax > holdersMax) {
+            holdersMax = newMax;
+            emit IncreasedHoldersMax(holdersMax);
+        }        
     }
 
     /**
