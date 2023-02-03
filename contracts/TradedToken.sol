@@ -132,6 +132,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     uint16 public immutable buyTaxMax;
     uint16 public immutable sellTaxMax;
+    uint16 public holdersMax;
+    uint16 public holdersCount;
 
     uint256 public totalCumulativeClaimed;
 
@@ -211,12 +213,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         uint16 buyTaxMax_,
-        uint16 sellTaxMax_
+        uint16 sellTaxMax_,
+        uint16 holdersMax
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
 
         //setup
-        buyTaxMax = buyTaxMax_;
-        sellTaxMax = sellTaxMax_;
+        (buyTaxMax,  sellTaxMax,  holderxMax) =
+        (buyTaxMax_, sellTaxMax_, holdersMax_);
         claimFrequency = claimSettings.claimFrequency;
 
         tradedToken = address(this);
@@ -662,6 +665,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
+       if (amount == 0) {
+            emit Sent(msgSender, holder, recipient, amount, "", "");
+            emit Transfer(msgSender, recipient, amount);
+            return;
+        }
         amount = preventPanic(holder, recipient, amount);
         
         if(uniswapV2Pair == recipient) {
@@ -677,6 +685,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 }
             }
         }
+        
+        if (balanceOf(recipient) == 0) {
+            ++holdersCount;
+        }
+        if (balanceOf(holder) == amount) {
+            --holdersCount;
+        }
+        
         return super.transferFrom(holder, recipient, amount);
     }
 
@@ -730,6 +746,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         //address from = _msgSender();
+        if (amount == 0) {
+            emit Sent(msgSender, msgSender, recipient, amount, "", "");
+            emit Transfer(msgSender, recipient, amount);
+            return;
+        }
         address msgSender = _msgSender();
         amount = preventPanic(msgSender, recipient, amount);
         // inject into transfer and burn tax from sender
@@ -746,6 +767,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 amount -= taxAmount;
                 _burn(msgSender, taxAmount, "", "");
             }
+        }
+        if (balanceOf(recipient) == 0) {
+            ++holdersCount;
+        }
+        if (balanceOf(msgSender) == amount) {
+            --holdersCount;
         }
         return super.transfer(recipient, amount);
 
