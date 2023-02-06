@@ -23,7 +23,6 @@ import "./helpers/Liquidity.sol";
 import "./interfaces/IPresale.sol";
 
 // import "hardhat/console.sol";
-
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
    // using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
@@ -190,6 +189,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
     error NotAuthorized();
+    error MaxHoldersCountExceeded(uint256 count);
 
 /**
      * @param tokenName_ token name
@@ -204,7 +204,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * param claimSettings.claimFrequency_ claimFrequency_
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
-     * @param holdersMax the maximum number of holders, may be increased by owner later
+     * @param holdersMax_ the maximum number of holders, may be increased by owner later
      */
     constructor(
         string memory tokenName_,
@@ -216,11 +216,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         uint16 buyTaxMax_,
         uint16 sellTaxMax_,
-        uint16 holdersMax
+        uint16 holdersMax_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
 
         //setup
-        (buyTaxMax,  sellTaxMax,  holderxMax) =
+        (buyTaxMax,  sellTaxMax,  holdersMax) =
         (buyTaxMax_, sellTaxMax_, holdersMax_);
         claimFrequency = claimSettings.claimFrequency;
 
@@ -680,9 +680,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         uint256 amount
     ) public virtual override returns (bool) {
        if (amount == 0) {
-            emit Sent(msgSender, holder, recipient, amount, "", "");
-            emit Transfer(msgSender, recipient, amount);
-            return;
+            emit Sent(_msgSender(), holder, recipient, amount, "", "");
+            emit Transfer(holder, recipient, amount);
+            return true;
         }
         amount = preventPanic(holder, recipient, amount);
         
@@ -700,12 +700,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             }
         }
         
-        if (balanceOf(recipient) == 0) {
-            ++holdersCount;
-        }
-        if (balanceOf(holder) == amount) {
-            --holdersCount;
-        }
+        holdersCheckBeforeTransfer(holder, recipient, amount);
         
         return super.transferFrom(holder, recipient, amount);
     }
@@ -760,12 +755,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         //address from = _msgSender();
+        address msgSender = _msgSender();
         if (amount == 0) {
             emit Sent(msgSender, msgSender, recipient, amount, "", "");
             emit Transfer(msgSender, recipient, amount);
-            return;
+            return true;
         }
-        address msgSender = _msgSender();
         amount = preventPanic(msgSender, recipient, amount);
         // inject into transfer and burn tax from sender
         // two ways:
@@ -782,12 +777,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 _burn(msgSender, taxAmount, "", "");
             }
         }
-        if (balanceOf(recipient) == 0) {
-            ++holdersCount;
-        }
-        if (balanceOf(msgSender) == amount) {
-            --holdersCount;
-        }
+
+        holdersCheckBeforeTransfer(msgSender, recipient, amount);
+
         return super.transfer(recipient, amount);
 
         // 2. do usual transaction, then make calculation and burn tax from sides(buyer or seller)
@@ -851,7 +843,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-     
+    
+    function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
+         if (balanceOf(to) == 0) {
+            ++holdersCount;
+        }
+        if (balanceOf(from) == amount) {
+            --holdersCount;
+        }
+        
+        if (holdersCount >= holdersMax) {
+            revert MaxHoldersCountExceeded(holdersMax);
+        }
+    }
     function onlyOwnerAndManagers() internal view {
         // if (owner() == _msgSender() || managers[_msgSender()] != 0) {
         // } else {
