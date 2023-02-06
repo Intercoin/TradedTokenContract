@@ -190,6 +190,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error MinClaimPriceGrowTooFast();
     error NotAuthorized();
     error MaxHoldersCountExceeded(uint256 count);
+    error SenderIsNotInWhitelist();
 
 /**
      * @param tokenName_ token name
@@ -300,7 +301,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-
+    
     function setRateLimit(
         address recipient, 
         RateLimit memory _panicSellRateLimit
@@ -814,14 +815,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ////////////////////////////////////////////////////////////////////////
     
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
-         if (balanceOf(to) == 0) {
+        if (balanceOf(to) == 0) {
             ++holdersCount;
+
+            if (holdersMax != 0) {
+                onlyOwnerAndManagers();
+            }
+            
         }
         if (balanceOf(from) == amount) {
             --holdersCount;
         }
         
-        if (holdersCount >= holdersMax) {
+        if (holdersCount > holdersMax || holdersMax == 0) {
             revert MaxHoldersCountExceeded(holdersMax);
         }
     }
