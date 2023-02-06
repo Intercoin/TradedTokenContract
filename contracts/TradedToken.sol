@@ -656,11 +656,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-       if (amount == 0) {
-            emit Sent(_msgSender(), holder, recipient, amount, "", "");
-            emit Transfer(holder, recipient, amount);
-            return true;
-        }
+      
         amount = preventPanic(holder, recipient, amount);
         
         if(uniswapV2Pair == recipient) {
@@ -733,11 +729,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         //address from = _msgSender();
         //address msgSender = _msgSender();
-        if (amount == 0) {
-            emit Sent(_msgSender(), _msgSender(), recipient, amount, "", "");
-            emit Transfer(_msgSender(), recipient, amount);
-            return true;
-        }
+
         amount = preventPanic(_msgSender(), recipient, amount);
         // inject into transfer and burn tax from sender
         // two ways:
