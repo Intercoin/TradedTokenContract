@@ -173,7 +173,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error InputAmountCanNotBeZero();
     error ZeroDenominator();
     error InsufficientAmount();
-    error TaxCanNotBeMoreThan(uint64 fraction);
+    error TaxesTooHigh();
     error PriceDropTooBig();
     error OwnerAndManagersOnly();
     error ManagersOnly();
@@ -269,7 +269,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
        
         if (buyTaxMax > FRACTION || sellTaxMax > FRACTION) {
-            revert TaxCanNotBeMoreThan(FRACTION);
+            revert TaxesTooHigh();
         }
         
 
@@ -373,31 +373,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         emit AddedManager(manager, _msgSender());
     }
+
     /**
-     * @notice setting buy tax
-     * @param newTax buy tax
+     * @notice setting  taxes
+     * @param newBuyTax Buy tax
+     * @param newSellTax Sell tax
      * @custom:calledby owner
      */
-    function setBuyTax(uint16 newTax) external onlyOwner {
-        if (newTax > buyTaxMax) {
-            revert TaxCanNotBeMoreThan(buyTaxMax);
+    function setTaxes(uint16 newBuyTax, uint16 newSellTax) external onlyOwner {
+        if (newBuyTax > buyTaxMax || newSellTax > sellTaxMax) {
+            revert TaxesTooHigh();
         }
-        taxesInfo.setBuyTax(newTax);
+        taxesInfo.setTaxes(newBuyTax, newSellTax);
         
-        emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
-    }
-
-    /**
-     * @notice setting sell tax
-     * @param newTax sell tax
-     * @custom:calledby owner
-     */
-    function setSellTax(uint16 newTax) external onlyOwner {
-        if (newTax > sellTaxMax) {
-            revert TaxCanNotBeMoreThan(sellTaxMax);
-        }
-        taxesInfo.setSellTax(newTax);
-
         emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
     }
     

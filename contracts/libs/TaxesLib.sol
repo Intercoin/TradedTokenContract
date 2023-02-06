@@ -91,15 +91,13 @@ library TaxesLib {
         taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
     }
 
-    function setSellTax(TaxesInfo storage taxesInfo, uint16 newTax) external {
+    function setTaxes(TaxesInfo storage taxesInfo, uint16 newBuyTax, uint16 newSellTax) external {
         taxesInfo.fromSellTax = _sellTax(taxesInfo);
-        taxesInfo.toSellTax = newTax;
+        taxesInfo.toSellTax = newSellTax;
         taxesInfo.sellTaxTimestamp = uint64(block.timestamp);
-    }
 
-    function setBuyTax(TaxesInfo storage taxesInfo, uint16 newTax) external {
         taxesInfo.fromBuyTax = _buyTax(taxesInfo);
-        taxesInfo.toBuyTax = newTax;
+        taxesInfo.toBuyTax = newBuyTax;
         taxesInfo.buyTaxTimestamp = uint64(block.timestamp);
     }
 
