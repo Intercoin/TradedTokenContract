@@ -308,7 +308,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         external 
     {
         
-        address sender = _msgSender();
+        //address sender = _msgSender();
 
         // if (
         //     sender == recipient ||
@@ -324,11 +324,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // }
 
         if (
-            sender != recipient &&
-            sender != owner() &&
+            _msgSender() != recipient &&
+            _msgSender() != owner() &&
             (
                 !recipient.isContract() ||
-                (sender != Ownable(recipient).owner())
+                (_msgSender() != Ownable(recipient).owner())
             )
         ) {
             revert NotAuthorized();
@@ -426,17 +426,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     /**
-     * @notice claims `tradedTokenAmount` to caller
-     * @param tradedTokenAmount amount of traded token to claim
-     * @custom:calledby owner
-     */
-    function claim(uint256 tradedTokenAmount) external {
-        onlyOwnerAndManagers();
-        _validateClaim(tradedTokenAmount);
-        _claim(tradedTokenAmount, msg.sender);
-    }
-
-    /**
      * @notice claims to account
      * @param tradedTokenAmount amount of traded token to claim
      * @param account address to claim for
@@ -466,8 +455,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ) 
         external 
     {
-        address sender = _msgSender();
-        uint256 availableAmount = ERC777(claimingToken).balanceOf(sender);
+        //address sender = _msgSender();
+        uint256 availableAmount = ERC777(claimingToken).balanceOf(_msgSender());
         
         if (amount == 0) {
             amount = availableAmount;
@@ -477,10 +466,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert InsufficientAmount();
         }
 
-        wantToClaimTotal += amount - wantToClaimMap[sender].amount;
-        wantToClaimMap[sender].amount = amount;
+        wantToClaimTotal += amount - wantToClaimMap[_msgSender()].amount;
+        wantToClaimMap[_msgSender()].amount = amount;
 
-        wantToClaimMap[sender].lastActionTime = block.timestamp;
+        wantToClaimMap[_msgSender()].lastActionTime = block.timestamp;
 
     }
 
@@ -516,7 +505,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function claimViaExternal(uint256 claimingTokenAmount, address account) external nonReentrant() {
 
-        address sender = _msgSender();
+        //address sender = _msgSender();
 
         if (claimingToken == address(0)) { 
             revert EmptyTokenAddress();
@@ -525,19 +514,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert InputAmountCanNotBeZero();
         }
         
-        if (claimingTokenAmount > ERC777(claimingToken).allowance(sender, address(this))) {
+        if (claimingTokenAmount > ERC777(claimingToken).allowance(_msgSender(), address(this))) {
             revert InsufficientAmount();
         }
-        if (wantToClaimMap[sender].lastActionTime + claimFrequency > block.timestamp) {
-            revert ClaimTooFast(wantToClaimMap[sender].lastActionTime + claimFrequency);
+        if (wantToClaimMap[_msgSender()].lastActionTime + claimFrequency > block.timestamp) {
+            revert ClaimTooFast(wantToClaimMap[_msgSender()].lastActionTime + claimFrequency);
         }
         
-        ERC777(claimingToken).safeTransferFrom(sender, DEAD_ADDRESS, claimingTokenAmount);
+        ERC777(claimingToken).safeTransferFrom(_msgSender(), DEAD_ADDRESS, claimingTokenAmount);
 
         uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
             claimingTokenExchangePrice.denominator;
 
-        uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(sender);
+        uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(_msgSender());
 
         if (scalingMaxTradedTokenAmount < tradedTokenAmount) {
             revert InsufficientAmountToClaim(tradedTokenAmount, scalingMaxTradedTokenAmount);
@@ -547,7 +536,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         _claim(tradedTokenAmount, account);
 
-        wantToClaimMap[sender].lastActionTime = block.timestamp;
+        wantToClaimMap[_msgSender()].lastActionTime = block.timestamp;
         // wantToClaimTotal -= tradedTokenAmount;
         // wantToClaimMap[account].amount -= tradedTokenAmount;
         // or just empty all wantToClaimMap
@@ -743,17 +732,17 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         //address from = _msgSender();
-        address msgSender = _msgSender();
+        //address msgSender = _msgSender();
         if (amount == 0) {
-            emit Sent(msgSender, msgSender, recipient, amount, "", "");
-            emit Transfer(msgSender, recipient, amount);
+            emit Sent(_msgSender(), _msgSender(), recipient, amount, "", "");
+            emit Transfer(_msgSender(), recipient, amount);
             return true;
         }
-        amount = preventPanic(msgSender, recipient, amount);
+        amount = preventPanic(_msgSender(), recipient, amount);
         // inject into transfer and burn tax from sender
         // two ways:
         // 1. make calculations, burn taxes from sender and do transaction with substracted values
-        if (uniswapV2Pair == msgSender) {
+        if (uniswapV2Pair == _msgSender()) {
             if(!addedInitialLiquidityRun) {
                 // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
                 revert InitialLiquidityRequired();
@@ -762,11 +751,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
             if (taxAmount != 0) {
                 amount -= taxAmount;
-                _burn(msgSender, taxAmount, "", "");
+                _burn(_msgSender(), taxAmount, "", "");
             }
         }
 
-        holdersCheckBeforeTransfer(msgSender, recipient, amount);
+        holdersCheckBeforeTransfer(_msgSender(), recipient, amount);
 
         return super.transfer(recipient, amount);
 
@@ -850,8 +839,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //     revert OwnerAndManagersOnly();
         // }
         // lets transform via de'Morgan law
-        address msgSender = _msgSender();
-        if (owner() != msgSender && managers[msgSender] == 0) {
+        //address msgSender = _msgSender();
+        if (owner() != _msgSender() && managers[_msgSender()] == 0) {
             revert OwnerAndManagersOnly();
         }
     }
