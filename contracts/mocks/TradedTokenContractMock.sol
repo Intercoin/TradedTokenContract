@@ -99,5 +99,8 @@ contract TradedTokenMock is TradedToken {
         taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
  
     }
-  
+    
+    function holdersAmount() public view returns(uint256) {
+        return holdersCount;
+    }
 }

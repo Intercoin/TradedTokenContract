@@ -60,6 +60,7 @@ describe("TradedTokenInstance", function () {
 
     const maxBuyTax = FRACTION.mul(15).div(100); // 0.15*fraction
     const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
+    const holdersMax = HUN;
 
     const claimFrequency = 0; 
 
@@ -126,7 +127,8 @@ describe("TradedTokenInstance", function () {
             ],
             taxesInfo,
             maxBuyTax,
-            maxSellTax
+            maxSellTax,
+            holdersMax
         );
 
         await expect(
@@ -160,7 +162,8 @@ describe("TradedTokenInstance", function () {
             ],
             taxesInfo,
             0,
-            0
+            0,
+            holdersMax
         );
         await expect(
             mainInstance.availableToClaimByAddress(bob.address)
@@ -169,7 +172,7 @@ describe("TradedTokenInstance", function () {
         await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
         await erc20ReservedToken.connect(owner).transfer(mainInstance.address, ONE_ETH.mul(TEN));
 
-        await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
+        await mainInstance.connect(owner).addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
 
         await externalToken.connect(owner).mint(bob.address, ONE_ETH);
         let bobExternalTokenBalanceBefore = await externalToken.balanceOf(bob.address);
@@ -183,6 +186,7 @@ describe("TradedTokenInstance", function () {
 
 
         await mainInstance.connect(bob).wantToClaim(ONE_ETH);
+        
         await mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address);
 
         let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);
@@ -218,7 +222,8 @@ describe("TradedTokenInstance", function () {
             ],
             taxesInfo,
             0,
-            0
+            0,
+            holdersMax
         );
         
         await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
@@ -282,7 +287,8 @@ describe("TradedTokenInstance", function () {
                     ],
                     taxesInfo,
                     maxBuyTax,
-                    maxSellTax
+                    maxSellTax,
+                    holdersMax
                 )
             ).to.be.revertedWith("reserveTokenInvalid()");
         });
@@ -310,7 +316,8 @@ describe("TradedTokenInstance", function () {
                 ],
                 taxesInfo,
                 maxBuyTax,
-                maxSellTax
+                maxSellTax,
+                holdersMax
             );
 
             // let erc777 = await mainInstance.tradedToken();
@@ -386,13 +393,11 @@ describe("TradedTokenInstance", function () {
                 // console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
                 // console.log("js::pair:blockTimestampLast = ", tmp[2]);  
                 // console.log("js   addInitialLiquidity ");  
-
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
                 ).to.be.revertedWith("InitialLiquidityRequired()");
 
                 await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
-
                 await expect(
                     mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN))
                 ).to.be.revertedWith("AlreadyCalled()");
@@ -403,7 +408,6 @@ describe("TradedTokenInstance", function () {
 
                 //await pair.sync();
                 await mainInstance.forceSync();
-
                 // console.log("js::pair:price0CumulativeLast(2) = ", await pair.price0CumulativeLast());
                 // tmp = await pair.getReserves();
                 // console.log("js::pair:blockTimestampLast = ", tmp[2]);  
@@ -435,21 +439,21 @@ describe("TradedTokenInstance", function () {
                 it("should claim", async() => {
                     
                     await expect(
-                        mainInstance.connect(bob)["claim(uint256)"](AmountToClaim)
+                        mainInstance.connect(bob).claim(AmountToClaim, bob.address)
                     ).to.be.revertedWith("OwnerAndManagersOnly()");
 
                     await expect(
-                        mainInstance.connect(bob)["claim(uint256,address)"](AmountToClaim, bob.address)
+                        mainInstance.connect(bob).claim(AmountToClaim, bob.address)
                     ).to.be.revertedWith("OwnerAndManagersOnly()");
                     
                     let availableToClaim = await mainInstance.availableToClaim();
                     let availableToClaimByAddress = await mainInstance.availableToClaimByAddress(owner.address);
 
                     await expect(
-                        mainInstance.connect(owner)["claim(uint256)"](availableToClaim.mul(HUN))
+                        mainInstance.connect(owner).claim(availableToClaim.mul(HUN), owner.address)
                     ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
 
-                    await mainInstance.connect(owner)["claim(uint256)"](AmountToClaim);
+                    await mainInstance.connect(owner).claim(AmountToClaim, owner.address);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(AmountToClaim);
                 });
                 
@@ -463,20 +467,20 @@ describe("TradedTokenInstance", function () {
 
                 it("should claim by managers", async() => {
                     await mainInstance.connect(owner).addManagers(bob.address);
-                    await mainInstance.connect(bob)["claim(uint256)"](ONE_ETH);
+                    await mainInstance.connect(bob).claim(ONE_ETH, bob.address);
                     expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH);
                 });
 
                 it("shouldnt `claim` if the price has become lower than minClaimPrice", async() => {
                     await expect(
-                        mainInstance.connect(bob)["claim(uint256)"](ONE_ETH)
+                        mainInstance.connect(bob).claim(ONE_ETH, bob.address)
                     ).to.be.revertedWith("OwnerAndManagersOnly()");
 
                     await expect(
-                        mainInstance.connect(bob)["claim(uint256,address)"](ONE_ETH,bob.address)
+                        mainInstance.connect(bob).claim(ONE_ETH, bob.address)
                     ).to.be.revertedWith("OwnerAndManagersOnly()");
 
-                    await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
+                    await mainInstance.connect(owner).claim(ONE_ETH, owner.address);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
                 });
 
@@ -484,14 +488,31 @@ describe("TradedTokenInstance", function () {
 
                     const bobTokensBefore = await mainInstance.balanceOf(bob.address);
                     const aliceTokensBefore = await mainInstance.balanceOf(alice.address);
+// console.log("holdersAmount = ", await mainInstance.holdersAmount());
+// console.log("ownerBalance = ", await mainInstance.balanceOf(owner.address));
+                    await mainInstance.connect(owner).claim(ONE_ETH, owner.address);
+// console.log("holdersAmount = ", await mainInstance.holdersAmount());
+// console.log("ownerBalance = ", await mainInstance.balanceOf(owner.address));
+//                    return ;
+                    await mainInstance.connect(owner).transfer(alice.address,ONE_ETH);
+// console.log("===========await mainInstance.connect(owner).transfer(alice.address,ONE_ETH);=====");
+// console.log("holdersAmount  = ", await mainInstance.holdersAmount());
+// console.log("ownerBalance   = ", await mainInstance.balanceOf(owner.address));
+// console.log("bobBalance     = ", await mainInstance.balanceOf(bob.address));
+// console.log("aliceBalance   = ", await mainInstance.balanceOf(alice.address));
 
-                    await mainInstance.connect(owner)["claim(uint256,address)"](ONE_ETH,bob.address);
+                    await mainInstance.connect(owner).claim(ONE_ETH, bob.address);
 
                     const bobTokensAfterClaim = await mainInstance.balanceOf(bob.address);
                     const aliceTokensAfterClaim = await mainInstance.balanceOf(alice.address);
 
                     expect(bobTokensAfterClaim.sub(bobTokensBefore)).to.be.eq(ONE_ETH);
-                    expect(aliceTokensAfterClaim.sub(aliceTokensBefore)).to.be.eq(ZERO);
+                    expect(aliceTokensAfterClaim.sub(aliceTokensBefore)).to.be.eq(ONE_ETH);
+// console.log("===========await mainInstance.connect(owner).claim(ONE_ETH, bob.address);=====");
+// console.log("holdersAmount  = ", await mainInstance.holdersAmount());
+// console.log("ownerBalance   = ", await mainInstance.balanceOf(owner.address));
+// console.log("bobBalance     = ", await mainInstance.balanceOf(bob.address));
+// console.log("aliceBalance   = ", await mainInstance.balanceOf(alice.address));
 
                     await mainInstance.connect(bob).transfer(alice.address,ONE_ETH)
 
@@ -500,7 +521,12 @@ describe("TradedTokenInstance", function () {
 
                     expect(bobTokensAfterTransfer.sub(bobTokensBefore)).to.be.eq(ZERO);
                     expect(aliceTokensAfterTransfer.sub(aliceTokensAfterClaim)).to.be.eq(ONE_ETH);
-
+// console.log("===========await mainInstance.connect(bob).transfer(alice.address,ONE_ETH)=====");               
+// console.log("holdersAmount  = ", await mainInstance.holdersAmount());
+// console.log("ownerBalance   = ", await mainInstance.balanceOf(owner.address));
+// console.log("bobBalance     = ", await mainInstance.balanceOf(bob.address));
+// console.log("aliceBalance   = ", await mainInstance.balanceOf(alice.address));
+// console.log("==================================================================");
                 }); 
 
                 it("should preventPanic", async() => {
@@ -510,7 +536,7 @@ describe("TradedTokenInstance", function () {
                     const bobTokensBefore = await mainInstance.balanceOf(bob.address);
                     const aliceTokensBefore = await mainInstance.balanceOf(alice.address);
 
-                    await mainInstance.connect(owner)["claim(uint256,address)"](InitialSendFunds, bob.address);
+                    await mainInstance.connect(owner).claim(InitialSendFunds, bob.address);
 
                     const bobTokensAfterClaim = await mainInstance.balanceOf(bob.address);
                     const aliceTokensAfterClaim = await mainInstance.balanceOf(alice.address);
@@ -520,8 +546,18 @@ describe("TradedTokenInstance", function () {
                     
                     const DurationForAlice = 24*60*60; // day
                     const RateForAlice = 5000; // 50%
+                    const smthFromOwner= 1;
                     await mainInstance.connect(owner).setRateLimit(alice.address, [DurationForAlice, RateForAlice])
 
+                    // can't send tokens to new members before owner put him into whitelist(will transfer some tokens to him)
+                    await expect(
+                        mainInstance.connect(bob).transfer(alice.address, bobTokensAfterClaim)
+                    ).to.be.revertedWith("OwnerAndManagersOnly()");
+                    
+                    // send a little
+                    await mainInstance.connect(owner).claim(smthFromOwner, alice.address);
+                    
+                    // now will be ok
                     await mainInstance.connect(bob).transfer(alice.address, bobTokensAfterClaim);
 
                     const bobTokensAfterTransfer = await mainInstance.balanceOf(bob.address);
@@ -529,10 +565,11 @@ describe("TradedTokenInstance", function () {
 
 
                     expect(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION)).to.be.eq(bobTokensAfterTransfer);
-                    expect(bobTokensAfterClaim.sub(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION))).to.be.eq(aliceTokensAfterTransfer);
+                    expect(bobTokensAfterClaim.add(smthFromOwner).sub(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION))).to.be.eq(aliceTokensAfterTransfer);
 
                     // try to send all that left
                     let tx = await mainInstance.connect(bob).transfer(alice.address, bobTokensAfterTransfer)
+                    
                     const bobTokensAfterTransfer2 = await mainInstance.balanceOf(bob.address);
                     const aliceTokensAfterTransfer2 = await mainInstance.balanceOf(alice.address);
                     let rc = await tx.wait();
@@ -593,14 +630,24 @@ describe("TradedTokenInstance", function () {
                 }); 
 
                 it("shouldnt locked up tokens if owner claim to himself", async() => {
-                    await mainInstance.connect(owner)["claim(uint256)"](ONE_ETH);
+                    await mainInstance.connect(owner).claim(ONE_ETH, owner.address);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
 
                     await mainInstance.connect(owner).transfer(alice.address,ONE_ETH);
                     expect(await mainInstance.balanceOf(alice.address)).to.be.eq(ONE_ETH);
 
+                    const smthFromOwner= 1;
+                    // can't send tokens to new members before owner put him into whitelist(will transfer some tokens to him)
+                    await expect(
+                        mainInstance.connect(alice).transfer(bob.address,ONE_ETH)
+                    ).to.be.revertedWith("OwnerAndManagersOnly()");
+                    
+                    // send a little
+                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+                    
+                    // now will be ok
                     await mainInstance.connect(alice).transfer(bob.address,ONE_ETH);
-                    expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH);
+                    expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH.add(smthFromOwner));
                     
                 }); 
 
@@ -695,7 +742,30 @@ describe("TradedTokenInstance", function () {
 
             });
 
+            it("shouldnt swap if owner send the tokens before", async() => {
+                let ts, timeUntil;
+            
+                await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.div(2));
+                await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.div(2));
+                ts = await time.latest();
+                timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+                
+                await expect(uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                    ONE_ETH.div(2), //uint amountIn,
+                    0, //uint amountOutMin,
+                    [erc20ReservedToken.address, mainInstance.address], //address[] calldata path,
+                    bob.address, //address to,
+                    timeUntil //uint deadline   
+
+                )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly()"
+            });
+
             describe("taxes", function () {
+                var storedBuyTax, storedSellTax;
+                beforeEach("before", async() => {
+                    storedBuyTax = await mainInstance.buyTax();
+                    storedSellTax = await mainInstance.sellTax();
+                }); 
 
                 it("should setup buyTaxMax and sellTaxMax when deploy", async() => {
                     expect(await mainInstance.buyTaxMax()).to.be.equal(maxBuyTax);
@@ -703,23 +773,23 @@ describe("TradedTokenInstance", function () {
                 }); 
 
                 it("should sellTax and buyTax to be zero when deploy", async() => {
-                    expect(await mainInstance.buyTax()).to.be.equal(ZERO);
-                    expect(await mainInstance.sellTax()).to.be.equal(ZERO);
+                    expect(storedBuyTax).to.be.equal(ZERO);
+                    expect(storedSellTax).to.be.equal(ZERO);
                 }); 
 
                 it("shouldt setup buyTax value more then buyTaxMax", async() => {
-                    await expect(mainInstance.setBuyTax(maxBuyTax.add(ONE))).to.be.revertedWith(`TaxCanNotBeMoreThan(${maxBuyTax})`);
+                    await expect(mainInstance.setTaxes(maxBuyTax.add(ONE), storedSellTax)).to.be.revertedWith(`TaxesTooHigh()`);
                 }); 
 
                 it("shouldt setup sellTax value more then sellTaxMax", async() => {
-                    await expect(mainInstance.setSellTax(maxSellTax.add(ONE))).to.be.revertedWith(`TaxCanNotBeMoreThan(${maxSellTax})`);
+                    await expect(mainInstance.setTaxes(storedBuyTax, maxSellTax.add(ONE))).to.be.revertedWith(`TaxesTooHigh()`);
                 }); 
                 
                 it("should setup sellTax", async() => {
-                    const oldValue = await mainInstance.sellTax();
+                    const oldValue = storedSellTax;
 
                     const value = maxSellTax.sub(ONE);
-                    await mainInstance.setSellTax(value);
+                    await mainInstance.setTaxes(storedBuyTax, value);
 
                     const newValue = await mainInstance.sellTax();
                     
@@ -728,10 +798,10 @@ describe("TradedTokenInstance", function () {
                 }); 
 
                 it("should setup buyTax", async() => {
-                    const oldValue = await mainInstance.buyTax();
+                    const oldValue = storedBuyTax;
 
                     const value = maxBuyTax.sub(ONE);
-                    await mainInstance.setBuyTax(value);
+                    await mainInstance.setTaxes(value, storedSellTax);
 
                     const newValue = await mainInstance.buyTax();
 
@@ -744,7 +814,7 @@ describe("TradedTokenInstance", function () {
                     const oldValue = await mainInstance.sellTax();
 
                     const value = maxSellTax.sub(ONE);
-                    await mainInstance.setSellTax(value);
+                    await mainInstance.setTaxes(storedBuyTax, value);
 
                     const newValueStart = await mainInstance.sellTax();
                     
@@ -770,7 +840,7 @@ describe("TradedTokenInstance", function () {
                     const oldValue = await mainInstance.buyTax();
 
                     const value = maxBuyTax.sub(ONE);
-                    await mainInstance.setBuyTax(value);
+                    await mainInstance.setTaxes(value, storedSellTax);
 
                     const newValueStart = await mainInstance.buyTax();
 
@@ -794,7 +864,8 @@ describe("TradedTokenInstance", function () {
                 it("should setup buyTax gradually down", async() => {
                     
                     const value = maxBuyTax.sub(ONE);
-                    await mainInstance.setBuyTax(value);
+
+                    await mainInstance.setTaxes(value, storedSellTax);
                     const oldValue = await mainInstance.buyTax();
 
                     await mainInstance.setTaxesInfoInit([1000,1000,true,true]);
@@ -806,7 +877,7 @@ describe("TradedTokenInstance", function () {
 
                     const value2 = ONE;
 
-                    await mainInstance.setBuyTax(value2);
+                    await mainInstance.setTaxes(value2, storedSellTax);
 
                     const newValueStart = await mainInstance.buyTax();
 
@@ -827,8 +898,6 @@ describe("TradedTokenInstance", function () {
 
                 }); 
 
-                
-
                 it("should burn buyTax", async() => {
 
                     let ts, timeUntil;
@@ -848,6 +917,9 @@ describe("TradedTokenInstance", function () {
                     timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
 
                     let bobBalanceBeforeWoTax = await mainInstance.balanceOf(bob.address);
+                    const smthFromOwner = 1;
+                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                         ONE_ETH.div(2), //uint amountIn,
                         0, //uint amountOutMin,
@@ -856,13 +928,15 @@ describe("TradedTokenInstance", function () {
                         timeUntil //uint deadline   
 
                     );
+                    
                     let bobBalanceAfterWoTax = await mainInstance.balanceOf(bob.address);
 
                     await ethers.provider.send('evm_revert', [snapId]);
                     //----
 
                     const tax = FRACTION.mul(10).div(100);
-                    await mainInstance.setBuyTax(tax);
+                    
+                    await mainInstance.setTaxes(tax, storedSellTax);
 
                     await erc20ReservedToken.connect(owner).mint(bob.address, ONE_ETH.div(2));
                     await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.address, ONE_ETH.div(2));
@@ -870,6 +944,9 @@ describe("TradedTokenInstance", function () {
                     timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
 
                     let bobBalanceBeforeWithTax = await mainInstance.balanceOf(bob.address);
+                    
+                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                         ONE_ETH.div(2), //uint amountIn,
                         0, //uint amountOutMin,
@@ -909,6 +986,9 @@ describe("TradedTokenInstance", function () {
                     timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
 
                     let tmp = await mainInstance.balanceOf(bob.address);
+                    const smthFromOwner = 1;
+                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                         ONE_ETH.div(2), //uint amountIn,
                         0, //uint amountOutMin,
@@ -929,6 +1009,7 @@ describe("TradedTokenInstance", function () {
                     let bobBalanceBeforeWoTax = await erc20ReservedToken.balanceOf(bob.address);
 
                     await mainInstance.connect(bob).approve(uniswapRouterInstance.address, obtainERC777Tokens);
+                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokensSupportingFeeOnTransferTokens(
                         obtainERC777Tokens, //uint amountIn,
                         0, //uint amountOutMin,
@@ -943,7 +1024,8 @@ describe("TradedTokenInstance", function () {
                     //----
 
                     const tax = FRACTION.mul(10).div(100);
-                    await mainInstance.setSellTax(tax);
+                    
+                    await mainInstance.setTaxes(storedBuyTax, tax);
 
                     ts = await time.latest();
                     timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
@@ -951,6 +1033,7 @@ describe("TradedTokenInstance", function () {
                     let bobBalanceBeforeWithTax = await erc20ReservedToken.balanceOf(bob.address);
 
                     await mainInstance.connect(bob).approve(uniswapRouterInstance.address, obtainERC777Tokens);
+                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokensSupportingFeeOnTransferTokens(
                         obtainERC777Tokens, //uint amountIn,
                         0, //uint amountOutMin,
@@ -981,6 +1064,20 @@ describe("TradedTokenInstance", function () {
                     let ts = await time.latest();
                     let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
 
+                    
+                    await expect(uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                        ONE_ETH.div(2), //uint amountIn,
+                        0, //uint amountOutMin,
+                        [erc20ReservedToken.address, mainInstance.address], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+
+
+                    )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly()"
+
+                    const smthFromOwner = 1;
+                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                         ONE_ETH.div(2), //uint amountIn,
                         0, //uint amountOutMin,
@@ -1008,6 +1105,8 @@ describe("TradedTokenInstance", function () {
                         // restore snapshot
                         await ethers.provider.send('evm_revert', [snapId]);
                     });
+
+                    
 
                     it("synth case: try to get stored average price", async() => {
                         
@@ -1060,7 +1159,7 @@ describe("TradedTokenInstance", function () {
 
                         const InitialSendFunds = ONE_ETH;
 
-                        await mainInstance.connect(owner)["claim(uint256,address)"](InitialSendFunds, charlie.address);
+                        await mainInstance.connect(owner).claim(InitialSendFunds, charlie.address);
                         await mainInstance.connect(charlie).approve(uniswapRouterInstance.address, InitialSendFunds.div(2));
                         let ts = await time.latest();
                         let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);

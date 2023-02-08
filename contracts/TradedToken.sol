@@ -22,7 +22,7 @@ import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
 
-// import "hardhat/console.sol";
+//import "hardhat/console.sol";
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
    // using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
@@ -133,6 +133,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint16 public immutable sellTaxMax;
     uint16 public holdersMax;
     uint16 public holdersCount;
+    uint256 internal numDen =  18446744073709551616;//2 ** 64;
 
     uint256 public totalCumulativeClaimed;
 
@@ -815,15 +816,33 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ////////////////////////////////////////////////////////////////////////
     
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
+        // console.log("==holdersCheckBeforeTransfer==");
+        // console.log("_msgSender()       =",_msgSender());
+        // console.log("from               =",from);
+        // console.log("to                 =",to);
+        // console.log("internalLiquidity  =",address(internalLiquidity));
         if (balanceOf(to) == 0) {
             ++holdersCount;
 
             if (holdersMax != 0) {
-                onlyOwnerAndManagers();
+                //onlyOwnerAndManagers and internalliquidity
+                // send tokens to new users available only for managers and owner
+                // here we exclude several transactions:
+                // 1. address(this) -> internalLiquidity
+                // 1. internalLiquidity -> uniswap
+                if (from != address(this) && from != address(internalLiquidity) && from != address(0)) {
+                    // console.log("_msgSender()       =",_msgSender());
+                    // console.log("from               =",from);
+                    // console.log("to                 =",to);
+                    // console.log("============================");
+                    // console.log("internalLiquidity  =",address(internalLiquidity));
+                    
+                    onlyOwnerAndManagers();
+                }
             }
             
         }
-        if (balanceOf(from) == amount) {
+        if (balanceOf(from) == amount && from != address(0)) {
             --holdersCount;
         }
         
@@ -959,7 +978,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     */
     function availableToClaim() public view returns(uint256 tradedTokenAmount) {
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-        uint256 numDen =  2 ** 64;
+        //uint256 numDen =  2 ** 64;
         //tradedTokenAmount = (numDen * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/numDen - _reserve0 - totalCumulativeClaimed;
         tradedTokenAmount = (numDen * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/numDen;
         if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
@@ -980,7 +999,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         totalCumulativeClaimed += tradedTokenAmount;
 
+        holdersCheckBeforeTransfer(address(0), account, tradedTokenAmount);
         _mint(account, tradedTokenAmount, "", "");
+        
         emit Claimed(account, tradedTokenAmount);
 
         // lockup tokens for any except:
@@ -991,6 +1012,17 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
 
     }
+
+    function _mint(
+        address account,
+        uint256 amount,
+        bytes memory userData,
+        bytes memory operatorData
+    ) internal virtual override {
+        holdersCheckBeforeTransfer(address(0), account, amount);
+        super._mint(account, amount, userData, operatorData);
+    }
+
 
     //
     /**
@@ -1024,10 +1056,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @notice
      */
     function _tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
-        uint64 blockTimestamp = _currentBlockTimestamp();
+        //uint64 blockTimestamp = _currentBlockTimestamp();
         uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
-        uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
-        uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
+        uint64 timeElapsed = _currentBlockTimestamp() - pairObservation.timestampLast;
+        uint64 windowSize = ((_currentBlockTimestamp() - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
         if (timeElapsed > windowSize && timeElapsed > 0 && price0Cumulative > pairObservation.price0CumulativeLast) {
             // console.log("timeElapsed > windowSize && timeElapsed>0");
@@ -1130,46 +1162,38 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         (traded, reserved, blockTimestampLast) = _uniswapReserves();
         FixedPoint.uq112x112 memory priceAverageData = _tradedAveragePrice();
 
-        FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(_sqrt(traded)));
-        FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(_sqrt(reserved)));
-        // FixedPoint.uq112x112 memory q3 = (
-        //     priceAverageData.muluq(FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop))).muluq(
-        //         FixedPoint.fraction(1, FRACTION)
+        //FixedPoint.uq112x112 memory q1 = FixedPoint.encode(uint112(_sqrt(traded)));
+        //FixedPoint.uq112x112 memory q2 = FixedPoint.encode(uint112(_sqrt(reserved)));
+        // FixedPoint.uq112x112 memory q3 = FixedPoint.sqrt(
+        //     FixedPoint.muluq(
+        //         priceAverageData,
+        //         FixedPoint.muluq(
+        //             FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)),
+        //             FixedPoint.fraction(1, FRACTION)
+        //         )
         //     )
-        // ).sqrt();
-        FixedPoint.uq112x112 memory q3 = FixedPoint.sqrt(
-            FixedPoint.muluq(
-                priceAverageData,
-                FixedPoint.muluq(
-                    FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)),
-                    FixedPoint.fraction(1, FRACTION)
-                )
-            )
-        );
-
-        //FixedPoint.uq112x112 memory q4 = FixedPoint.encode(uint112(1)).divuq(q3);
-
-        //traded1*reserve1/(priceaverage*pricedrop)
-
-        //traded1 * reserve1*(1/(priceaverage*pricedrop))
-
-        // uint256 tradedNew = (
-        //     q1.muluq(q2).muluq(FixedPoint.encode(uint112(_sqrt(FRACTION)))).muluq(
-        //         FixedPoint.encode(uint112(1)).divuq(q3)
-        //     )
-        // ).decode();
+        // );
 
         uint256 tradedNew = FixedPoint.decode(
             FixedPoint.muluq(
                 FixedPoint.muluq(
-                    q1,
-                    q2
+                    FixedPoint.encode(uint112(_sqrt(traded))),//q1,
+                    FixedPoint.encode(uint112(_sqrt(reserved)))//q2
                 ),
                 FixedPoint.muluq(
                     FixedPoint.encode(uint112(_sqrt(FRACTION))),
                     FixedPoint.divuq(
                         FixedPoint.encode(uint112(1)), 
-                        q3
+                        FixedPoint.sqrt(
+                            FixedPoint.muluq(
+                                priceAverageData,
+                                FixedPoint.muluq(
+                                    FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)),
+                                    FixedPoint.fraction(1, FRACTION)
+                                )
+                            )
+                        )
+                        //q3
                     )
                 )
             )
