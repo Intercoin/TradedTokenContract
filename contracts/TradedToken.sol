@@ -143,7 +143,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
     mapping(address => uint64) internal managers;
-    mapping(address => uint256) internal presales;
+    mapping(address => uint64) internal presales;
 
     struct ClaimStruct {
         uint256 amount;
@@ -736,7 +736,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
         holdersCheckBeforeTransfer(holder, recipient, amount);
         success = super.transferFrom(holder, recipient, amount);
-        tokensLocked[recipient]._minimumsAdd(amount, lockupDays, LOCKUP_INTERVAL, true);
+        if (presales[holder] > 0) {
+           // lock up any presales for some time
+           tokensLocked[recipient]._minimumsAdd(amount, presales[holder], LOCKUP_INTERVAL, true);
+        }
     }
 
     function buyTax() public view returns(uint16) {
@@ -751,7 +754,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     * @param account contract that implement interface IPresale
     * @param amount tokens that would be added to account before contract added initial liquidity
     */
-    function presaleAdd(address account, uint256 amount) public onlyOwner {
+    function presaleAdd(address account, uint256 amount, uint64 presaleLockupDays) public onlyOwner {
 
         onlyBeforeInitialLiquidity();
 
@@ -759,7 +762,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // give at least two hours for the presale because burnRemaining can be called in the second hour
         if (block.timestamp < endTime - 3600 * 2) {
             _mint(account, amount, "", "");
-            presales[account] = amount;
+            presales[account] = presaleLockupDays;
             emit Presale(account, amount);
         }
     }
