@@ -769,35 +769,26 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     * @notice presale enable before added initial liquidity
     * @param account contract that implement interface IPresale
     * @param amount tokens that would be added to account before contract added initial liquidity
-    * @param minimumPresaleTimeAmount minimum time before `IPresale.endTime` that tokens will be able to mint for `account`
     */
     function presaleAdd(address account, uint256 amount, uint64 minimumPresaleTimeAmount) public onlyOwner {
 
         onlyBeforeInitialLiquidity();
 
         uint64 endTime = IPresale(account).endTime();
-        if (
-            endTime >= minimumPresaleTimeAmount &&
-            block.timestamp < endTime - minimumPresaleTimeAmount
-        ) {
-
+        // give at least two hours for the presale because burnRemaining can be called in the second hour
+        if (block.timestamp < endTime - 3600 * 2) {
             _mint(account, amount, "", "");
             emit Presale(account, amount);
         }
     }
 
-// withdrawAll() is called by owner, to withdraw tokens.
-
-// but presaleBurnRemaining can be called by everyone
-// let's allow anyone to call it 1 hour before the endTime (third parameter of presaleAdd can be uint32 duration)
-// So this way the public can guarantee that the presale contract owner (e.g. of FundContract) won't take the tokens.
-
     /**
     * @notice any tokens of presale contract can be burned by anyone after `endTime` passed
     */
-    function presaleBurnRemaining(address _contract) public {
+    function burnRemaining(address _contract) public {
         uint64 endTime = IPresale(_contract).endTime();
-        if (block.timestamp <= endTime) {
+        // allow it one hour before the endTime, so owner can't withdraw money
+        if (block.timestamp <= endTime - 3600) {
             return;
         }
         
