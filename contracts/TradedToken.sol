@@ -143,6 +143,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
     mapping(address => uint64) internal managers;
+    mapping(address => uint256) internal presales;
 
     struct ClaimStruct {
         uint256 amount;
@@ -770,7 +771,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     * @param account contract that implement interface IPresale
     * @param amount tokens that would be added to account before contract added initial liquidity
     */
-    function presaleAdd(address account, uint256 amount, uint64 minimumPresaleTimeAmount) public onlyOwner {
+    function presaleAdd(address account, uint256 amount) public onlyOwner {
 
         onlyBeforeInitialLiquidity();
 
@@ -778,6 +779,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // give at least two hours for the presale because burnRemaining can be called in the second hour
         if (block.timestamp < endTime - 3600 * 2) {
             _mint(account, amount, "", "");
+            presales[account] = amount;
             emit Presale(account, amount);
         }
     }
