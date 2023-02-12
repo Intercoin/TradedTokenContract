@@ -127,7 +127,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant LOCKUP_INTERVAL = 1 days; //24 * 60 * 60; // day in seconds
     uint64 internal immutable startupTimestamp;
-    uint64 internal immutable lockupIntervalAmount;
+    uint64 internal immutable lockupDays;
 
     uint16 public immutable buyTaxMax;
     uint16 public immutable sellTaxMax;
@@ -199,7 +199,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param tokenSymbol_ token symbol
      * @param reserveToken_ reserve token address
      * @param priceDrop_ price drop while add liquidity
-     * @param lockupIntervalAmount_ interval amount in days (see minimum lib)
+     * @param lockupDays_ interval amount in days (see minimum lib)
      * @param claimSettings struct of claim settings
      * param claimSettings.claimingToken_ external token address that used to change their tokens to traded
      * param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
@@ -214,7 +214,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         string memory tokenSymbol_,
         address reserveToken_, //” (USDC)
         uint256 priceDrop_,
-        uint64 lockupIntervalAmount_,
+        uint64 lockupDays_,
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         uint16 buyTaxMax_,
@@ -237,7 +237,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         (uniswapRouter, uniswapRouterFactory, k1, k2, k3, k4) = SwapSettingsLib.netWorkSettings();
 
         priceDrop = priceDrop_;
-        lockupIntervalAmount = lockupIntervalAmount_;
+        lockupDays = lockupDays_;
         claimingToken = claimSettings.claimingToken;
         
         minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
@@ -719,7 +719,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // and than be send to some1 else in recipient contract callback
     }
     
-    function __transfer(address recipient, uint256 amount) public internal returns (bool)  {
+    function __transfer(address recipient, uint256 amount) public internal returns (bool success)  {
         amount = preventPanic(holder, recipient, amount);
         if(uniswapV2Pair == recipient) {
             if(!addedInitialLiquidityRun) {
@@ -735,7 +735,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             }
         }
         holdersCheckBeforeTransfer(holder, recipient, amount);
-        return super.transferFrom(holder, recipient, amount);
+        success = super.transferFrom(holder, recipient, amount);
+        tokensLocked[recipient]._minimumsAdd(amount, lockupDays, LOCKUP_INTERVAL, true);
     }
 
     function buyTax() public view returns(uint16) {
@@ -980,7 +981,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // - owner(because it's owner)
         // - current contract(because do sell traded tokens and add liquidity)
         if (_msgSender() != owner() && account != address(this)) {
-            tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupIntervalAmount, LOCKUP_INTERVAL, true);
+            tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupDays, LOCKUP_INTERVAL, true);
         }
 
     }
