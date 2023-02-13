@@ -528,18 +528,10 @@ describe("TradedTokenInstance", function () {
 
                     const bobTokensBefore = await mainInstance.balanceOf(bob.address);
                     const aliceTokensBefore = await mainInstance.balanceOf(alice.address);
-// console.log("holdersAmount = ", await mainInstance.holdersAmount());
-// console.log("ownerBalance = ", await mainInstance.balanceOf(owner.address));
+
                     await mainInstance.connect(owner).claim(ONE_ETH, owner.address);
-// console.log("holdersAmount = ", await mainInstance.holdersAmount());
-// console.log("ownerBalance = ", await mainInstance.balanceOf(owner.address));
-//                    return ;
+
                     await mainInstance.connect(owner).transfer(alice.address,ONE_ETH);
-// console.log("===========await mainInstance.connect(owner).transfer(alice.address,ONE_ETH);=====");
-// console.log("holdersAmount  = ", await mainInstance.holdersAmount());
-// console.log("ownerBalance   = ", await mainInstance.balanceOf(owner.address));
-// console.log("bobBalance     = ", await mainInstance.balanceOf(bob.address));
-// console.log("aliceBalance   = ", await mainInstance.balanceOf(alice.address));
 
                     await mainInstance.connect(owner).claim(ONE_ETH, bob.address);
 
@@ -548,11 +540,6 @@ describe("TradedTokenInstance", function () {
 
                     expect(bobTokensAfterClaim.sub(bobTokensBefore)).to.be.eq(ONE_ETH);
                     expect(aliceTokensAfterClaim.sub(aliceTokensBefore)).to.be.eq(ONE_ETH);
-// console.log("===========await mainInstance.connect(owner).claim(ONE_ETH, bob.address);=====");
-// console.log("holdersAmount  = ", await mainInstance.holdersAmount());
-// console.log("ownerBalance   = ", await mainInstance.balanceOf(owner.address));
-// console.log("bobBalance     = ", await mainInstance.balanceOf(bob.address));
-// console.log("aliceBalance   = ", await mainInstance.balanceOf(alice.address));
 
                     await mainInstance.connect(bob).transfer(alice.address,ONE_ETH)
 
@@ -561,12 +548,7 @@ describe("TradedTokenInstance", function () {
 
                     expect(bobTokensAfterTransfer.sub(bobTokensBefore)).to.be.eq(ZERO);
                     expect(aliceTokensAfterTransfer.sub(aliceTokensAfterClaim)).to.be.eq(ONE_ETH);
-// console.log("===========await mainInstance.connect(bob).transfer(alice.address,ONE_ETH)=====");               
-// console.log("holdersAmount  = ", await mainInstance.holdersAmount());
-// console.log("ownerBalance   = ", await mainInstance.balanceOf(owner.address));
-// console.log("bobBalance     = ", await mainInstance.balanceOf(bob.address));
-// console.log("aliceBalance   = ", await mainInstance.balanceOf(alice.address));
-// console.log("==================================================================");
+
                 }); 
 
                 it("should preventPanic", async() => {
