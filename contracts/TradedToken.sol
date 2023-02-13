@@ -654,14 +654,128 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         
     }
 
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        //address from = _msgSender();
+        //address msgSender = _msgSender();
+
+        amount = preventPanic(_msgSender(), recipient, amount);
+        // inject into transfer and burn tax from sender
+        // two ways:
+        // 1. make calculations, burn taxes from sender and do transaction with substracted values
+        if (uniswapV2Pair == _msgSender()) {
+            if(!addedInitialLiquidityRun) {
+                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                revert InitialLiquidityRequired();
+            }
+            amount = taxesCalc(_msgSender(), amount, buyTax());
+            // uint256 taxAmount = (amount * buyTax()) / FRACTION;
+
+            // if (taxAmount != 0) {
+            //     amount -= taxAmount;
+            //     _burn(_msgSender(), taxAmount, "", "");
+            // }
+        }
+
+        holdersCheckBeforeTransfer(_msgSender(), recipient, amount);
+
+        return super.transfer(recipient, amount);
+
+        // 2. do usual transaction, then make calculation and burn tax from sides(buyer or seller)
+        // we DON'T USE this case, because have callbacks in _move method: _callTokensToSend and _callTokensReceived
+        // and than be send to some1 else in recipient contract callback
+    }
+
     function transferFrom(
         address holder,
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-        return __transfer(holder, recipient, amount);
+    
+        amount = preventPanic(holder, recipient, amount);
+        
+        if(uniswapV2Pair == recipient) {
+            if(!addedInitialLiquidityRun) {
+                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                revert InitialLiquidityRequired();
+            }
+            if(holder != address(internalLiquidity)) {
+                amount = taxesCalc(holder, amount, sellTax());
+                // uint256 taxAmount = (amount * sellTax()) / FRACTION;
+                // if (taxAmount != 0) {
+                //     amount -= taxAmount;
+                //     _burn(holder, taxAmount, "", "");
+                // }
+            }
+        }
+        
+        holdersCheckBeforeTransfer(holder, recipient, amount);
+        
+        return super.transferFrom(holder, recipient, amount);
     }
 
+    function taxesCalc(address holder, uint256 amount, uint16 tax) internal returns(uint256) {
+        uint256 taxAmount = (amount * tax) / FRACTION;
+        if (taxAmount != 0) {
+            amount -= taxAmount;
+            _burn(holder, taxAmount, "", "");
+        }
+        return amount;
+    }
+
+   
+//   if (presales[holder] > 0) {
+//            // lock up any presales for some time
+//            tokensLocked[recipient]._minimumsAdd(amount, presales[holder], LOCKUP_INTERVAL, true);
+//         }
+    function buyTax() public view returns(uint16) {
+        return taxesInfo.buyTax();
+    }
+
+    function sellTax() public view returns(uint16) {
+        return taxesInfo.sellTax();
+    }
+    /**
+    * @notice presale enable before added initial liquidity
+    * @param contract_ contract that implement interface IPresale
+    * @param amount tokens that would be added to contract before call to addInitialLiquidity
+    */
+    function presaleAdd(address contract_, uint256 amount, uint64 presaleLockupDays) public onlyOwner {
+
+        onlyBeforeInitialLiquidity();
+
+        uint64 endTime = IPresale(contract_).endTime();
+        // give at least two hours for the presale because burnRemaining can be called in the second hour
+        if (block.timestamp < endTime - 3600 * 2) {
+            _mint(contract_, amount, "", "");
+            presales[contract_] = presaleLockupDays;
+            emit Presale(contract_, amount);
+        }
+    }
+
+    /**
+    * @notice any tokens of presale contract can be burned by anyone after `endTime` passed
+    */
+    function burnRemaining(address _contract) public {
+        uint64 endTime = IPresale(_contract).endTime();
+        // allow it one hour before the endTime, so owner can't withdraw money
+        if (block.timestamp <= endTime - 3600) {
+            return;
+        }
+        
+        uint256 toBurn = balanceOf(_contract);
+        if (toBurn == 0) {
+            return;
+        }
+
+        _burn(_contract, toBurn, "", "");
+        emit PresaleTokensBurned(_contract, toBurn);
+        
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    // internal section ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    
     function preventPanic(
         address holder,
         address recipient,
@@ -710,87 +824,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
     }
 
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
-        return __transfer(_msgSender(), recipient, amount);
-        
-
-        // 2. do usual transaction, then make calculation and burn tax from sides(buyer or seller)
-        // we DON'T USE this case, because have callbacks in _move method: _callTokensToSend and _callTokensReceived
-        // and than be send to some1 else in recipient contract callback
-    }
-    
-    function __transfer(address recipient, uint256 amount) public internal returns (bool success)  {
-        amount = preventPanic(holder, recipient, amount);
-        if(uniswapV2Pair == recipient) {
-            if(!addedInitialLiquidityRun) {
-                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
-                revert InitialLiquidityRequired();
-            }
-            if(holder != address(internalLiquidity)) {
-                uint256 taxAmount = (amount * sellTax()) / FRACTION;
-                if (taxAmount != 0) {
-                    amount -= taxAmount;
-                    _burn(holder, taxAmount, "", "");
-                }
-            }
-        }
-        holdersCheckBeforeTransfer(holder, recipient, amount);
-        success = super.transferFrom(holder, recipient, amount);
-        if (presales[holder] > 0) {
-           // lock up any presales for some time
-           tokensLocked[recipient]._minimumsAdd(amount, presales[holder], LOCKUP_INTERVAL, true);
-        }
-    }
-
-    function buyTax() public view returns(uint16) {
-        return taxesInfo.buyTax();
-    }
-
-    function sellTax() public view returns(uint16) {
-        return taxesInfo.sellTax();
-    }
-    /**
-    * @notice presale enable before added initial liquidity
-    * @param account contract that implement interface IPresale
-    * @param amount tokens that would be added to account before contract added initial liquidity
-    */
-    function presaleAdd(address account, uint256 amount, uint64 presaleLockupDays) public onlyOwner {
-
-        onlyBeforeInitialLiquidity();
-
-        uint64 endTime = IPresale(account).endTime();
-        // give at least two hours for the presale because burnRemaining can be called in the second hour
-        if (block.timestamp < endTime - 3600 * 2) {
-            _mint(account, amount, "", "");
-            presales[account] = presaleLockupDays;
-            emit Presale(account, amount);
-        }
-    }
-
-    /**
-    * @notice any tokens of presale contract can be burned by anyone after `endTime` passed
-    */
-    function burnRemaining(address _contract) public {
-        uint64 endTime = IPresale(_contract).endTime();
-        // allow it one hour before the endTime, so owner can't withdraw money
-        if (block.timestamp <= endTime - 3600) {
-            return;
-        }
-        
-        uint256 toBurn = balanceOf(_contract);
-        if (toBurn == 0) {
-            return;
-        }
-
-        _burn(_contract, toBurn, "", "");
-        emit PresaleTokensBurned(_contract, toBurn);
-        
-    }
-
-    ////////////////////////////////////////////////////////////////////////
-    // internal section ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-    
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
         // console.log("==holdersCheckBeforeTransfer==");
         // console.log("_msgSender()       =",_msgSender());

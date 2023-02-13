@@ -393,7 +393,7 @@ describe("TradedTokenInstance", function () {
         describe("presale", function () {
             var Presale;
             beforeEach("before", async() => {
-                const PresaleF = await ethers.getContractFactory("Presale");
+                const PresaleF = await ethers.getContractFactory("PresaleMock");
                 Presale = await PresaleF.deploy();
             });
 
@@ -461,7 +461,7 @@ describe("TradedTokenInstance", function () {
                 });
 
                 it("should claim", async() => {
-                    
+
                     await expect(
                         mainInstance.connect(bob).claim(AmountToClaim, bob.address)
                     ).to.be.revertedWith("OwnerAndManagersOnly()");
@@ -478,11 +478,11 @@ describe("TradedTokenInstance", function () {
                     ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
 
                     await expect(
-                        await mainInstance.connect(owner).claim(AmountToClaim, ZERO_ADDRESS)
+                        mainInstance.connect(owner).claim(AmountToClaim, ZERO_ADDRESS)
                     ).to.be.revertedWith("EmptyAccountAddress()");
 
                     await expect(
-                        await mainInstance.connect(owner).claim(ZERO, owner.address)
+                        mainInstance.connect(owner).claim(ZERO, owner.address)
                     ).to.be.revertedWith("InputAmountCanNotBeZero()");
 
                     await mainInstance.connect(owner).claim(AmountToClaim, owner.address);
