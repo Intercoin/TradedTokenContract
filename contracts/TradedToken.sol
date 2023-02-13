@@ -127,7 +127,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant LOCKUP_INTERVAL = 1 days; //24 * 60 * 60; // day in seconds
     uint64 internal immutable startupTimestamp;
-    uint64 internal immutable lockupIntervalAmount;
+    uint64 internal immutable lockupDays;
 
     uint16 public immutable buyTaxMax;
     uint16 public immutable sellTaxMax;
@@ -143,6 +143,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
     mapping(address => uint64) internal managers;
+    mapping(address => uint64) internal presales;
 
     struct ClaimStruct {
         uint256 amount;
@@ -198,7 +199,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param tokenSymbol_ token symbol
      * @param reserveToken_ reserve token address
      * @param priceDrop_ price drop while add liquidity
-     * @param lockupIntervalAmount_ interval amount in days (see minimum lib)
+     * @param lockupDays_ interval amount in days (see minimum lib)
      * @param claimSettings struct of claim settings
      * param claimSettings.claimingToken_ external token address that used to change their tokens to traded
      * param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
@@ -213,7 +214,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         string memory tokenSymbol_,
         address reserveToken_, //” (USDC)
         uint256 priceDrop_,
-        uint64 lockupIntervalAmount_,
+        uint64 lockupDays_,
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         uint16 buyTaxMax_,
@@ -236,7 +237,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         (uniswapRouter, uniswapRouterFactory, k1, k2, k3, k4) = SwapSettingsLib.netWorkSettings();
 
         priceDrop = priceDrop_;
-        lockupIntervalAmount = lockupIntervalAmount_;
+        lockupDays = lockupDays_;
         claimingToken = claimSettings.claimingToken;
         
         minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
@@ -658,26 +659,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-      
-        amount = preventPanic(holder, recipient, amount);
-        
-        if(uniswapV2Pair == recipient) {
-            if(!addedInitialLiquidityRun) {
-                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
-                revert InitialLiquidityRequired();
-            }
-            if(holder != address(internalLiquidity)) {
-                uint256 taxAmount = (amount * sellTax()) / FRACTION;
-                if (taxAmount != 0) {
-                    amount -= taxAmount;
-                    _burn(holder, taxAmount, "", "");
-                }
-            }
-        }
-        
-        holdersCheckBeforeTransfer(holder, recipient, amount);
-        
-        return super.transferFrom(holder, recipient, amount);
+        return __transfer(holder, recipient, amount);
     }
 
     function preventPanic(
@@ -729,33 +711,35 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
-        //address from = _msgSender();
-        //address msgSender = _msgSender();
-
-        amount = preventPanic(_msgSender(), recipient, amount);
-        // inject into transfer and burn tax from sender
-        // two ways:
-        // 1. make calculations, burn taxes from sender and do transaction with substracted values
-        if (uniswapV2Pair == _msgSender()) {
-            if(!addedInitialLiquidityRun) {
-                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
-                revert InitialLiquidityRequired();
-            }
-            uint256 taxAmount = (amount * buyTax()) / FRACTION;
-
-            if (taxAmount != 0) {
-                amount -= taxAmount;
-                _burn(_msgSender(), taxAmount, "", "");
-            }
-        }
-
-        holdersCheckBeforeTransfer(_msgSender(), recipient, amount);
-
-        return super.transfer(recipient, amount);
+        return __transfer(_msgSender(), recipient, amount);
+        
 
         // 2. do usual transaction, then make calculation and burn tax from sides(buyer or seller)
         // we DON'T USE this case, because have callbacks in _move method: _callTokensToSend and _callTokensReceived
         // and than be send to some1 else in recipient contract callback
+    }
+    
+    function __transfer(address recipient, uint256 amount) public internal returns (bool success)  {
+        amount = preventPanic(holder, recipient, amount);
+        if(uniswapV2Pair == recipient) {
+            if(!addedInitialLiquidityRun) {
+                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                revert InitialLiquidityRequired();
+            }
+            if(holder != address(internalLiquidity)) {
+                uint256 taxAmount = (amount * sellTax()) / FRACTION;
+                if (taxAmount != 0) {
+                    amount -= taxAmount;
+                    _burn(holder, taxAmount, "", "");
+                }
+            }
+        }
+        holdersCheckBeforeTransfer(holder, recipient, amount);
+        success = super.transferFrom(holder, recipient, amount);
+        if (presales[holder] > 0) {
+           // lock up any presales for some time
+           tokensLocked[recipient]._minimumsAdd(amount, presales[holder], LOCKUP_INTERVAL, true);
+        }
     }
 
     function buyTax() public view returns(uint16) {
@@ -769,35 +753,27 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     * @notice presale enable before added initial liquidity
     * @param account contract that implement interface IPresale
     * @param amount tokens that would be added to account before contract added initial liquidity
-    * @param minimumPresaleTimeAmount minimum time before `IPresale.endTime` that tokens will be able to mint for `account`
     */
-    function presaleAdd(address account, uint256 amount, uint64 minimumPresaleTimeAmount) public onlyOwner {
+    function presaleAdd(address account, uint256 amount, uint64 presaleLockupDays) public onlyOwner {
 
         onlyBeforeInitialLiquidity();
 
         uint64 endTime = IPresale(account).endTime();
-        if (
-            endTime >= minimumPresaleTimeAmount &&
-            block.timestamp < endTime - minimumPresaleTimeAmount
-        ) {
-
+        // give at least two hours for the presale because burnRemaining can be called in the second hour
+        if (block.timestamp < endTime - 3600 * 2) {
             _mint(account, amount, "", "");
+            presales[account] = presaleLockupDays;
             emit Presale(account, amount);
         }
     }
 
-// withdrawAll() is called by owner, to withdraw tokens.
-
-// but presaleBurnRemaining can be called by everyone
-// let's allow anyone to call it 1 hour before the endTime (third parameter of presaleAdd can be uint32 duration)
-// So this way the public can guarantee that the presale contract owner (e.g. of FundContract) won't take the tokens.
-
     /**
     * @notice any tokens of presale contract can be burned by anyone after `endTime` passed
     */
-    function presaleBurnRemaining(address _contract) public {
+    function burnRemaining(address _contract) public {
         uint64 endTime = IPresale(_contract).endTime();
-        if (block.timestamp <= endTime) {
+        // allow it one hour before the endTime, so owner can't withdraw money
+        if (block.timestamp <= endTime - 3600) {
             return;
         }
         
@@ -1008,7 +984,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // - owner(because it's owner)
         // - current contract(because do sell traded tokens and add liquidity)
         if (_msgSender() != owner() && account != address(this)) {
-            tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupIntervalAmount, LOCKUP_INTERVAL, true);
+            tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupDays, LOCKUP_INTERVAL, true);
         }
 
     }
