@@ -231,6 +231,12 @@ describe("TradedTokenInstance", function () {
 
         await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
 
+        await expect(mainInstance.presaleAdd(
+            bob.address, 
+            ONE_ETH, 
+            0
+        )).to.be.revertedWith("BeforeInitialLiquidityRequired()");
+
         let availableToClaim = await mainInstance.availableToClaim();
 
         let userWantToClaim = ONE_ETH; 
@@ -337,6 +343,10 @@ describe("TradedTokenInstance", function () {
         it("cover sqrt func", async() => {
             expect(await mainInstance.getSqrt(0)).to.be.equal(0);
             expect(await mainInstance.getSqrt("0x100000000000000000000000000000000")).to.be.equal("0x10000000000000000");
+            expect(await mainInstance.getSqrt("0x10000000000000000")).to.be.equal("0x100000000");
+            expect(await mainInstance.getSqrt("0x100000000")).to.be.equal("0x10000");
+            expect(await mainInstance.getSqrt("0x10000")).to.be.equal("0x100");
+            expect(await mainInstance.getSqrt("0x100")).to.be.equal("0x10");
         });
 
         it("should correct Intercoin Investor Token", async() => {
@@ -380,7 +390,21 @@ describe("TradedTokenInstance", function () {
             ).to.be.revertedWith("TransferHelper: TRANSFER_FROM_FAILED");
 
         }); 
+        describe("presale", function () {
+            var Presale;
+            beforeEach("before", async() => {
+                const PresaleF = await ethers.getContractFactory("Presale");
+                Presale = await PresaleF.deploy();
+            });
 
+            it("shouldnt presale", async() => {
+                let ts = await time.latest();
+                let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+                await expect(
+                    mainInstance.connect(bob).presaleAdd(alice.address, ONE_ETH, timeUntil)
+                ).to.be.revertedWith("Ownable");
+            });
+        }); 
         describe("claim", function () {
             beforeEach("adding liquidity", async() => {
 
@@ -453,9 +477,25 @@ describe("TradedTokenInstance", function () {
                         mainInstance.connect(owner).claim(availableToClaim.mul(HUN), owner.address)
                     ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
 
+                    await expect(
+                        await mainInstance.connect(owner).claim(AmountToClaim, ZERO_ADDRESS)
+                    ).to.be.revertedWith("EmptyAccountAddress()");
+
+                    await expect(
+                        await mainInstance.connect(owner).claim(ZERO, owner.address)
+                    ).to.be.revertedWith("InputAmountCanNotBeZero()");
+
                     await mainInstance.connect(owner).claim(AmountToClaim, owner.address);
                     expect(await mainInstance.balanceOf(owner.address)).to.be.eq(AmountToClaim);
                 });
+
+                it("[cover] available to claim == 0", async() => {
+                    await mainInstance.connect(owner).setRestrictClaiming([ONE_ETH, 1]);
+                    
+                    let availableToClaim = await mainInstance.availableToClaim();
+                    expect(availableToClaim).to.be.eq(ZERO);
+                });
+                
                 
                 it("should addManagers", async() => {
                     await expect(
@@ -649,6 +689,17 @@ describe("TradedTokenInstance", function () {
                     await mainInstance.connect(alice).transfer(bob.address,ONE_ETH);
                     expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH.add(smthFromOwner));
                     
+                }); 
+
+                it("should locked up tokens", async() => {
+                    const smthFromOwner= 1;
+                    // send a little
+                    await mainInstance.connect(owner).claim(smthFromOwner, charlie.address);
+
+                    await mainInstance.connect(owner).addManagers(bob.address);
+                    await mainInstance.connect(bob).claim(ONE_ETH, bob.address);
+                    
+                    await expect(mainInstance.connect(bob).transfer(charlie.address,ONE_ETH)).to.be.revertedWith("InsufficientAmount()");
                 }); 
 
             }); 

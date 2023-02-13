@@ -103,4 +103,13 @@ contract TradedTokenMock is TradedToken {
     function holdersAmount() public view returns(uint256) {
         return holdersCount;
     }
+
+    function setRestrictClaiming(PriceNumDen memory newMinimumPrice) external {
+        
+        lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
+            
+        minClaimPrice.numerator = newMinimumPrice.numerator;
+        minClaimPrice.denominator = newMinimumPrice.denominator;
+    }
+
 }
