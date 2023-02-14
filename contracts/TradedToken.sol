@@ -24,6 +24,7 @@ import "./interfaces/IPresale.sol";
 import "./interfaces/IClaim.sol";
 
 //import "hardhat/console.sol";
+
 contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
    // using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
@@ -166,6 +167,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error EmptyReserves();
     error ClaimValidationError();
     error PriceHasBecomeALowerThanMinClaimPrice();
+    error ClaimsDisabled();
     error ClaimsEnabledTimeAlreadySetup();
     error ClaimTooFast(uint256 untilTime);
     error InsufficientAmountToClaim(uint256 requested, uint256 maxAvailable);
@@ -175,7 +177,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error MaxHoldersCountExceeded(uint256 count);
     error SenderIsNotInWhitelist();
 
-/**
+    /**
      * @param tokenName_ token name
      * @param tokenSymbol_ token symbol
      * @param reserveToken_ reserve token address
@@ -843,6 +845,11 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         price shouldnt be less than minClaimPrice
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
+
+        if (claimsEnabledTime == 0) {
+            revert ClaimsDisabled();
+        }
+
         if (tradedTokenAmount == 0) {
             revert InputAmountCanNotBeZero();
         }

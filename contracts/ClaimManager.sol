@@ -9,9 +9,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IClaimManager.sol";
 import "./interfaces/IClaim.sol";
 
+//import "hardhat/console.sol";
+
 contract ClaimManager is IClaimManager, IERC777Recipient, IERC777Sender, ReentrancyGuard {
     using SafeERC20 for ERC777;
-
+    uint256 private timeDeploy;
     address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     address public immutable tradedToken;
@@ -50,14 +52,19 @@ contract ClaimManager is IClaimManager, IERC777Recipient, IERC777Sender, Reentra
         ClaimSettings memory claimSettings
         
     ) {
-        if (tradedToken_ == address(0)) {
+        if (tradedToken_ == address(0) || claimSettings.claimingToken == address(0)) {
             revert EmptyTokenAddress();
         }
+        
         tradedToken = tradedToken_;
-        claimFrequency = claimSettings.claimFrequency;
         claimingToken = claimSettings.claimingToken;
         claimingTokenExchangePrice.numerator = claimSettings.claimingTokenExchangePrice.numerator;
         claimingTokenExchangePrice.denominator = claimSettings.claimingTokenExchangePrice.denominator;
+        
+        claimFrequency = claimSettings.claimFrequency;
+
+        timeDeploy = block.timestamp;
+
     }
 
     /**
@@ -109,9 +116,6 @@ contract ClaimManager is IClaimManager, IERC777Recipient, IERC777Sender, Reentra
 
         //address sender = _msgSender();
 
-        if (claimingToken == address(0)) { 
-            revert EmptyTokenAddress();
-        }
         if (claimingTokenAmount == 0) { 
             revert InputAmountCanNotBeZero();
         }
@@ -119,8 +123,9 @@ contract ClaimManager is IClaimManager, IERC777Recipient, IERC777Sender, Reentra
         if (claimingTokenAmount > ERC777(claimingToken).allowance(msg.sender, address(this))) {
             revert InsufficientAmount();
         }
-        if (wantToClaimMap[msg.sender].lastActionTime + claimFrequency > block.timestamp) {
-            revert ClaimTooFast(wantToClaimMap[msg.sender].lastActionTime + claimFrequency);
+        
+        if (lastActionTime(msg.sender) + claimFrequency > block.timestamp) {
+            revert ClaimTooFast(lastActionTime(msg.sender) + claimFrequency);
         }
         
         ERC777(claimingToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
@@ -172,6 +177,10 @@ contract ClaimManager is IClaimManager, IERC777Recipient, IERC777Sender, Reentra
 
         wantToClaimMap[msg.sender].lastActionTime = block.timestamp;
 
+    }
+
+    function lastActionTime(address sender) internal view returns(uint256) {
+        return wantToClaimMap[sender].lastActionTime == 0 ? timeDeploy : wantToClaimMap[sender].lastActionTime;
     }
 
 }

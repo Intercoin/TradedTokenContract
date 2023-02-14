@@ -62,7 +62,7 @@ describe("TradedTokenInstance", function () {
     const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
     const holdersMax = HUN;
 
-    const claimFrequency = 0; 
+    const claimFrequency = 60;  // 1 min
 
     const taxesInfo = [
         0,
@@ -108,7 +108,7 @@ describe("TradedTokenInstance", function () {
         
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
     });
-
+/*
     it("shouldnt claim if externalToken params does not specify", async() => {
         var erc20ReservedToken  = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
 
@@ -272,8 +272,8 @@ describe("TradedTokenInstance", function () {
 
         await ethers.provider.send('evm_revert', [snapId]);
     });
-
-    
+*/
+  
     describe("validate params", function () {
        
         it("should correct reserveToken", async() => {
@@ -285,11 +285,8 @@ describe("TradedTokenInstance", function () {
                     priceDrop,
                     lockupIntervalAmount,
                     [
-                        ZERO_ADDRESS, //externalToken.address,
                         [minClaimPriceNumerator, minClaimPriceDenominator],
-                        [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
-                        [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-                        claimFrequency
+                        [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
                     ],
                     taxesInfo,
                     maxBuyTax,
@@ -302,8 +299,11 @@ describe("TradedTokenInstance", function () {
 
 
     describe("instance check", function () {
-        var externalToken;
+        var externalToken, claimManager;
         beforeEach("deploying", async() => {
+
+            const ClaimManagerF = await ethers.getContractFactory("ClaimManagerMock");
+
             erc20ReservedToken  = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
             externalToken       = await ERC20Factory.deploy("ERC20 External Token", "ERC20-EXT");
 
@@ -314,11 +314,8 @@ describe("TradedTokenInstance", function () {
                 priceDrop,
                 lockupIntervalAmount,
                 [
-                    externalToken.address,
                     [minClaimPriceNumerator, minClaimPriceDenominator],
-                    [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
-                    [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-                    claimFrequency
+                    [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
                 ],
                 taxesInfo,
                 maxBuyTax,
@@ -326,12 +323,44 @@ describe("TradedTokenInstance", function () {
                 holdersMax
             );
 
+            await expect(
+                    ClaimManagerF.deploy(
+                    ZERO_ADDRESS,
+                    [
+                        externalToken.address,
+                        [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                        claimFrequency
+                    ]
+                )
+            ).to.be.revertedWith("EmptyTokenAddress()");
+
+            await expect(
+                    ClaimManagerF.deploy(
+                    mainInstance.address,
+                    [
+                        ZERO_ADDRESS,
+                        [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                        claimFrequency
+                    ]
+                )
+            ).to.be.revertedWith("EmptyTokenAddress()");
+
+            claimManager = await ClaimManagerF.deploy(
+                mainInstance.address,
+                [
+                    externalToken.address,
+                    [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
+                    claimFrequency
+                ]
+            );
+
             // let erc777 = await mainInstance.tradedToken();
             // itrv2 = await ethers.getContractAt("ITRv2",erc777);
 
             
         });
-
+it("should deploy ", async() => {
+});
         it("should valid ClamedEnabledTime", async() => {
             expect(await mainInstance.claimsEnabledTime()).to.be.eq(ZERO);
             await expect(mainInstance.connect(bob).enableClaims()).revertedWith("Ownable: caller is not the owner");
@@ -390,6 +419,15 @@ describe("TradedTokenInstance", function () {
             ).to.be.revertedWith("TransferHelper: TRANSFER_FROM_FAILED");
 
         }); 
+
+        it("should addManagers", async() => {
+            await expect(
+                mainInstance.connect(bob).addManagers(charlie.address)
+            ).to.be.revertedWith("OwnerAndManagersOnly()");
+            await mainInstance.connect(owner).addManagers(bob.address);
+            await mainInstance.connect(bob).addManagers(charlie.address);
+        });
+
         describe("presale", function () {
             var Presale;
             beforeEach("before", async() => {
@@ -405,6 +443,7 @@ describe("TradedTokenInstance", function () {
                 ).to.be.revertedWith("Ownable");
             });
         }); 
+
         describe("claim", function () {
             beforeEach("adding liquidity", async() => {
 
@@ -446,6 +485,136 @@ describe("TradedTokenInstance", function () {
                 
             });
 
+            it("[cover] available to claim == 0", async() => {
+                await mainInstance.connect(owner).setRestrictClaiming([ONE_ETH, 1]);
+                
+                let availableToClaim = await mainInstance.availableToClaim();
+                expect(availableToClaim).to.be.eq(ZERO);
+            });
+
+            it("shouldnt claim if claimingTokenAmount == 0", async() => {
+
+                await expect(
+                    claimManager.connect(bob).claim(ZERO, bob.address)
+                ).to.be.revertedWith("InputAmountCanNotBeZero()");
+
+                // by owner
+                await mainInstance.connect(owner).enableClaims();
+                await expect(
+                    mainInstance.connect(owner).claim(ZERO, owner.address)
+                ).to.be.revertedWith("InputAmountCanNotBeZero()");
+            });
+
+            it("shouldnt claim with empty address", async() => {
+                await mainInstance.connect(owner).enableClaims();
+                await expect(
+                    mainInstance.connect(owner).claim(ONE_ETH, ZERO_ADDRESS)
+                ).to.be.revertedWith("EmptyAccountAddress()");
+            });
+
+
+
+
+            it("price has not become a lower than minClaimPrice ", async() => {
+                const tokensToClaim = THOUSAND.mul(ONE_ETH);
+                await externalToken.connect(owner).mint(charlie.address, tokensToClaim);
+                await externalToken.connect(charlie).approve(claimManager.address, tokensToClaim);
+                await claimManager.connect(charlie).wantToClaim(tokensToClaim);
+                // pass time to clear bucket
+                await network.provider.send("evm_increaseTime", [claimFrequency]);
+                await network.provider.send("evm_mine");
+
+                await mainInstance.connect(owner).addManagers(claimManager.address);
+
+                await mainInstance.connect(owner).enableClaims();
+
+                await expect(
+                    claimManager.connect(charlie).claim(tokensToClaim, bob.address)
+                ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
+            });
+
+            describe("mint and approve", function () {
+                beforeEach("minting to bob and approve", async() => {
+                    await mainInstance.connect(owner).enableClaims();
+
+                    await externalToken.connect(owner).mint(bob.address, ONE_ETH);
+                    await externalToken.connect(bob).approve(claimManager.address, ONE_ETH);
+                });
+
+                it("shouldnt claim if claimingTokenAmount more than allowance", async() => {
+                    await expect(
+                        claimManager.connect(bob).claim(ONE_ETH.add(ONE_ETH), bob.address)
+                    ).to.be.revertedWith("InsufficientAmount()");
+                });
+                
+                it("shouldnt wantToClaim if amount more that available", async() => {
+                    await expect(
+                        claimManager.connect(bob).wantToClaim(HUN.mul(ONE_ETH))
+                    ).to.be.revertedWith(`InsufficientAmount()`);
+                });
+
+                it("shouldn't claim too fast", async() => {
+
+                    const lastActionTs = await claimManager.getLastActionTime(bob.address);
+                    await expect(
+                        claimManager.connect(bob).claim(ONE_ETH, bob.address)
+                    ).to.be.revertedWith(`ClaimTooFast(${lastActionTs.add(claimFrequency)})`);
+                });   
+
+                
+                it("shouldnt claim if didnt wantClaim before", async() => {
+                    // pass time to clear bucket
+                    await network.provider.send("evm_increaseTime", [claimFrequency]);
+                    await network.provider.send("evm_mine");
+
+                    await expect(
+                        claimManager.connect(bob).claim(ONE_ETH, bob.address)
+                    ).to.be.revertedWith(`InsufficientAmountToClaim(${ONE_ETH}, ${ZERO})`);
+                });
+
+
+                describe("call wantToClaim", function () {
+                    
+                    beforeEach("before", async() => {
+                        //await claimManager.connect(bob).wantToClaim(ONE_ETH);
+                        await claimManager.connect(bob).wantToClaim(ZERO); // all awailable
+                        // pass time to clear bucket
+                        await network.provider.send("evm_increaseTime", [claimFrequency]);
+                        await network.provider.send("evm_mine");
+                    });
+
+                    it("shouldnt claim if claimManager is not a manager for TradedToken ", async() => {
+                        await expect(
+                            claimManager.connect(bob).claim(ONE_ETH, bob.address)
+                        ).to.be.revertedWith(`OwnerAndManagersOnly()`);
+    
+                    });
+
+                    describe("make claimManager as a manager", function () {
+                        beforeEach("before", async() => {
+                            //await claimManager.connect(bob).wantToClaim(ONE_ETH);
+                            await mainInstance.connect(owner).addManagers(claimManager.address);
+                        });
+                        
+                        it("should claim", async() => {
+                            await claimManager.connect(bob).claim(ONE_ETH, bob.address);
+                        });
+
+                        it("should transfer to dead-address tokens after user claim", async() => {
+                            const tokensToClaim = ONE_ETH;
+                            const tokensBefore = await externalToken.balanceOf(DEAD_ADDRESS);
+                            await claimManager.connect(bob).claim(tokensToClaim, bob.address);
+                            const tokensAfter = await externalToken.balanceOf(DEAD_ADDRESS);
+                            expect(tokensBefore.add(tokensToClaim)).to.be.eq(tokensAfter);
+                        });
+                        
+                    });
+                });
+
+                
+
+            });
+            
             describe("internal", function () {
                 const AmountToClaim = ONE_ETH.mul(HUN);
                 before("make snapshot", async() => {
@@ -460,70 +629,12 @@ describe("TradedTokenInstance", function () {
                     //console.log("revert to snapshot");
                 });
 
-                it("should claim", async() => {
-
-                    await expect(
-                        mainInstance.connect(bob).claim(AmountToClaim, bob.address)
-                    ).to.be.revertedWith("OwnerAndManagersOnly()");
-
-                    await expect(
-                        mainInstance.connect(bob).claim(AmountToClaim, bob.address)
-                    ).to.be.revertedWith("OwnerAndManagersOnly()");
-                    
-                    let availableToClaim = await mainInstance.availableToClaim();
-                    let availableToClaimByAddress = await mainInstance.availableToClaimByAddress(owner.address);
-
-                    await expect(
-                        mainInstance.connect(owner).claim(availableToClaim.mul(HUN), owner.address)
-                    ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
-
-                    await expect(
-                        mainInstance.connect(owner).claim(AmountToClaim, ZERO_ADDRESS)
-                    ).to.be.revertedWith("EmptyAccountAddress()");
-
-                    await expect(
-                        mainInstance.connect(owner).claim(ZERO, owner.address)
-                    ).to.be.revertedWith("InputAmountCanNotBeZero()");
-
-                    await mainInstance.connect(owner).claim(AmountToClaim, owner.address);
-                    expect(await mainInstance.balanceOf(owner.address)).to.be.eq(AmountToClaim);
+                beforeEach("before", async() => {
+                    await mainInstance.connect(owner).enableClaims();
                 });
 
-                it("[cover] available to claim == 0", async() => {
-                    await mainInstance.connect(owner).setRestrictClaiming([ONE_ETH, 1]);
-                    
-                    let availableToClaim = await mainInstance.availableToClaim();
-                    expect(availableToClaim).to.be.eq(ZERO);
-                });
                 
-                
-                it("should addManagers", async() => {
-                    await expect(
-                        mainInstance.connect(bob).addManagers(charlie.address)
-                    ).to.be.revertedWith("OwnerAndManagersOnly()");
-                    await mainInstance.connect(owner).addManagers(bob.address);
-                    await mainInstance.connect(bob).addManagers(charlie.address);
-                });
-
-                it("should claim by managers", async() => {
-                    await mainInstance.connect(owner).addManagers(bob.address);
-                    await mainInstance.connect(bob).claim(ONE_ETH, bob.address);
-                    expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH);
-                });
-
-                it("shouldnt `claim` if the price has become lower than minClaimPrice", async() => {
-                    await expect(
-                        mainInstance.connect(bob).claim(ONE_ETH, bob.address)
-                    ).to.be.revertedWith("OwnerAndManagersOnly()");
-
-                    await expect(
-                        mainInstance.connect(bob).claim(ONE_ETH, bob.address)
-                    ).to.be.revertedWith("OwnerAndManagersOnly()");
-
-                    await mainInstance.connect(owner).claim(ONE_ETH, owner.address);
-                    expect(await mainInstance.balanceOf(owner.address)).to.be.eq(ONE_ETH);
-                });
-
+ 
                 it("shouldnt locked up tokens after owner claim", async() => {
 
                     const bobTokensBefore = await mainInstance.balanceOf(bob.address);
@@ -686,53 +797,7 @@ describe("TradedTokenInstance", function () {
 
             }); 
 
-            describe("external", function () {
-                
-                before("make snapshot", async() => {
-                    // make snapshot before time manipulations
-                    snapId = await ethers.provider.send('evm_snapshot', []);
-                    //console.log("make snapshot");
-                });
-
-                after("revert to snapshot", async() => {
-                    // restore snapshot
-                    await ethers.provider.send('evm_revert', [snapId]);
-                    //console.log("revert to snapshot");
-                });
-
-                it("shouldnt claim via external token without approve before", async() => {
-                    await expect(
-                        mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address)
-                    ).to.be.revertedWith("InsufficientAmount()");
-                });
-
-                it("should claim via external token", async() => {
-
-                    await externalToken.connect(owner).mint(bob.address, ONE_ETH);
-                    let bobExternalTokenBalanceBefore = await externalToken.balanceOf(bob.address);
-                    let mainInstanceExternalTokenBalanceBefore = await externalToken.balanceOf(mainInstance.address);
-
-                    await externalToken.connect(bob).approve(mainInstance.address, ONE_ETH);
-
-                    await expect(
-                        mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address)
-                    ).to.be.revertedWith(`InsufficientAmountToClaim(${ONE_ETH}, ${ZERO})`);
-
-                    await mainInstance.connect(bob).wantToClaim(ONE_ETH);
-                    await mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address);
-
-                    let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);
-                    let mainInstanceExternalTokenBalanceAfter = await externalToken.balanceOf(mainInstance.address);
-
-                    expect(await mainInstance.balanceOf(bob.address)).to.be.eq(ONE_ETH);
-                    expect(bobExternalTokenBalanceBefore.sub(bobExternalTokenBalanceAfter)).to.be.eq(ONE_ETH);
-                    expect(mainInstanceExternalTokenBalanceAfter.sub(mainInstanceExternalTokenBalanceBefore)).to.be.eq(ZERO);
-                });
-
-            }); 
-
         });
-
 
         describe("uniswap settings", function () {
             var uniswapRouterFactoryInstance, uniswapRouterInstance, pairInstance;
@@ -933,6 +998,8 @@ describe("TradedTokenInstance", function () {
 
                 it("should burn buyTax", async() => {
 
+                    await mainInstance.connect(owner).enableClaims();
+                
                     let ts, timeUntil;
                     
                     // make snapshot
@@ -1001,6 +1068,8 @@ describe("TradedTokenInstance", function () {
                 });
 
                 it("should burn sellTax", async() => {
+    
+                    await mainInstance.connect(owner).enableClaims();
 
                     let ts, timeUntil;
                     uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
@@ -1109,6 +1178,7 @@ describe("TradedTokenInstance", function () {
                     )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly()"
 
                     const smthFromOwner = 1;
+                    await mainInstance.connect(owner).enableClaims();
                     await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
 
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
@@ -1139,10 +1209,8 @@ describe("TradedTokenInstance", function () {
                         await ethers.provider.send('evm_revert', [snapId]);
                     });
 
-                    
-
                     it("synth case: try to get stored average price", async() => {
-                        
+
                         let tradedReserve1,tradedReserve2,priceAv, maxliquidity, add2Liquidity;
                         [tradedReserve1, tradedReserve2, priceAv] = await mainInstance.connect(owner).maxAddLiquidity();
 
@@ -1277,7 +1345,7 @@ describe("TradedTokenInstance", function () {
             });
              
         });
-        
+
     });
     
 });
