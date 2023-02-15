@@ -119,7 +119,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     uint16 public immutable sellTaxMax;
     uint16 public holdersMax;
     uint16 public holdersCount;
-    uint256 internal numDen =  18446744073709551616;//2 ** 64;
+    uint256 internal constant numDen =  18446744073709551616;//2 ** 64;
 
     uint256 public totalCumulativeClaimed;
 
@@ -632,6 +632,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         onlyBeforeInitialLiquidity();
 
         uint64 endTime = IPresale(contract_).endTime();
+
         // give at least two hours for the presale because burnRemaining can be called in the second hour
         if (block.timestamp < endTime - 3600 * 2) {
             _mint(contract_, amount, "", "");
@@ -862,6 +863,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             _reserve0,
             _reserve1
         );
+
         if (amountOut == 0) {
             revert ClaimValidationError();
         }

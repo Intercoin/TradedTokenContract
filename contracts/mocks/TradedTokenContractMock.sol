@@ -112,4 +112,17 @@ contract TradedTokenMock is TradedToken {
         minClaimPrice.denominator = newMinimumPrice.denominator;
     }
 
+    function setTotalCumulativeClaimed(uint256 total) public {
+        totalCumulativeClaimed = total;
+    }
+
+    function getMinClaimPriceUpdatedTime() public pure returns(uint64) {
+        return MIN_CLAIM_PRICE_UPDATED_TIME;
+    }
+
+    function setHoldersMax(uint16 i) public  {
+        holdersMax = i;
+    }
+    
+    
 }

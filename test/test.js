@@ -16,6 +16,8 @@ const THREE = BigNumber.from('3');
 const FOURTH = BigNumber.from('4');
 const FIVE = BigNumber.from('5');
 const SIX = BigNumber.from('6');
+const SEVEN = BigNumber.from('7');
+const EIGHT = BigNumber.from('8');
 const NINE = BigNumber.from('9');
 const TEN = BigNumber.from('10');
 const HUN = BigNumber.from('100');
@@ -109,33 +111,7 @@ describe("TradedTokenInstance", function () {
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
     });
 /*
-    it("shouldnt claim if externalToken params does not specify", async() => {
-        var erc20ReservedToken  = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
-
-        mainInstance = await MainFactory.connect(owner).deploy(
-            "Intercoin Investor Token",
-            "ITR",
-            erc20ReservedToken.address, //” (USDC)
-            priceDrop,
-            lockupIntervalAmount,
-            [
-            ZERO_ADDRESS, //externalToken.address,
-            [minClaimPriceNumerator, minClaimPriceDenominator],
-            [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
-            [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-            claimFrequency
-            ],
-            taxesInfo,
-            maxBuyTax,
-            maxSellTax,
-            holdersMax
-        );
-
-        await expect(
-            mainInstance.connect(bob).claimViaExternal(ONE_ETH, bob.address)
-        ).to.be.revertedWith("EmptyTokenAddress()");
-        
-    });
+    
 
     it("should external claim if exchange price 1:2", async() => {
 
@@ -200,78 +176,7 @@ describe("TradedTokenInstance", function () {
         await ethers.provider.send('evm_revert', [snapId]);
     });
 
-    it("should external claim (scale 1:2 applying) ", async() => {
-
-        let snapId = await ethers.provider.send('evm_snapshot', []);
-
-        var erc20ReservedToken  = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
-        var externalToken       = await ERC20Factory.deploy("ERC20 External Token", "ERC20-EXT");
-        
-        mainInstance = await MainFactory.connect(owner).deploy(
-            "Intercoin Investor Token",
-            "ITR",
-            erc20ReservedToken.address, //” (USDC)
-            priceDrop,
-            lockupIntervalAmount,
-            [
-                externalToken.address,
-                [minClaimPriceNumerator, minClaimPriceDenominator],
-                [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator],
-                [1, 1],
-                claimFrequency
-            ],
-            taxesInfo,
-            0,
-            0,
-            holdersMax
-        );
-        
-        await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
-        await erc20ReservedToken.connect(owner).transfer(mainInstance.address, ONE_ETH.mul(TEN));
-
-        await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
-
-        await expect(mainInstance.presaleAdd(
-            bob.address, 
-            ONE_ETH, 
-            0
-        )).to.be.revertedWith("BeforeInitialLiquidityRequired()");
-
-        let availableToClaim = await mainInstance.availableToClaim();
-
-        let userWantToClaim = ONE_ETH; 
-        await externalToken.connect(owner).mint(bob.address, userWantToClaim);
-        await externalToken.connect(owner).mint(charlie.address, availableToClaim.mul(TWO));
-        let bobExternalTokenBalanceBefore = await externalToken.balanceOf(bob.address);
-        let mainInstanceExternalTokenBalanceBefore = await externalToken.balanceOf(mainInstance.address);
-
-        
-        await externalToken.connect(bob).approve(mainInstance.address, userWantToClaim);
-        await externalToken.connect(charlie).approve(mainInstance.address, availableToClaim.mul(TWO));
-
-        // two users want to get all available amount of tokens
-        let wantToClaimTotal = ZERO;
-        await mainInstance.connect(bob).wantToClaim(userWantToClaim);
-        wantToClaimTotal = wantToClaimTotal.add(userWantToClaim);
-        await mainInstance.connect(charlie).wantToClaim(availableToClaim.mul(TWO));
-        wantToClaimTotal = wantToClaimTotal.add(availableToClaim.mul(TWO));
-
-        await expect(
-            mainInstance.connect(bob).claimViaExternal(userWantToClaim, bob.address)
-        ).to.be.revertedWith(`InsufficientAmountToClaim(${userWantToClaim}, ${userWantToClaim.mul(availableToClaim).div(wantToClaimTotal)})`);
-
-        let scaledAmount = userWantToClaim.mul(availableToClaim).div(wantToClaimTotal);
-        await mainInstance.connect(bob).claimViaExternal(scaledAmount, bob.address);
-
-        let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);
-        let mainInstanceExternalTokenBalanceAfter = await externalToken.balanceOf(mainInstance.address);
-
-        expect(await mainInstance.balanceOf(bob.address)).to.be.eq(scaledAmount);
-        expect(bobExternalTokenBalanceBefore.sub(bobExternalTokenBalanceAfter)).to.be.eq(scaledAmount);
-        expect(mainInstanceExternalTokenBalanceAfter.sub(mainInstanceExternalTokenBalanceBefore)).to.be.eq(ZERO);
-
-        await ethers.provider.send('evm_revert', [snapId]);
-    });
+   
 */
   
     describe("validate params", function () {
@@ -359,8 +264,13 @@ describe("TradedTokenInstance", function () {
 
             
         });
-it("should deploy ", async() => {
-});
+
+        it("reverted if didn't add liquidity before", async() => {
+            await expect(
+                mainInstance.availableToClaim()
+            ).to.be.revertedWith(`EmptyReserves()`);
+        });
+        
         it("should valid ClamedEnabledTime", async() => {
             expect(await mainInstance.claimsEnabledTime()).to.be.eq(ZERO);
             await expect(mainInstance.connect(bob).enableClaims()).revertedWith("Ownable: caller is not the owner");
@@ -428,20 +338,82 @@ it("should deploy ", async() => {
             await mainInstance.connect(bob).addManagers(charlie.address);
         });
 
+        it("[cover] shouldnt claim (ClaimValidationError)", async() => {
+          
+            await erc20ReservedToken.connect(owner).mint(mainInstance.address, ONE_ETH.mul(THOUSAND));
+            await mainInstance.addInitialLiquidity(ONE_ETH.mul(THOUSAND), ONE_ETH.mul(TEN));
+            await mainInstance.forceSync();
+                
+            await mainInstance.connect(owner).enableClaims();
+
+            // make synthetic  situation when totalCumulativeAmount are small
+            await mainInstance.connect(owner).setTotalCumulativeClaimed(ONE);
+            await expect(
+                mainInstance.connect(owner).claim(ONE, bob.address)
+            ).to.be.revertedWith("ClaimValidationError()");
+        });             
+
         describe("presale", function () {
             var Presale;
+            let ts, timeUntil;
+
             beforeEach("before", async() => {
+                ts = await time.latest();
+                timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
                 const PresaleF = await ethers.getContractFactory("PresaleMock");
                 Presale = await PresaleF.deploy();
             });
 
-            it("shouldnt presale", async() => {
-                let ts = await time.latest();
-                let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+            it("shouldnt presale if caller is not owner", async() => {
+                
                 await expect(
-                    mainInstance.connect(bob).presaleAdd(alice.address, ONE_ETH, timeUntil)
+                    mainInstance.connect(bob).presaleAdd(Presale.address, ONE_ETH, timeUntil)
                 ).to.be.revertedWith("Ownable");
             });
+
+            describe("shouldnt presale if Presale contract invalid", function () {
+                it(" --- zero address", async() => {
+                    await expect(
+                        mainInstance.connect(owner).presaleAdd(ZERO_ADDRESS, ONE_ETH, timeUntil)
+                    ).to.be.revertedWith('Transaction reverted: function returned an unexpected amount of data');
+                });
+                it(" --- eoa address", async() => {
+                    await expect(
+                        mainInstance.connect(owner).presaleAdd(bob.address, ONE_ETH, timeUntil)
+                    ).to.be.revertedWith('Transaction reverted: function returned an unexpected amount of data');
+                });
+                it(" --- without endTime method", async() => {
+                    const PresaleBad1F = await ethers.getContractFactory("PresaleBad1");
+                    let presaleBad1 = await PresaleBad1F.deploy();
+
+                    await expect(
+                        mainInstance.connect(owner).presaleAdd(presaleBad1.address, ONE_ETH, timeUntil)
+                    ).to.be.revertedWith("Transaction reverted: function selector was not recognized and there's no fallback function");
+                });
+                xit(" --- endTime have wrong output", async() => {
+                    const PresaleBad2F = await ethers.getContractFactory("PresaleBad2");
+                    let presaleBad2 = await PresaleBad2F.deploy();
+
+                    await expect(
+                        mainInstance.connect(owner).presaleAdd(presaleBad2.address, ONE_ETH, timeUntil)
+                    ).to.be.revertedWith("Transaction reverted: function selector was not recognized and there's no fallback function");
+                });
+                it(" --- fallback method only", async() => {
+                    const PresaleBad3F = await ethers.getContractFactory("PresaleBad3");
+                    let presaleBad3 = await PresaleBad3F.deploy();
+
+                    await expect(
+                        mainInstance.connect(owner).presaleAdd(presaleBad3.address, ONE_ETH, timeUntil)
+                    ).to.be.revertedWith('Transaction reverted: function returned an unexpected amount of data');
+                });
+                // it(" --- without wrong signature endTime", async() => {});
+                
+            });
+           
+            // it("should presale", async() => {
+            //     Presale
+            // });
+            // it("", async() => {});
         }); 
 
         describe("claim", function () {
@@ -485,12 +457,22 @@ it("should deploy ", async() => {
                 
             });
 
+            
+            it("shouldnt presale already added liquidity", async() => {
+                let ts = await time.latest();
+                let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+                await expect(
+                    mainInstance.connect(owner).presaleAdd(alice.address, ONE_ETH, timeUntil)
+                ).to.be.revertedWith("BeforeInitialLiquidityRequired()");
+            });
+
             it("[cover] available to claim == 0", async() => {
                 await mainInstance.connect(owner).setRestrictClaiming([ONE_ETH, 1]);
                 
                 let availableToClaim = await mainInstance.availableToClaim();
                 expect(availableToClaim).to.be.eq(ZERO);
             });
+
 
             it("shouldnt claim if claimingTokenAmount == 0", async() => {
 
@@ -512,25 +494,74 @@ it("should deploy ", async() => {
                 ).to.be.revertedWith("EmptyAccountAddress()");
             });
 
+            it("shouldnt call restrictClaiming by owner", async() => {
+                await expect(
+                    mainInstance.connect(owner).restrictClaiming([ONE_ETH, 1])
+                ).to.be.revertedWith("ManagersOnly()");
+            });
 
+            it("shouldnt setup zero denominator", async() => {
+                await expect(
+                    mainInstance.connect(bob).restrictClaiming([ONE_ETH, 1])
+                ).to.be.revertedWith("ManagersOnly()");
 
+                await mainInstance.connect(owner).addManagers(bob.address);
+                await expect(
+                    mainInstance.connect(bob).restrictClaiming([ONE_ETH, 0])
+                ).to.be.revertedWith("ZeroDenominator()");
+            });
 
-            it("price has not become a lower than minClaimPrice ", async() => {
-                const tokensToClaim = THOUSAND.mul(ONE_ETH);
-                await externalToken.connect(owner).mint(charlie.address, tokensToClaim);
-                await externalToken.connect(charlie).approve(claimManager.address, tokensToClaim);
-                await claimManager.connect(charlie).wantToClaim(tokensToClaim);
-                // pass time to clear bucket
-                await network.provider.send("evm_increaseTime", [claimFrequency]);
+            
+
+            it("shouldnt price grow too fast", async() => {
+                await mainInstance.connect(owner).addManagers(bob.address);
+                await expect(
+                    mainInstance.connect(bob).restrictClaiming([ONE, HUN])
+                ).to.be.revertedWith("MinClaimPriceGrowTooFast()");
+            });
+
+            it("shouldnt price less than setup before", async() => {
+                await mainInstance.connect(owner).addManagers(bob.address);
+
+                let minClaimPriceUpdatedTime = await mainInstance.getMinClaimPriceUpdatedTime();
+                
+                await network.provider.send("evm_increaseTime", [parseInt(minClaimPriceUpdatedTime)]);
                 await network.provider.send("evm_mine");
 
-                await mainInstance.connect(owner).addManagers(claimManager.address);
-
-                await mainInstance.connect(owner).enableClaims();
-
                 await expect(
-                    claimManager.connect(charlie).claim(tokensToClaim, bob.address)
-                ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
+                    mainInstance.connect(bob).restrictClaiming([minClaimPriceNumerator, minClaimPriceDenominator+1])
+                ).to.be.revertedWith("ShouldBeMoreThanMinClaimPrice()");
+            });
+
+            
+            describe("some validate", function () {
+                const tokensToClaim = THOUSAND.mul(ONE_ETH);
+
+                beforeEach("before", async() => {
+               
+                    await externalToken.connect(owner).mint(charlie.address, tokensToClaim);
+                    await externalToken.connect(charlie).approve(claimManager.address, tokensToClaim);
+                    await claimManager.connect(charlie).wantToClaim(tokensToClaim);
+                    // pass time to clear bucket
+                    await network.provider.send("evm_increaseTime", [claimFrequency]);
+                    await network.provider.send("evm_mine");
+
+                    await mainInstance.connect(owner).addManagers(claimManager.address);
+                });
+
+                    
+                it("price has not become a lower than minClaimPrice ", async() => {
+                    await mainInstance.connect(owner).enableClaims();
+                    await expect(
+                        claimManager.connect(charlie).claim(tokensToClaim, bob.address)
+                    ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
+                });
+
+                it("shouldnt claim if claimTime == 0 (disabled)", async() => {
+                    await expect(
+                        claimManager.connect(charlie).claim(tokensToClaim, bob.address)
+                    ).to.be.revertedWith("ClaimsDisabled()");
+                });
             });
 
             describe("mint and approve", function () {
@@ -553,7 +584,7 @@ it("should deploy ", async() => {
                     ).to.be.revertedWith(`InsufficientAmount()`);
                 });
 
-                it("shouldn't claim too fast", async() => {
+                it("shouldnt claim too fast", async() => {
 
                     const lastActionTs = await claimManager.getLastActionTime(bob.address);
                     await expect(
@@ -578,7 +609,7 @@ it("should deploy ", async() => {
                     beforeEach("before", async() => {
                         //await claimManager.connect(bob).wantToClaim(ONE_ETH);
                         await claimManager.connect(bob).wantToClaim(ZERO); // all awailable
-                        // pass time to clear bucket
+                        // pass time 
                         await network.provider.send("evm_increaseTime", [claimFrequency]);
                         await network.provider.send("evm_mine");
                     });
@@ -606,6 +637,49 @@ it("should deploy ", async() => {
                             await claimManager.connect(bob).claim(tokensToClaim, bob.address);
                             const tokensAfter = await externalToken.balanceOf(DEAD_ADDRESS);
                             expect(tokensBefore.add(tokensToClaim)).to.be.eq(tokensAfter);
+                        });
+
+                        it("should claim (scale 1:2 applying) ", async() => {
+
+                            //let snapId = await ethers.provider.send('evm_snapshot', []);
+
+                            
+                            let availableToClaim = await mainInstance.availableToClaim();
+
+                            let userWantToClaim = ONE_ETH; 
+                            //await externalToken.connect(owner).mint(bob.address, userWantToClaim);
+                            await externalToken.connect(owner).mint(charlie.address, availableToClaim.mul(TWO));
+                            await externalToken.connect(charlie).approve(claimManager.address, availableToClaim.mul(TWO));
+
+                            let bobExternalTokenBalanceBefore = await externalToken.balanceOf(bob.address);
+                            let mainInstanceExternalTokenBalanceBefore = await externalToken.balanceOf(mainInstance.address);
+
+                            // two users want to get all available amount of tokens
+                            let wantToClaimTotal = ZERO;
+                            await claimManager.connect(bob).wantToClaim(userWantToClaim);
+                            wantToClaimTotal = wantToClaimTotal.add(userWantToClaim);
+                            await claimManager.connect(charlie).wantToClaim(availableToClaim.mul(TWO));
+                            wantToClaimTotal = wantToClaimTotal.add(availableToClaim.mul(TWO));
+
+                            // pass time 
+                            await network.provider.send("evm_increaseTime", [claimFrequency]);
+                            await network.provider.send("evm_mine");
+
+                            await expect(
+                                claimManager.connect(bob).claim(userWantToClaim, bob.address)
+                            ).to.be.revertedWith(`InsufficientAmountToClaim(${userWantToClaim}, ${userWantToClaim.mul(availableToClaim).div(wantToClaimTotal)})`);
+
+                            let scaledAmount = userWantToClaim.mul(availableToClaim).div(wantToClaimTotal);
+                            await claimManager.connect(bob).claim(scaledAmount, bob.address);
+
+                            let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);
+                            let mainInstanceExternalTokenBalanceAfter = await externalToken.balanceOf(mainInstance.address);
+
+                            expect(await mainInstance.balanceOf(bob.address)).to.be.eq(scaledAmount);
+                            expect(bobExternalTokenBalanceBefore.sub(bobExternalTokenBalanceAfter)).to.be.eq(scaledAmount);
+                            expect(mainInstanceExternalTokenBalanceAfter.sub(mainInstanceExternalTokenBalanceBefore)).to.be.eq(ZERO);
+
+                            //await ethers.provider.send('evm_revert', [snapId]);
                         });
                         
                     });
@@ -661,6 +735,23 @@ it("should deploy ", async() => {
                     expect(aliceTokensAfterTransfer.sub(aliceTokensAfterClaim)).to.be.eq(ONE_ETH);
 
                 }); 
+
+                it("shouldnt exceed holdersMax", async() => {
+
+                    await mainInstance.connect(owner).claim(ONE_ETH.mul(TEN), owner.address);
+
+                    await mainInstance.connect(owner).transfer(bob.address,ONE_ETH);
+                    await mainInstance.connect(owner).transfer(alice.address,ONE_ETH);
+
+                    await mainInstance.setHoldersMax(ONE);
+
+                    await expect(
+                        mainInstance.connect(owner).transfer(charlie.address,ONE_ETH)
+                    ).to.be.revertedWith(`MaxHoldersCountExceeded(${ONE})`);
+                    
+                });
+
+            
 
                 it("should preventPanic", async() => {
                     // make a test when Bob can send to Alice only 50% of their tokens through a day
