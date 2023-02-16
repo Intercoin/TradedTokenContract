@@ -44,6 +44,7 @@
     "ts-node": "^10.4.0"
   },
   "dependencies": {
+    "@artman325/releasemanager": "^2.0.0",
     "@hardhat-docgen/core": "^1.2.3",
     "@hardhat-docgen/markdown": "^1.2.4",
     "@nomiclabs/hardhat-ethers": "^2.0.3",

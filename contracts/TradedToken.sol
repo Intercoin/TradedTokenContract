@@ -15,38 +15,22 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 import "./libs/SwapSettingsLib.sol";
-import "./libs/FixedPoint.sol";
-import "./libs/TaxesLib.sol";
+
 import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
 import "./interfaces/IClaim.sol";
+import "./interfaces/ITradedToken.sol";
 
 //import "hardhat/console.sol";
 
-contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
+contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard, ITradedToken {
    // using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
     using SafeERC20 for ERC777;
     using Address for address;
     using TaxesLib for TaxesLib.TaxesInfo;
-
-    struct PriceNumDen {
-        uint256 numerator;
-        uint256 denominator;
-    }
-
-    struct Observation {
-        uint64 timestampLast;
-        uint256 price0CumulativeLast;
-        FixedPoint.uq112x112 price0Average;
-    }
-    
-    struct ClaimSettings {
-        PriceNumDen minClaimPrice;
-        PriceNumDen minClaimPriceGrow;
-    }
 
     TaxesLib.TaxesInfo public taxesInfo;
 
@@ -186,9 +170,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @param claimSettings struct of claim settings
      * @param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
      * @param claimSettings.minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
-     * @param buyTaxMax_ buyTaxMax_
-     * @param sellTaxMax_ sellTaxMax_
-     * @param holdersMax_ the maximum number of holders, may be increased by owner later
+     * @param taxes_.buyTaxMax_ buyTaxMax_
+     * @param taxes_.sellTaxMax_ sellTaxMax_
+     * @param taxes_.holdersMax_ the maximum number of holders, may be increased by owner later
      */
     constructor(
         string memory tokenName_,
@@ -198,14 +182,11 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint64 lockupDays_,
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
-        uint16 buyTaxMax_,
-        uint16 sellTaxMax_,
-        uint16 holdersMax_
+        Taxes memory taxes_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
 
         //setup
-        (buyTaxMax,  sellTaxMax,  holdersMax) =
-        (buyTaxMax_, sellTaxMax_, holdersMax_);
+        (buyTaxMax,  sellTaxMax,  holdersMax) = (taxes_.buyTaxMax, taxes_.sellTaxMax, taxes_.holdersMax);
 
         tradedToken = address(this);
         reserveToken = reserveToken_;
