@@ -21,9 +21,11 @@ import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
+import "./interfaces/IClaim.sol";
 
 //import "hardhat/console.sol";
-contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
+
+contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
    // using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
     using SafeERC20 for ERC777;
@@ -42,12 +44,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
     
     struct ClaimSettings {
-        address claimingToken;
         PriceNumDen minClaimPrice;
         PriceNumDen minClaimPriceGrow;
-        PriceNumDen claimingTokenExchangePrice;
-        uint16 claimFrequency;
-        
     }
 
     TaxesLib.TaxesInfo public taxesInfo;
@@ -70,12 +68,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
     
     uint64 public claimsEnabledTime;
-    
-    /**
-     * @custom:shortd claimFrequency
-     * @notice claimFrequency
-     */
-    uint16 public immutable claimFrequency;
+  
     /**
      * @custom:shortd traded token address
      * @notice traded token address
@@ -97,13 +90,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     PriceNumDen minClaimPrice;
     uint64 internal lastMinClaimPriceUpdatedTime;
     PriceNumDen minClaimPriceGrow;
-
-    /**
-     * @custom:shortd external token
-     * @notice external token
-     */
-    address public immutable claimingToken;
-    PriceNumDen claimingTokenExchangePrice;
 
     /**
      * @custom:shortd uniswap v2 pair
@@ -133,7 +119,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint16 public immutable sellTaxMax;
     uint16 public holdersMax;
     uint16 public holdersCount;
-    uint256 internal numDen =  18446744073709551616;//2 ** 64;
+    uint256 internal constant numDen =  18446744073709551616;//2 ** 64;
 
     uint256 public totalCumulativeClaimed;
 
@@ -145,12 +131,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => uint64) internal managers;
     mapping(address => uint64) internal presales;
 
-    struct ClaimStruct {
-        uint256 amount;
-        uint256 lastActionTime;
-    }
-    mapping(address => ClaimStruct) public wantToClaimMap;
-    uint256 public wantToClaimTotal; // value that accomulated all users `wantToClaim requests`
+    
+    
     
     bool private addedInitialLiquidityRun;
 
@@ -185,6 +167,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error EmptyReserves();
     error ClaimValidationError();
     error PriceHasBecomeALowerThanMinClaimPrice();
+    error ClaimsDisabled();
     error ClaimsEnabledTimeAlreadySetup();
     error ClaimTooFast(uint256 untilTime);
     error InsufficientAmountToClaim(uint256 requested, uint256 maxAvailable);
@@ -194,17 +177,15 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error MaxHoldersCountExceeded(uint256 count);
     error SenderIsNotInWhitelist();
 
-/**
+    /**
      * @param tokenName_ token name
      * @param tokenSymbol_ token symbol
      * @param reserveToken_ reserve token address
      * @param priceDrop_ price drop while add liquidity
      * @param lockupDays_ interval amount in days (see minimum lib)
      * @param claimSettings struct of claim settings
-     * param claimSettings.claimingToken_ external token address that used to change their tokens to traded
-     * param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
-     * param claimSettings.claimingTokenExchangePrice_ (numerator,denominator) exchange price. used when user trying to change external token to Traded
-     * param claimSettings.claimFrequency_ claimFrequency_
+     * @param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
+     * @param claimSettings.minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
      * @param holdersMax_ the maximum number of holders, may be increased by owner later
@@ -225,7 +206,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //setup
         (buyTaxMax,  sellTaxMax,  holdersMax) =
         (buyTaxMax_, sellTaxMax_, holdersMax_);
-        claimFrequency = claimSettings.claimFrequency;
 
         tradedToken = address(this);
         reserveToken = reserveToken_;
@@ -238,15 +218,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         priceDrop = priceDrop_;
         lockupDays = lockupDays_;
-        claimingToken = claimSettings.claimingToken;
         
         minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
         minClaimPriceGrow.denominator = claimSettings.minClaimPriceGrow.denominator;
         minClaimPrice.numerator = claimSettings.minClaimPrice.numerator;
         minClaimPrice.denominator = claimSettings.minClaimPrice.denominator;
-        
-        claimingTokenExchangePrice.numerator = claimSettings.claimingTokenExchangePrice.numerator;
-        claimingTokenExchangePrice.denominator = claimSettings.claimingTokenExchangePrice.denominator;
 
         lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
 
@@ -254,14 +230,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         //validations
         if (
-            claimSettings.claimingTokenExchangePrice.denominator == 0 || 
             claimSettings.minClaimPriceGrow.denominator == 0 ||
             claimSettings.minClaimPrice.denominator == 0
         ) { 
             revert ZeroDenominator();
         }
 
-        
         if (reserveToken == address(0)) {
             revert reserveTokenInvalid();
         }
@@ -449,32 +423,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         claimsEnabledTime = uint64(block.timestamp);
     }
 
-    /**
-    * If there is a claimingToken, then they have to pass an amount that is <= claimingToken.balanceOf(caller). 
-    * If they pass zero here, it will actually look up and use their entire balance.
-    */
-    function wantToClaim(
-        uint256 amount
-    ) 
-        external 
-    {
-        //address sender = _msgSender();
-        uint256 availableAmount = ERC777(claimingToken).balanceOf(_msgSender());
-        
-        if (amount == 0) {
-            amount = availableAmount;
-        }
-
-        if (availableAmount < amount || amount == 0) {
-            revert InsufficientAmount();
-        }
-
-        wantToClaimTotal += amount - wantToClaimMap[_msgSender()].amount;
-        wantToClaimMap[_msgSender()].amount = amount;
-
-        wantToClaimMap[_msgSender()].lastActionTime = block.timestamp;
-
-    }
+   
 
     function restrictClaiming(PriceNumDen memory newMinimumPrice) external {
         onlyManagers();
@@ -501,53 +450,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         minClaimPrice.denominator = newMinimumPrice.denominator;
     }
 
-    /**
-     * @notice claims to account traded tokens instead external tokens(if set). external tokens will send to dead address
-     * @param claimingTokenAmount amount of external token to claim traded token
-     * @param account address to claim for
-     */
-    function claimViaExternal(uint256 claimingTokenAmount, address account) external nonReentrant() {
-
-        //address sender = _msgSender();
-
-        if (claimingToken == address(0)) { 
-            revert EmptyTokenAddress();
-        }
-        if (claimingTokenAmount == 0) { 
-            revert InputAmountCanNotBeZero();
-        }
-        
-        if (claimingTokenAmount > ERC777(claimingToken).allowance(_msgSender(), address(this))) {
-            revert InsufficientAmount();
-        }
-        if (wantToClaimMap[_msgSender()].lastActionTime + claimFrequency > block.timestamp) {
-            revert ClaimTooFast(wantToClaimMap[_msgSender()].lastActionTime + claimFrequency);
-        }
-        
-        ERC777(claimingToken).safeTransferFrom(_msgSender(), DEAD_ADDRESS, claimingTokenAmount);
-
-        uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
-            claimingTokenExchangePrice.denominator;
-
-        uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(_msgSender());
-
-        if (scalingMaxTradedTokenAmount < tradedTokenAmount) {
-            revert InsufficientAmountToClaim(tradedTokenAmount, scalingMaxTradedTokenAmount);
-        }
-
-        _validateClaim(tradedTokenAmount);
-
-        _claim(tradedTokenAmount, account);
-
-        wantToClaimMap[_msgSender()].lastActionTime = block.timestamp;
-        // wantToClaimTotal -= tradedTokenAmount;
-        // wantToClaimMap[account].amount -= tradedTokenAmount;
-        // or just empty all wantToClaimMap
-        wantToClaimTotal -= wantToClaimMap[account].amount;
-        delete wantToClaimMap[account].amount;
-        
-        
-    }
+    
 
     /**
      * @dev claims, sells, adds liquidity, sends LP to 0x0
@@ -638,22 +541,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
 
-    /**
-    * @return (this is called clamping a value or sum to fit into a range, in this case 0….availableToClaimTotal).
-    */
-    function availableToClaimByAddress(
-        address account
-    ) 
-        public 
-        view 
-        returns(uint256) 
-    {
-        uint256 a = availableToClaim(); 
-        uint256 w = wantToClaimMap[account].amount; 
-        return wantToClaimTotal <= a ? w : w * a / wantToClaimTotal; 
-        
-    }
-
+    
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         //address from = _msgSender();
         //address msgSender = _msgSender();
@@ -744,6 +632,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         onlyBeforeInitialLiquidity();
 
         uint64 endTime = IPresale(contract_).endTime();
+
         // give at least two hours for the presale because burnRemaining can be called in the second hour
         if (block.timestamp < endTime - 3600 * 2) {
             _mint(contract_, amount, "", "");
@@ -957,6 +846,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         price shouldnt be less than minClaimPrice
     */
     function _validateClaim(uint256 tradedTokenAmount) internal view {
+
+        if (claimsEnabledTime == 0) {
+            revert ClaimsDisabled();
+        }
+
         if (tradedTokenAmount == 0) {
             revert InputAmountCanNotBeZero();
         }
@@ -969,6 +863,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             _reserve0,
             _reserve1
         );
+
         if (amountOut == 0) {
             revert ClaimValidationError();
         }
