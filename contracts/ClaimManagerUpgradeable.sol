@@ -60,6 +60,7 @@ ARBITRATION
 All disputes related to this agreement shall be governed by and interpreted in accordance with the laws of New York, without regard to principles of conflict of laws. The parties to this agreement will submit all disputes arising under this agreement to arbitration in New York City, New York before a single arbitrator of the American Arbitration Association (“AAA”). The arbitrator shall be selected by application of the rules of the AAA, or by mutual agreement of the parties, except that such arbitrator shall be an attorney admitted to practice law New York. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section.
 **/
 contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUpgradeable, IERC777SenderUpgradeable, ReentrancyGuardUpgradeable, CostManagerHelper {
+
     using SafeERC20Upgradeable for ERC777Upgradeable;
     uint256 private timeDeploy;
     address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
@@ -96,7 +97,6 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
 
         __CostManagerHelper_init(msg.sender);
         _setCostManager(costManager_);
-
         __ReentrancyGuard_init();
 
         if (tradedToken_ == address(0) || claimSettings.claimingToken == address(0)) {
@@ -117,6 +117,7 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
             uint256(uint160(producedBy_)),
             0
         );
+
     }
     
 
