@@ -26,21 +26,9 @@ contract ClaimManager is IClaimManager, IERC777Recipient, IERC777Sender, Reentra
     uint16 public immutable claimFrequency;
 
     uint256 public wantToClaimTotal; // value that accomulated all users `wantToClaim requests`
-    struct ClaimStruct {
-        uint256 amount;
-        uint256 lastActionTime;
-    }
+    
     mapping(address => ClaimStruct) public wantToClaimMap;
-    struct PriceNumDen {
-        uint256 numerator;
-        uint256 denominator;
-    }
-    struct ClaimSettings {
-        address claimingToken;
-        PriceNumDen claimingTokenExchangePrice;
-        uint16 claimFrequency;
-    }
-
+    
     error EmptyTokenAddress();
     error InputAmountCanNotBeZero();
     error InsufficientAmount();
