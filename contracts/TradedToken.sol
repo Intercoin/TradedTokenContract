@@ -128,16 +128,14 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
-    mapping(address => uint64) internal managers;
+    mapping(address => uint64) public managers;
     mapping(address => uint64) internal presales;
 
-    
-    
-    
     bool private addedInitialLiquidityRun;
 
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
     event AddedManager(address account, address sender);
+    event RemovedManager(address account, address sender);
     event AddedInitialLiquidity(uint256 tradedTokenAmount, uint256 reserveTokenAmount);
     event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
     event Claimed(address account, uint256 amount);
@@ -343,12 +341,25 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         address manager
     )
         external
+        onlyOwner
     {
-        onlyOwnerAndManagers();
         if (manager == address(0)) {revert EmptyManagerAddress();}
         managers[manager] = _currentBlockTimestamp();
 
         emit AddedManager(manager, _msgSender());
+    }
+
+    function removeManagers(
+        address[] memory managers_
+    )
+        external
+        onlyOwner
+    {
+        for (uint256 i = 0; i < managers_.length; i++) {
+            if (managers_[i] == address(0)) {revert EmptyManagerAddress();            }
+            delete managers[managers_[i]];
+            emit RemovedManager(managers_[i], _msgSender());
+        }
     }
 
     /**

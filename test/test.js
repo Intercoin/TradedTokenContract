@@ -330,12 +330,37 @@ describe("TradedTokenInstance", function () {
 
         }); 
 
-        it("should addManagers", async() => {
+        it("should add managers", async() => {
+
             await expect(
                 mainInstance.connect(bob).addManagers(charlie.address)
-            ).to.be.revertedWith("OwnerAndManagersOnly()");
+            ).to.be.revertedWith("Ownable: caller is not the owner");
+
+            expect(await mainInstance.connect(owner).managers(bob.address)).to.be.eq(ZERO);
             await mainInstance.connect(owner).addManagers(bob.address);
-            await mainInstance.connect(bob).addManagers(charlie.address);
+            expect(await mainInstance.connect(owner).managers(bob.address)).not.to.be.eq(ZERO);
+
+            await expect(
+                mainInstance.connect(bob).addManagers(charlie.address)
+            ).to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
+        it("should remove managers", async() => {
+            await mainInstance.connect(owner).addManagers(alice.address);
+
+            await expect(
+                mainInstance.connect(bob).removeManagers([alice.address])
+            ).to.be.revertedWith("Ownable: caller is not the owner");
+
+            await mainInstance.connect(owner).addManagers(bob.address);
+            await expect(
+                mainInstance.connect(bob).removeManagers([alice.address])
+            ).to.be.revertedWith("Ownable: caller is not the owner");
+
+            expect(await mainInstance.connect(owner).managers(alice.address)).not.to.be.eq(ZERO);
+            await mainInstance.connect(owner).removeManagers([alice.address])
+            expect(await mainInstance.connect(owner).managers(alice.address)).to.be.eq(ZERO);            
+            
         });
 
         it("[cover] shouldnt claim (ClaimValidationError)", async() => {
@@ -368,7 +393,7 @@ describe("TradedTokenInstance", function () {
                 
                 await expect(
                     mainInstance.connect(bob).presaleAdd(Presale.address, ONE_ETH, timeUntil)
-                ).to.be.revertedWith("Ownable");
+                ).to.be.revertedWith("Ownable: caller is not the owner");
             });
 
             describe("shouldnt presale if Presale contract invalid", function () {
