@@ -453,9 +453,14 @@ describe("TradedTokenInstance", function () {
                 // console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
                 // console.log("js::pair:blockTimestampLast = ", tmp[2]);  
                 // console.log("js   addInitialLiquidity ");  
+                
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
                 ).to.be.revertedWith("InitialLiquidityRequired()");
+
+                await expect(
+                    mainInstance.connect(charlie).addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN))
+                ).to.be.revertedWith("OwnerAndManagersOnly()");
 
                 await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
                 await expect(
