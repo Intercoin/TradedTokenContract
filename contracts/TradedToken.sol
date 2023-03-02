@@ -394,7 +394,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @param amountTradedToken amount of traded token which will be claimed into contract and adding as liquidity
      * @param amountReserveToken amount of reserve token which must be donate into contract by user and adding as liquidity
      */
-    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external onlyOwner {
+    function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external {
+        onlyOwnerAndManagers();
         runOnlyOnce();
         if (amountTradedToken == 0 || amountReserveToken == 0) {
             revert ZeroDenominator();
