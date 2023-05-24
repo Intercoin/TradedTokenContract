@@ -60,6 +60,9 @@ describe("TradedTokenInstance", function () {
     const externalTokenExchangePriceNumerator = 1;
     const externalTokenExchangePriceDenominator = 1;
 
+    const RateLimitDuration = 0; // no panic
+    const RateLimitValue = 0; // no panic
+
     const maxBuyTax = FRACTION.mul(15).div(100); // 0.15*fraction
     const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
     const holdersMax = HUN;
@@ -194,6 +197,7 @@ describe("TradedTokenInstance", function () {
                         [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
                     ],
                     taxesInfo,
+                    [RateLimitDuration, RateLimitValue],
                     maxBuyTax,
                     maxSellTax,
                     holdersMax
@@ -223,6 +227,7 @@ describe("TradedTokenInstance", function () {
                     [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
                 ],
                 taxesInfo,
+                [RateLimitDuration, RateLimitValue],
                 maxBuyTax,
                 maxSellTax,
                 holdersMax
@@ -781,8 +786,6 @@ describe("TradedTokenInstance", function () {
                     
                 });
 
-            
-
                 it("should preventPanic", async() => {
                     // make a test when Bob can send to Alice only 50% of their tokens through a day
 
@@ -801,7 +804,7 @@ describe("TradedTokenInstance", function () {
                     const DurationForAlice = 24*60*60; // day
                     const RateForAlice = 5000; // 50%
                     const smthFromOwner= 1;
-                    await mainInstance.connect(owner).setRateLimit(alice.address, [DurationForAlice, RateForAlice])
+                    await mainInstance.connect(owner).setRateLimit([DurationForAlice, RateForAlice])
 
                     // can't send tokens to new members before owner put him into whitelist(will transfer some tokens to him)
                     await expect(
@@ -1377,7 +1380,7 @@ describe("TradedTokenInstance", function () {
 
                         const DurationForUniswap = 24*60*60; // day
                         const RateForUniswap = 5000; // 50%
-                        await mainInstance.connect(owner).setRateLimit(uniswapV2Pair, [DurationForUniswap, RateForUniswap])
+                        await mainInstance.connect(owner).setRateLimit([DurationForUniswap, RateForUniswap])
 
                         const InitialSendFunds = ONE_ETH;
 
