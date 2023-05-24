@@ -57,7 +57,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint32 duration; // for time ranges, 32 bits are enough, can also define constants like DAY, WEEK, MONTH
         uint32 fraction; // out of 10,000
     }
-    mapping (address => RateLimit) public panicSellRateLimit;
+    RateLimit public panicSellRateLimit;
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
@@ -181,6 +181,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @param claimSettings struct of claim settings
      * @param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
      * @param claimSettings.minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
+     * @param panicSellRateLimit_ (fraction, duration) Implemented a bucket system to limit the increasing selling rate.
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
      * @param holdersMax_ the maximum number of holders, may be increased by owner later
@@ -193,6 +194,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint64 lockupDays_,
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
+        RateLimit memory panicSellRateLimit_,
         uint16 buyTaxMax_,
         uint16 sellTaxMax_,
         uint16 holdersMax_
@@ -218,6 +220,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         minClaimPriceGrow.denominator = claimSettings.minClaimPriceGrow.denominator;
         minClaimPrice.numerator = claimSettings.minClaimPrice.numerator;
         minClaimPrice.denominator = claimSettings.minClaimPrice.denominator;
+
+        panicSellRateLimit.duration = panicSellRateLimit_.duration;
+        panicSellRateLimit.fraction = panicSellRateLimit_.fraction;
 
         lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
 
@@ -273,43 +278,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
     
-    function setRateLimit(
-        address recipient, 
-        RateLimit memory _panicSellRateLimit
-    ) 
-        external 
-    {
-        
-        //address sender = _msgSender();
-
-        // if (
-        //     sender == recipient ||
-        //     sender == owner() ||
-        //     (
-        //         recipient.isContract() && 
-        //         (sender == Ownable(recipient).owner())
-        //     )
-        // ) {
-        //     // ok
-        // } else {
-        //     revert NotAuthorized();
-        // }
-
-        if (
-            _msgSender() != recipient &&
-            _msgSender() != owner() &&
-            (
-                !recipient.isContract() ||
-                (_msgSender() != Ownable(recipient).owner())
-            )
-        ) {
-            revert NotAuthorized();
-        }
-        
-        panicSellRateLimit[recipient].duration = _panicSellRateLimit.duration;
-        panicSellRateLimit[recipient].fraction = _panicSellRateLimit.fraction;
-    }
-
     /**
      * @notice part of IERC777Recipient
      */
@@ -686,17 +654,17 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         if (
             holder == address(internalLiquidity) ||
             recipient == address(internalLiquidity) ||
-            panicSellRateLimit[recipient].fraction == 0 ||
-            panicSellRateLimit[recipient].duration == 0
+            panicSellRateLimit.fraction == 0 ||
+            panicSellRateLimit.duration == 0
 
         ) {
             return amount;
         }
         
         uint256 currentBalance = balanceOf(holder);
-        uint256 max = currentBalance * panicSellRateLimit[recipient].fraction / FRACTION;
+        uint256 max = currentBalance * panicSellRateLimit.fraction / FRACTION;
 
-        uint32 duration = panicSellRateLimit[recipient].duration;
+        uint32 duration = panicSellRateLimit.duration;
         duration = (duration == 0) ? 1 : duration; // make no sense if duration eq 0      
 
         adjustedAmount = amount;

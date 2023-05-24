@@ -52,6 +52,7 @@ externalToken: 0x0 (don't require external token, to mint more)
 externalTokenExchangePrice: 1 (or whatever, since we don't have external token)
 buyTaxMax: 10000 (10%)
 sellTaxMax: 10000 (10%)
+
 */
 	let bUSD = await getBUSDAddress();
 	//const FRACTION = 10000;
@@ -61,13 +62,10 @@ sellTaxMax: 10000 (10%)
         bUSD, // address reserveToken_, //” (USDC)
         1000, // uint256 priceDrop_,
         365,// uint64 lockupIntervalAmount_,
-		// ClaimSettings memory claimSettings,
+		// TradedToken.ClaimSettings memory claimSettings,
 		[
-			ZERO_ADDRESS,// address claimingToken;
-			[1,1000], // PriceNumDen minClaimPrice;
-			[1,1000], // PriceNumDen minClaimPriceGrow;
-			[1,1], // PriceNumDen claimingTokenExchangePrice;
-			0 // uint16 claimFrequency;
+			[1,10], // PriceNumDen minClaimPrice;
+			[1,10], // PriceNumDen minClaimPriceGrow;
 		],
 		// TaxesLib.TaxesInfoInit memory taxesInfoInit,
 		[
@@ -76,8 +74,14 @@ sellTaxMax: 10000 (10%)
 			false, //bool buyTaxGradual;
 			false //bool sellTaxGradual;
 		],
+		//RateLimit memory panicSellRateLimit_,
+		[ // means no limit
+			0, // uint32 duration;
+        	0 // uint32 fraction; 
+		],
         1000, // uint256 buyTaxMax_,
-        1000 // uint256 sellTaxMax_
+        1000, // uint256 sellTaxMax_
+		10 //holdersMax
 	];
 	
 	let params = [
@@ -101,9 +105,10 @@ sellTaxMax: 10000 (10%)
 			SwapSettingsLib:library2.address
 		}
 	});
-
+console.log(11111111111111111111111111111);
+console.log([...params]);
 	this.instance = await MainF.connect(deployer).deploy(...params);
-
+console.log(22222222222222222222222222222);
 	
 	console.log("Instance deployed at:", this.instance.address);
 	console.log("with params:", [..._params]);

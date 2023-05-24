@@ -15,10 +15,11 @@ contract TradedTokenMock is TradedToken {
         uint64 lockupIntervalAmount,
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
+        RateLimit memory panicSellRateLimit_,
         uint16 buyTaxMax_,
         uint16 sellTaxMax_,
         uint16 holdersMax_
-    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, buyTaxMax_, sellTaxMax_, holdersMax_)
+    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, panicSellRateLimit_, buyTaxMax_, sellTaxMax_, holdersMax_)
     {
     }
 
@@ -124,5 +125,15 @@ contract TradedTokenMock is TradedToken {
         holdersMax = i;
     }
     
+    
+    function setRateLimit(
+        RateLimit memory _panicSellRateLimit
+    )
+        external
+    {
+        panicSellRateLimit.duration = _panicSellRateLimit.duration;
+        panicSellRateLimit.fraction = _panicSellRateLimit.fraction;
+    }
+
     
 }
