@@ -75,9 +75,10 @@ sellTaxMax: 10000 (10%)
 			false //bool sellTaxGradual;
 		],
 		//RateLimit memory panicSellRateLimit_,
+		//And panicSell globally is max 10% in a day 
 		[ // means no limit
-			0, // uint32 duration;
-        	0 // uint32 fraction; 
+			86400, // uint32 duration;  
+        	1000 // uint32 fraction; 
 		],
         1000, // uint256 buyTaxMax_,
         1000, // uint256 sellTaxMax_
@@ -105,10 +106,9 @@ sellTaxMax: 10000 (10%)
 			SwapSettingsLib:library2.address
 		}
 	});
-console.log(11111111111111111111111111111);
+
 console.log([...params]);
 	this.instance = await MainF.connect(deployer).deploy(...params);
-console.log(22222222222222222222222222222);
 	
 	console.log("Instance deployed at:", this.instance.address);
 	console.log("with params:", [..._params]);
