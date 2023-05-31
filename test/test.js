@@ -401,6 +401,38 @@ describe("TradedTokenInstance", function () {
                 ).to.be.revertedWith("Ownable: caller is not the owner");
             });
 
+            it("!!!should burn after presale end", async() => {
+                
+                // make snapshot before time manipulations
+                const snapId = await ethers.provider.send('evm_snapshot', []);
+                //console.log("make snapshot");
+    
+                
+                await Presale.setEndTime(timeUntil);
+
+                const tokenBefore = await mainInstance.balanceOf(Presale.address);
+                await mainInstance.connect(owner).presaleAdd(Presale.address, ONE_ETH, DAY);
+                const tokenAfter = await mainInstance.balanceOf(Presale.address);
+
+                expect(tokenBefore).to.be.eq(ZERO);
+                expect(tokenAfter).to.be.eq(ONE_ETH);
+
+                // pass time to clear bucket
+                await network.provider.send("evm_increaseTime", [parseInt(lockupIntervalAmount*DAY)]);
+                await network.provider.send("evm_mine");
+
+                const tokenBefore2 = await mainInstance.balanceOf(Presale.address);
+                await mainInstance.connect(owner).burnRemaining(Presale.address);
+                const tokenAfter2 = await mainInstance.balanceOf(Presale.address);
+
+                expect(tokenBefore2).to.be.eq(ONE_ETH);
+                expect(tokenAfter2).to.be.eq(ZERO);
+
+                // restore snapshot
+                await ethers.provider.send('evm_revert', [snapId]);
+                //console.log("revert to snapshot");
+            });
+
             describe("shouldnt presale if Presale contract invalid", function () {
                 it(" --- zero address", async() => {
                     await expect(
@@ -786,7 +818,7 @@ describe("TradedTokenInstance", function () {
                     
                 });
 
-                it("should preventPanic", async() => {
+                it("shouldn't preventPanic when transfer", async() => {
                     // make a test when Bob can send to Alice only 50% of their tokens through a day
 
                     const InitialSendFunds = ONE_ETH;
@@ -820,9 +852,11 @@ describe("TradedTokenInstance", function () {
                     const bobTokensAfterTransfer = await mainInstance.balanceOf(bob.address);
                     const aliceTokensAfterTransfer = await mainInstance.balanceOf(alice.address);
 
-
-                    expect(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION)).to.be.eq(bobTokensAfterTransfer);
-                    expect(bobTokensAfterClaim.add(smthFromOwner).sub(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION))).to.be.eq(aliceTokensAfterTransfer);
+                    //expect(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION)).to.be.eq(bobTokensAfterTransfer);
+                    //expect(bobTokensAfterClaim.add(smthFromOwner).sub(bobTokensAfterClaim.mul(RateForAlice).div(FRACTION))).to.be.eq(aliceTokensAfterTransfer);
+                    expect(bobTokensAfterTransfer).to.be.eq(ZERO);
+                    expect(bobTokensAfterClaim.add(smthFromOwner)).to.be.eq(aliceTokensAfterTransfer);
+                    
 
                     // try to send all that left
                     let tx = await mainInstance.connect(bob).transfer(alice.address, bobTokensAfterTransfer)
@@ -839,7 +873,10 @@ describe("TradedTokenInstance", function () {
                     ]
                     let event = rc.events.find(event => JSON.stringify(JSON.stringify(event.topics)).toLowerCase() === JSON.stringify(JSON.stringify(arr2compare)).toLowerCase());
                     let eventExists = (typeof(event) !== 'undefined') ? true : false;
-                    expect(eventExists).to.be.eq(true);
+
+                    expect(eventExists).to.be.eq(false);
+                    //expect(eventExists).to.be.eq(true);
+                    /*
                     if (eventExists) {
                         // address: '0x2d13826359803522cCe7a4Cfa2c1b582303DD0B4',
                         // topics: [
@@ -880,7 +917,7 @@ describe("TradedTokenInstance", function () {
                     
                     expect(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION).add(ONE)).to.be.eq(bobTokensAfterTransferAndTimePassed);
                     expect(aliceTokensBeforeTransferAndTimePassed.add(bobTokensBeforeTransferAndTimePassed.sub(ONE).sub(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION)))).to.be.eq(aliceTokensAfterTransferAndTimePassed);
-
+                    */
 
 
                         

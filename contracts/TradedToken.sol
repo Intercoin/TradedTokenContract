@@ -523,7 +523,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         //address from = _msgSender();
         //address msgSender = _msgSender();
 
-        amount = preventPanic(_msgSender(), recipient, amount);
         // inject into transfer and burn tax from sender
         // two ways:
         // 1. make calculations, burn taxes from sender and do transaction with substracted values
@@ -555,8 +554,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-    
-        amount = preventPanic(holder, recipient, amount);
         
         if(uniswapV2Pair == recipient) {
             if(!addedInitialLiquidityRun) {
@@ -570,6 +567,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 //     amount -= taxAmount;
                 //     _burn(holder, taxAmount, "", "");
                 // }
+
+                // prevent panic only if user will sell to uniswap
+                amount = preventPanic(holder, recipient, amount);
             }
         }
         
