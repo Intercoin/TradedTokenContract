@@ -400,13 +400,12 @@ describe("TradedTokenInstance", function () {
                     mainInstance.connect(bob).presaleAdd(Presale.address, ONE_ETH, timeUntil)
                 ).to.be.revertedWith("Ownable: caller is not the owner");
             });
-
-            it("!!!should burn after presale end", async() => {
+ 
+            it("should burn after presale end", async() => {
                 
                 // make snapshot before time manipulations
                 const snapId = await ethers.provider.send('evm_snapshot', []);
                 //console.log("make snapshot");
-    
                 
                 await Presale.setEndTime(timeUntil);
 
@@ -416,17 +415,27 @@ describe("TradedTokenInstance", function () {
 
                 expect(tokenBefore).to.be.eq(ZERO);
                 expect(tokenAfter).to.be.eq(ONE_ETH);
+                
+                // can be burn in the end( before an hour the endTime)
+                await mainInstance.connect(owner).burnRemaining(Presale.address);
+                const tokenAfter2 = await mainInstance.balanceOf(Presale.address);
+                expect(tokenAfter2).to.be.eq(tokenAfter);
 
-                // pass time to clear bucket
+                // pass in the end
                 await network.provider.send("evm_increaseTime", [parseInt(lockupIntervalAmount*DAY)]);
                 await network.provider.send("evm_mine");
 
-                const tokenBefore2 = await mainInstance.balanceOf(Presale.address);
+                const tokenBefore3 = await mainInstance.balanceOf(Presale.address);
                 await mainInstance.connect(owner).burnRemaining(Presale.address);
-                const tokenAfter2 = await mainInstance.balanceOf(Presale.address);
+                const tokenAfter3 = await mainInstance.balanceOf(Presale.address);
 
-                expect(tokenBefore2).to.be.eq(ONE_ETH);
-                expect(tokenAfter2).to.be.eq(ZERO);
+                expect(tokenBefore3).to.be.eq(ONE_ETH);
+                expect(tokenAfter3).to.be.eq(ZERO);
+
+                // also try to burn after burning)
+                await mainInstance.connect(owner).burnRemaining(Presale.address);
+                const tokenAfter4 = await mainInstance.balanceOf(Presale.address);
+                expect(tokenAfter4).to.be.eq(ZERO);
 
                 // restore snapshot
                 await ethers.provider.send('evm_revert', [snapId]);
@@ -1355,6 +1364,7 @@ describe("TradedTokenInstance", function () {
 
                     /////////////////////////////
                 });
+
                 
                 describe("Adding liquidity. synth", function () {
                     var snapId;
