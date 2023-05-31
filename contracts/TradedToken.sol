@@ -555,22 +555,28 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint256 amount
     ) public virtual override returns (bool) {
         
-        if(uniswapV2Pair == recipient) {
-            if(!addedInitialLiquidityRun) {
-                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
-                revert InitialLiquidityRequired();
-            }
-            if(holder != address(internalLiquidity)) {
-                amount = taxesCalc(holder, amount, sellTax());
-                // uint256 taxAmount = (amount * sellTax()) / FRACTION;
-                // if (taxAmount != 0) {
-                //     amount -= taxAmount;
-                //     _burn(holder, taxAmount, "", "");
-                // }
+        try IUniswapV2Pair(recipient).factory() returns (address f) {
+            if (f == uniswapRouterFactory) {
+                if(!addedInitialLiquidityRun) {
+                    // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                    revert InitialLiquidityRequired();
+                }
+                if(holder != address(internalLiquidity)) {
+                    amount = taxesCalc(holder, amount, sellTax());
+                    // uint256 taxAmount = (amount * sellTax()) / FRACTION;
+                    // if (taxAmount != 0) {
+                    //     amount -= taxAmount;
+                    //     _burn(holder, taxAmount, "", "");
+                    // }
 
-                // prevent panic only if user will sell to uniswap
-                amount = preventPanic(holder, recipient, amount);
+                    // prevent panic when user will sell to uniswap
+                    amount = preventPanic(holder, recipient, amount);
+                }
             }
+        } catch Error(string memory _err) {
+            // do nothing
+        } catch (bytes memory _err) {
+            // do nothing, this can happen when sending to EOA etc.
         }
         
         holdersCheckBeforeTransfer(holder, recipient, amount);
