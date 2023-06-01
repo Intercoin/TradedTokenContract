@@ -8,10 +8,12 @@ require("./docgen-custom-markdown")
 require('hardhat-deploy')
 require("@nomiclabs/hardhat-waffle")
 require("@nomiclabs/hardhat-web3")
-require("@nomiclabs/hardhat-etherscan")
+//require("@nomiclabs/hardhat-etherscan")
+require('@nomicfoundation/hardhat-verify');
 require("solidity-coverage")
 require("hardhat-gas-reporter")
 require('hardhat-contract-sizer');
+
 
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
@@ -59,7 +61,14 @@ module.exports = {
       url: bscURL,
       chainId: 56,
       gasPrice: "auto",
-      accounts: [process.env.private_key],
+      //accounts: [process.env.private_key],
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_claim
+      ],
       saveDeployments: true
     },
     bsctest: {
@@ -69,18 +78,26 @@ module.exports = {
       accounts: [process.env.private_key],
       saveDeployments: true
     },
-    matic: {
+    polygon: {
       url: maticURL,
       chainId: 137,
       gasPrice: "auto",
-      accounts: [process.env.private_key],
+      //accounts: [process.env.private_key],
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_claim
+      ],
       saveDeployments: true
     },
-    mumbai: { // matic test
+    polygonMumbai: { // matic test
       url: mumbaiURL,
       chainId: 80001,
       gasPrice: "auto",
-      accounts: [process.env.private_key],
+      //accounts: [process.env.private_key],
+      accounts: [process.env.private_key_auxiliary],
       saveDeployments: true
     },
     mainnet: {
@@ -103,9 +120,16 @@ module.exports = {
     currency: "USD"
   },
   etherscan: {
-    apiKey: process.env.MATIC_API_KEY  
+    //apiKey: process.env.MATIC_API_KEY  
     //apiKey: process.env.ETHERSCAN_API_KEY
     //apiKey: process.env.BSCSCAN_API_KEY
+    apiKey: {
+      polygon: process.env.MATIC_API_KEY,
+      polygonMumbai: process.env.MATIC_API_KEY,
+      mainnet: process.env.ETHERSCAN_API_KEY,
+      bsctest: process.env.BSCSCAN_API_KEY,
+      bsc: process.env.BSCSCAN_API_KEY
+    }
   },
   solidity: {
     compilers: [
