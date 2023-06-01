@@ -556,7 +556,13 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     ) public virtual override returns (bool) {
         
         try IUniswapV2Pair(recipient).factory() returns (address f) {
-            if (f == uniswapRouterFactory) {
+            if (
+                (f == uniswapRouterFactory) &&
+                (
+                    IUniswapV2Pair(recipient).token0() == address(this) || 
+                    IUniswapV2Pair(recipient).token1() == address(this)
+                )
+            ) {
                 if(!addedInitialLiquidityRun) {
                     // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
                     revert InitialLiquidityRequired();
