@@ -81,7 +81,7 @@ module.exports = {
     polygon: {
       url: maticURL,
       chainId: 137,
-      gasPrice: "auto",
+      //gasPrice: "auto",
       //accounts: [process.env.private_key],
       accounts: [
         process.env.private_key,
@@ -104,7 +104,14 @@ module.exports = {
       url: mainnetURL,
       chainId: 1,
       gasPrice: 20000000000,
-      accounts: [process.env.private_key],
+      //accounts: [process.env.private_key],
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_claim
+      ],
       saveDeployments: true
     }
   },

@@ -10,7 +10,7 @@ async function main() {
     if (signers.length == 1) {
         deployer = signers[0];
     } else {
-        [,,deployer] = signers;
+        [,deployer,,deployer_qbix] = signers;
     }
 
 
@@ -32,27 +32,43 @@ async function main() {
 
 	console.log("Account balance:", (await deployer.getBalance()).toString());
 
-	const TaxesLib = await ethers.getContractFactory("TaxesLib");
-	const library = await TaxesLib.deploy();
-	await library.deployed();
 
-	const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
-	const library2 = await SwapSettingsLib.deploy();
-	await library2.deployed();
+	// const TaxesLib = await ethers.getContractFactory("TaxesLib");
+	// const library = await TaxesLib.deploy();
+	// await library.deployed();
+
+	// const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
+	// const library2 = await SwapSettingsLib.deploy();
+	// await library2.deployed();
+
+	// const MainF = await ethers.getContractFactory("TradedToken",  {
+	// 	libraries: {
+	// 		TaxesLib:library.address,
+	// 		SwapSettingsLib:library2.address
+	// 	}
+	// });
+
+	console.log(
+		"Deploying contracts with the account:",
+		deployer_qbix.address
+	);
+	console.log("Account balance:", (await deployer_qbix.getBalance()).toString());
+	const networkName = hre.network.name;
+	const libs = require('./libraries/'+networkName+'/list.js');
 
 	const MainF = await ethers.getContractFactory("TradedToken",  {
 		libraries: {
-			TaxesLib:library.address,
-			SwapSettingsLib:library2.address
+			TaxesLib:libs.TaxesLib,
+			SwapSettingsLib:libs.SwapSettingsLib
 		}
 	});
 
-console.log([...params]);
-	this.instance = await MainF.connect(deployer).deploy(...params);
+	this.instance = await MainF.connect(deployer_qbix).deploy(...params);
 	
 	console.log("Instance deployed at:", this.instance.address);
-	console.log("with params:", [..._params]);
-	console.log("TaxesLib.library deployed at:", library.address);
+	console.log("with params:", [...paramArguments]);
+	console.log("TaxesLib.library deployed at:", libs.TaxesLib);
+	console.log("SwapSettingsLib.library deployed at:", libs.SwapSettingsLib);
 
 }
 

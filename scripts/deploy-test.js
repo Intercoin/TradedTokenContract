@@ -1,16 +1,16 @@
 const fs = require('fs');
 const hre = require('hardhat');
-const paramArguments = require('./arguments-itr.js');
+const paramArguments = require('./arguments-test.js');
 
 async function main() {
 
 	//const [deployer] = await ethers.getSigners();
 	var signers = await ethers.getSigners();
-    var deployer, deployer_itr;
+    var deployer;
     if (signers.length == 1) {
         deployer = signers[0];
     } else {
-        [,deployer,deployer_itr] = signers;
+        [,,deployer] = signers;
     }
 
 
@@ -33,13 +33,13 @@ async function main() {
 	console.log("Account balance:", (await deployer.getBalance()).toString());
 
 	const TaxesLib = await ethers.getContractFactory("TaxesLib");
-	const library = await TaxesLib.connect(deployer).deploy();
+	const library = await TaxesLib.deploy();
 	await library.deployed();
-console.log("Account balance:", (await deployer.getBalance()).toString());
+
 	const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
-	const library2 = await SwapSettingsLib.connect(deployer).deploy();
+	const library2 = await SwapSettingsLib.deploy();
 	await library2.deployed();
-console.log("Account balance:", (await deployer.getBalance()).toString());
+
 	const MainF = await ethers.getContractFactory("TradedToken",  {
 		libraries: {
 			TaxesLib:library.address,
@@ -47,13 +47,11 @@ console.log("Account balance:", (await deployer.getBalance()).toString());
 		}
 	});
 
-
-	this.instance = await MainF.connect(deployer_itr).deploy(...params);
-console.log("Account balance:", (await deployer.getBalance()).toString());	
+	this.instance = await MainF.connect(deployer).deploy(...params);
+	
 	console.log("Instance deployed at:", this.instance.address);
 	console.log("with params:", [...paramArguments]);
 	console.log("TaxesLib.library deployed at:", library.address);
-	console.log("SwapSettingsLib.library deployed at:", library2.address);
 
 }
 

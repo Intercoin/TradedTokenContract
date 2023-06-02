@@ -4,6 +4,8 @@
   "description": "A straightforward token contract for early investors to gradually begin selling on public exchanges",
   "main": "index.js",
   "scripts": {
+    "t1": "npx hardhat verify --libraries ./scripts/libraries/polygon/list.js --constructor-args ./scripts/arguments-itr.js 0x1111158f88410DA5F92c7E34c01e7B8649Bc0155 --network polygon",
+    "t2": "npx hardhat verify --libraries ./scripts/libraries/bsc/list.js --constructor-args ./scripts/arguments-itr.js 0x1111158f88410DA5F92c7E34c01e7B8649Bc0155 --network bsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

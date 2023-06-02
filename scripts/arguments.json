@@ -1,0 +1,27 @@
+{
+  "hardhat": {
+    "time_created": 1685705981550,
+    "claimManagerUpgradeable": "0x3c705dB336C81c7FEFC5746e283aB2c0781A4B7b",
+    "time_updated": 1685706679741,
+    "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671"
+  },
+  "time_updated": 1685710690054,
+  "polygonMumbai": {
+    "time_created": 1685708032483,
+    "claimManagerUpgradeable": "0x6bdb34d8DcbFb402935Ff613843c4A07CACC4bc8",
+    "releaseManager": "0x7d86f9a019e80a8a928bfc3bf65f993955bb0152",
+    "time_updated": 1685708513312
+  },
+  "polygon": {
+    "time_created": 1685710242247,
+    "claimManagerUpgradeable": "0x192D5F66e9daD72E62eA2426a86d6Ea4f72E9946",
+    "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
+    "time_updated": 1685710245778
+  },
+  "bsc": {
+    "time_created": 1685710682945,
+    "claimManagerUpgradeable": "0xcd240d3a06a2C8447Dd0505fE5079727a3c1eE3E",
+    "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
+    "time_updated": 1685710690054
+  }
+}

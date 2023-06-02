@@ -31,7 +31,9 @@ async function main() {
     } else if (typeof data_object_root[hre.network.name] === 'undefined') {
 		throw("Arguments file: missed network data");
     }
+
 	data_object = data_object_root[hre.network.name];
+
 	if (
 		typeof data_object.claimManagerUpgradeable === 'undefined' ||
 		!data_object.claimManagerUpgradeable ||
@@ -39,9 +41,10 @@ async function main() {
 	) {
 		throw("Arguments file: wrong addresses");
 	}
-    
-	const [deployer] = await ethers.getSigners();
+   
+	//const [deployer] = await ethers.getSigners();
 	var signers = await ethers.getSigners();
+
     var deployer;
     if (signers.length == 1) {
         deployer = signers[0];
