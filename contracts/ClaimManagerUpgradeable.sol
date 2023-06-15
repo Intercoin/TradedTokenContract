@@ -93,7 +93,7 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
         ClaimSettings memory claimSettings,
         address costManager_,
         address producedBy_
-    ) external onlyInitializing {
+    ) external initializer {
 
         __CostManagerHelper_init(msg.sender);
         _setCostManager(costManager_);

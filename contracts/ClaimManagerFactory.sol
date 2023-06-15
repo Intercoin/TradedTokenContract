@@ -131,8 +131,6 @@ contract ClaimManagerFactory is Ownable, CostManagerFactoryHelper, ReleaseManage
             _msgSender()
         );
 
-        Ownable(instance).transferOwnership(_msgSender());
-
         // register instance in release manager
         registerInstance(instance);
     }
@@ -166,8 +164,6 @@ contract ClaimManagerFactory is Ownable, CostManagerFactoryHelper, ReleaseManage
             costManager,
             _msgSender()
         );
-
-        Ownable(instance).transferOwnership(_msgSender());
 
         // register instance in release manager
         registerInstance(instance);
