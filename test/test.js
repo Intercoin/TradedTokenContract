@@ -338,26 +338,26 @@ describe("TradedTokenInstance", function () {
         it("should add managers", async() => {
 
             await expect(
-                mainInstance.connect(bob).addManagers(charlie.address)
+                mainInstance.connect(bob).addManager(charlie.address)
             ).to.be.revertedWith("Ownable: caller is not the owner");
 
             expect(await mainInstance.connect(owner).managers(bob.address)).to.be.eq(ZERO);
-            await mainInstance.connect(owner).addManagers(bob.address);
+            await mainInstance.connect(owner).addManager(bob.address);
             expect(await mainInstance.connect(owner).managers(bob.address)).not.to.be.eq(ZERO);
 
             await expect(
-                mainInstance.connect(bob).addManagers(charlie.address)
+                mainInstance.connect(bob).addManager(charlie.address)
             ).to.be.revertedWith("Ownable: caller is not the owner");
         });
 
         it("should remove managers", async() => {
-            await mainInstance.connect(owner).addManagers(alice.address);
+            await mainInstance.connect(owner).addManager(alice.address);
 
             await expect(
                 mainInstance.connect(bob).removeManagers([alice.address])
             ).to.be.revertedWith("Ownable: caller is not the owner");
 
-            await mainInstance.connect(owner).addManagers(bob.address);
+            await mainInstance.connect(owner).addManager(bob.address);
             await expect(
                 mainInstance.connect(bob).removeManagers([alice.address])
             ).to.be.revertedWith("Ownable: caller is not the owner");
@@ -397,7 +397,7 @@ describe("TradedTokenInstance", function () {
             it("shouldnt presale if caller is not owner", async() => {
                 
                 await expect(
-                    mainInstance.connect(bob).presaleAdd(Presale.address, ONE_ETH, timeUntil)
+                    mainInstance.connect(bob).startPresale(Presale.address, ONE_ETH, timeUntil)
                 ).to.be.revertedWith("Ownable: caller is not the owner");
             });
  
@@ -410,7 +410,7 @@ describe("TradedTokenInstance", function () {
                 await Presale.setEndTime(timeUntil);
 
                 const tokenBefore = await mainInstance.balanceOf(Presale.address);
-                await mainInstance.connect(owner).presaleAdd(Presale.address, ONE_ETH, DAY);
+                await mainInstance.connect(owner).startPresale(Presale.address, ONE_ETH, DAY);
                 const tokenAfter = await mainInstance.balanceOf(Presale.address);
 
                 expect(tokenBefore).to.be.eq(ZERO);
@@ -445,12 +445,12 @@ describe("TradedTokenInstance", function () {
             describe("shouldnt presale if Presale contract invalid", function () {
                 it(" --- zero address", async() => {
                     await expect(
-                        mainInstance.connect(owner).presaleAdd(ZERO_ADDRESS, ONE_ETH, timeUntil)
+                        mainInstance.connect(owner).startPresale(ZERO_ADDRESS, ONE_ETH, timeUntil)
                     ).to.be.revertedWith('Transaction reverted: function returned an unexpected amount of data');
                 });
                 it(" --- eoa address", async() => {
                     await expect(
-                        mainInstance.connect(owner).presaleAdd(bob.address, ONE_ETH, timeUntil)
+                        mainInstance.connect(owner).startPresale(bob.address, ONE_ETH, timeUntil)
                     ).to.be.revertedWith('Transaction reverted: function returned an unexpected amount of data');
                 });
                 it(" --- without endTime method", async() => {
@@ -458,7 +458,7 @@ describe("TradedTokenInstance", function () {
                     let presaleBad1 = await PresaleBad1F.deploy();
 
                     await expect(
-                        mainInstance.connect(owner).presaleAdd(presaleBad1.address, ONE_ETH, timeUntil)
+                        mainInstance.connect(owner).startPresale(presaleBad1.address, ONE_ETH, timeUntil)
                     ).to.be.revertedWith("Transaction reverted: function selector was not recognized and there's no fallback function");
                 });
                 xit(" --- endTime have wrong output", async() => {
@@ -466,7 +466,7 @@ describe("TradedTokenInstance", function () {
                     let presaleBad2 = await PresaleBad2F.deploy();
 
                     await expect(
-                        mainInstance.connect(owner).presaleAdd(presaleBad2.address, ONE_ETH, timeUntil)
+                        mainInstance.connect(owner).startPresale(presaleBad2.address, ONE_ETH, timeUntil)
                     ).to.be.revertedWith("Transaction reverted: function selector was not recognized and there's no fallback function");
                 });
                 it(" --- fallback method only", async() => {
@@ -474,7 +474,7 @@ describe("TradedTokenInstance", function () {
                     let presaleBad3 = await PresaleBad3F.deploy();
 
                     await expect(
-                        mainInstance.connect(owner).presaleAdd(presaleBad3.address, ONE_ETH, timeUntil)
+                        mainInstance.connect(owner).startPresale(presaleBad3.address, ONE_ETH, timeUntil)
                     ).to.be.revertedWith('Transaction reverted: function returned an unexpected amount of data');
                 });
                 // it(" --- without wrong signature endTime", async() => {});
@@ -538,7 +538,7 @@ describe("TradedTokenInstance", function () {
                 let ts = await time.latest();
                 let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
                 await expect(
-                    mainInstance.connect(owner).presaleAdd(alice.address, ONE_ETH, timeUntil)
+                    mainInstance.connect(owner).startPresale(alice.address, ONE_ETH, timeUntil)
                 ).to.be.revertedWith("BeforeInitialLiquidityRequired()");
             });
 
@@ -581,7 +581,7 @@ describe("TradedTokenInstance", function () {
                     mainInstance.connect(bob).restrictClaiming([ONE_ETH, 1])
                 ).to.be.revertedWith("ManagersOnly()");
 
-                await mainInstance.connect(owner).addManagers(bob.address);
+                await mainInstance.connect(owner).addManager(bob.address);
                 await expect(
                     mainInstance.connect(bob).restrictClaiming([ONE_ETH, 0])
                 ).to.be.revertedWith("ZeroDenominator()");
@@ -590,14 +590,14 @@ describe("TradedTokenInstance", function () {
             
 
             it("shouldnt price grow too fast", async() => {
-                await mainInstance.connect(owner).addManagers(bob.address);
+                await mainInstance.connect(owner).addManager(bob.address);
                 await expect(
                     mainInstance.connect(bob).restrictClaiming([ONE, HUN])
                 ).to.be.revertedWith("MinClaimPriceGrowTooFast()");
             });
 
             it("shouldnt price less than setup before", async() => {
-                await mainInstance.connect(owner).addManagers(bob.address);
+                await mainInstance.connect(owner).addManager(bob.address);
 
                 let minClaimPriceUpdatedTime = await mainInstance.getMinClaimPriceUpdatedTime();
                 
@@ -622,7 +622,7 @@ describe("TradedTokenInstance", function () {
                     await network.provider.send("evm_increaseTime", [claimFrequency]);
                     await network.provider.send("evm_mine");
 
-                    await mainInstance.connect(owner).addManagers(claimManager.address);
+                    await mainInstance.connect(owner).addManager(claimManager.address);
                 });
 
                     
@@ -700,7 +700,7 @@ describe("TradedTokenInstance", function () {
                     describe("make claimManager as a manager", function () {
                         beforeEach("before", async() => {
                             //await claimManager.connect(bob).wantToClaim(ONE_ETH);
-                            await mainInstance.connect(owner).addManagers(claimManager.address);
+                            await mainInstance.connect(owner).addManager(claimManager.address);
                         });
                         
                         it("should claim", async() => {
@@ -827,7 +827,7 @@ describe("TradedTokenInstance", function () {
                     
                 });
 
-                it("shouldn't preventPanic when transfer", async() => {
+                it("shouldn't _preventPanic when transfer", async() => {
                     // make a test when Bob can send to Alice only 50% of their tokens through a day
 
                     const InitialSendFunds = ONE_ETH;
@@ -959,7 +959,7 @@ describe("TradedTokenInstance", function () {
                     // send a little
                     await mainInstance.connect(owner).claim(smthFromOwner, charlie.address);
 
-                    await mainInstance.connect(owner).addManagers(bob.address);
+                    await mainInstance.connect(owner).addManager(bob.address);
                     await mainInstance.connect(bob).claim(ONE_ETH, bob.address);
                     
                     await expect(mainInstance.connect(bob).transfer(charlie.address,ONE_ETH)).to.be.revertedWith("InsufficientAmount()");
@@ -1421,7 +1421,7 @@ describe("TradedTokenInstance", function () {
                         expect(await erc20ReservedToken.balanceOf(internalLiquidityAddress)).to.be.lt(TEN);
                     });
 
-                    it("should preventPanic", async() => {
+                    it("should _preventPanic", async() => {
 
                         const uniswapV2Pair = await mainInstance.uniswapV2Pair();
 

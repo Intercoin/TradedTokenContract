@@ -55,7 +55,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     TaxesLib.TaxesInfo public taxesInfo;
 
     struct Bucket {
-        uint256 alreadySentInCurrentBucket;
+        uint256 minimumBalance;
         uint64 lastBucketTime;
     }
     mapping (address => Bucket) private _buckets;
@@ -600,7 +600,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                     amount = _burnTaxes(holder, amount, sellTax());
 
                     // prevent panic when user will sell to uniswap
-                    amount = preventPanic(holder, recipient, amount);
+                    amount = _preventPanic(holder, recipient, amount);
                 }
             }
         } catch Error(string memory _err) {
@@ -696,7 +696,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
     
-    function preventPanic(
+    function _preventPanic(
         address holder,
         address recipient,
         uint256 amount
@@ -716,32 +716,23 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
         
         uint256 currentBalance = balanceOf(holder);
-        uint256 max = currentBalance * panicSellRateLimit.fraction / FRACTION;
 
         uint32 duration = panicSellRateLimit.duration;
         duration = (duration == 0) ? 1 : duration; // make no sense if duration eq 0      
-
-        adjustedAmount = amount;
         
         if (block.timestamp / duration * duration > _buckets[recipient].lastBucketTime) {
-            _buckets[recipient].lastBucketTime = uint64(block.timestamp);
-            _buckets[recipient].alreadySentInCurrentBucket = 0;
+            _buckets[holder].lastBucketTime = uint64(block.timestamp);
+            _buckers[holder].minimumBalance = currentBalance * (FRACTION - panicSellRateLimit.fraction) / FRACTION;
         }
         
-        if (max <= _buckets[recipient].alreadySentInCurrentBucket) {
+        if (currentBalance <= _buckets[holder].minimumBalance) {
             emit PanicSellRateExceeded(holder, recipient, amount);
             return 5;
         }
 
-        if (_buckets[recipient].alreadySentInCurrentBucket + amount <= max) {
-            // proceed with transfer normally
-            _buckets[recipient].alreadySentInCurrentBucket += amount;
-            
-        } else {
-
-            adjustedAmount = max - _buckets[recipient].alreadySentInCurrentBucket;
-            _buckets[recipient].alreadySentInCurrentBucket = max;
-        }
+        return currentBalance - amount >= _buckets[holder].minimumBalance
+            ? amount
+            : (currentBalance - _buckets[holder].minimumBalance);
     }
 
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
