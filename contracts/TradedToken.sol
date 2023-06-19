@@ -737,7 +737,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
-        if ((balanceOf(to) == 0) && (balanceOf(to) + amount >= holdersThreshold)) {
+        if (balanceOf(to) < holdersThreshold && (balanceOf(to) + amount >= holdersThreshold)) {
             ++holdersCount;
 
             if (holdersMax != 0) {
