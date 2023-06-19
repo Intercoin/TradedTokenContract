@@ -737,7 +737,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
-        if (balanceOf(to) == 0) {
+        if ((balanceOf(to) == 0) && (balanceOf(to) + amount >= holdersThreshold)) {
             ++holdersCount;
 
             if (holdersMax != 0) {
@@ -752,13 +752,16 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             }
             
         }
-        if (balanceOf(from) <= amount - holdersThreshold
-        && from != address(0)) {
-            --holdersCount;
-        }
-        
-        if (holdersCount > holdersMax && holdersMax > 0) {
-            revert MaxHoldersCountExceeded(holdersMax);
+        if (balanceOf(from) < amount) {
+            //revertted in trasferfrom or trasfer methods
+        } else {
+            if (balanceOf(from) - amount < holdersThreshold && from != address(0)) {
+                --holdersCount;
+            }
+            
+            if (holdersCount > holdersMax && holdersMax > 0) {
+                revert MaxHoldersCountExceeded(holdersMax);
+            }
         }
     }
     // either owner or managers
