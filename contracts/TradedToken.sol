@@ -190,7 +190,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @param claimSettings struct of claim settings
      * @param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
      * @param claimSettings.minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
-     * @param panicSellRateLimit_ (fraction, duration) Implemented a bucket system to limit the increasing selling rate.
+     * @param panicSellRateLimit_ (fraction, duration) if fraction != 0, can sell at most this fraction of balance per interval with this duration
      * @param buyTaxMax_ buyTaxMax_
      * @param sellTaxMax_ sellTaxMax_
      * @param holdersMax_ the maximum number of holders, may be increased by owner later
