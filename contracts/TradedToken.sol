@@ -148,7 +148,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     event PresaleTokensBurned(address account, uint256 burnedAmount);
     event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
     event IncreasedHoldersMax(uint16 newHoldersMax);
-    event IncreasedHoldersThreshold(uint16 newHoldersThreshold);
+    event IncreasedHoldersThreshold(uint256 newHoldersThreshold);
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
@@ -308,7 +308,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     /**
      * @notice used to add a manager to the contract, who can
      *   take certain actions even after ownership is renounced
-     * @param address the manager's address
+     * @param manager the manager's address
      */
     function addManager(
         address manager
@@ -325,7 +325,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     /**
      * @notice used to remove a manager to the contract, who can
      *   take certain actions even after ownership is renounced
-     * @param address array of manager addresses
+     * @param managers_ array of manager addresses
      */
     function removeManagers(
         address[] memory managers_
@@ -374,12 +374,12 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @notice increase the threshold of what counts as a holder.
      *   By default, the threshold is 0, meaning any nonzero balance
      *   makes someone a holder.
-     * @param newMax The new maximum amount of holders, must be higher than before
+     * @param newThreshold The new threshold
      * @custom:calledby owner
      */
-    function increaseHoldersThreshold(uint16 newThreshold) external onlyOwner {
+    function increaseHoldersThreshold(uint256 newThreshold) external onlyOwner {
         if (newThreshold > holdersThreshold) {
-            holdersMax = newMax;
+            holdersThreshold = newThreshold;
             emit IncreasedHoldersThreshold(holdersThreshold);
         }        
     }
@@ -389,7 +389,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      *   which enables trading to take place. Subsequent liquidity
      *   can be added gradually by calling addLiquidity.
      *   Only callable by owner or managers.
-     * @param newMax The new maximum amount of holders, must be higher than before
+     * @param amountTradedToken initial amount of traded tokens
+     * @param amountReserveToken initial amount of reserve tokens
      * @custom:calledby owner or managers
      */
     function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external {
