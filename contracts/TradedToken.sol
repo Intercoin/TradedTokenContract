@@ -720,12 +720,12 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
         uint32 duration = panicSellRateLimit.duration;
         duration = (duration == 0) ? 1 : duration; // make no sense if duration eq 0      
-        
-        if (block.timestamp / duration * duration > _buckets[recipient].lastBucketTime) {
+
+        if (block.timestamp / duration * duration > _buckets[holder].lastBucketTime) {
             _buckets[holder].lastBucketTime = uint64(block.timestamp);
             _buckets[holder].minimumBalance = currentBalance * (FRACTION - panicSellRateLimit.fraction) / FRACTION;
         }
-        
+
         if (currentBalance <= _buckets[holder].minimumBalance) {
             emit PanicSellRateExceeded(holder, recipient, amount);
             return 5;
