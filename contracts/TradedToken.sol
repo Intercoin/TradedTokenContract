@@ -727,7 +727,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             --holdersCount;
         }
         
-        if (holdersCount > holdersMax || holdersMax == 0) {
+        if (holdersCount > holdersMax && holdersMax > 0) {
             revert MaxHoldersCountExceeded(holdersMax);
         }
     }
