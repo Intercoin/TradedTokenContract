@@ -737,7 +737,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
-        if (balanceOf(to) < holdersThreshold && (balanceOf(to) + amount >= holdersThreshold)) {
+        if (to != address(0)
+        && balanceOf(to) < holdersThreshold
+        && (balanceOf(to) + amount >= holdersThreshold)) {
             ++holdersCount;
 
             if (holdersMax != 0) {
@@ -746,21 +748,23 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 // here we exclude transactions such as:
                 // 1. address(this) -> internalLiquidity
                 // 2. internalLiquidity -> uniswap
-                if (from != address(this) && from != address(internalLiquidity) && from != address(0)) {
+                if (from != address(this)
+                && from != address(internalLiquidity)
+                && from != address(0)) {
                     onlyOwnerAndManagers();
+                }
+                if (holdersCount > holdersMax) {
+                    revert MaxHoldersCountExceeded(holdersMax);
                 }
             }
             
         }
         if (balanceOf(from) < amount) {
-            //revertted in trasferfrom or trasfer methods
+            // will revert inside transferFrom or transfer method
         } else {
-            if (balanceOf(from) - amount < holdersThreshold && from != address(0)) {
+            if (from != address(0)
+            && balanceOf(from) - amount < holdersThreshold) {
                 --holdersCount;
-            }
-            
-            if (holdersCount > holdersMax && holdersMax > 0) {
-                revert MaxHoldersCountExceeded(holdersMax);
             }
         }
     }
