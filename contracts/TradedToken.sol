@@ -55,7 +55,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     TaxesLib.TaxesInfo public taxesInfo;
 
     struct Bucket {
-        uint256 minimumBalance;
+        uint256 remainingToSell;
         uint64 lastBucketTime;
     }
     mapping (address => Bucket) private _buckets;
@@ -598,10 +598,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                     revert InitialLiquidityRequired();
                 }
                 if(holder != address(internalLiquidity)) {
-                    amount = _burnTaxes(holder, amount, sellTax());
-
                     // prevent panic when user will sell to uniswap
                     amount = _preventPanic(holder, recipient, amount);
+                    // burn taxes from remainder
+                    amount = _burnTaxes(holder, amount, sellTax());
                 }
             }
         } catch Error(string memory _err) {
@@ -628,7 +628,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             amount -= taxAmount;
             _burn(holder, taxAmount, "", "");
         }
-        return amount;
+        return amount > 1 ? amount : 1; // to avoid transferring 0 in edge cases, transfer a tiny amount
     }
 
    /**
@@ -723,17 +723,18 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
         if (block.timestamp / duration * duration > _buckets[holder].lastBucketTime) {
             _buckets[holder].lastBucketTime = uint64(block.timestamp);
-            _buckets[holder].minimumBalance = currentBalance * (FRACTION - panicSellRateLimit.fraction) / FRACTION;
+            _buckets[holder].remainingToSell = currentBalance * panicSellRateLimit.fraction / FRACTION;
         }
 
-        if (currentBalance <= _buckets[holder].minimumBalance) {
+        if (_buckets[holder]remainingToSell == 0) {
             emit PanicSellRateExceeded(holder, recipient, amount);
             return 5;
+        } else if (_buckets[holder]remainingToSell > amount) {
+            _buckets[holder].remainingToSell -= amount;
+            return amount;
+        } else {
+            return _buckets[holder].remainingToSell;
         }
-
-        return currentBalance - amount >= _buckets[holder].minimumBalance
-            ? amount
-            : (currentBalance - _buckets[holder].minimumBalance);
     }
 
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
