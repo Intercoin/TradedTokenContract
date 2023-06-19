@@ -722,7 +722,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         
         if (block.timestamp / duration * duration > _buckets[recipient].lastBucketTime) {
             _buckets[holder].lastBucketTime = uint64(block.timestamp);
-            _buckers[holder].minimumBalance = currentBalance * (FRACTION - panicSellRateLimit.fraction) / FRACTION;
+            _buckets[holder].minimumBalance = currentBalance * (FRACTION - panicSellRateLimit.fraction) / FRACTION;
         }
         
         if (currentBalance <= _buckets[holder].minimumBalance) {
