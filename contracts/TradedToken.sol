@@ -567,6 +567,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 revert InitialLiquidityRequired();
             }
             amount = _burnTaxes(_msgSender(), amount, buyTax());
+        } else {
+            amount = _handleTransferToUniswap(_msgSender(), recipient, amount);
         }
 
         holdersCheckBeforeTransfer(_msgSender(), recipient, amount);
@@ -591,24 +593,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint256 amount
     ) public virtual override returns (bool) {
         
-        try IUniswapV2Pair(recipient).factory() returns (address f) {
-            if (f == uniswapRouterFactory) {
-                if(!addedInitialLiquidityRun) {
-                    // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
-                    revert InitialLiquidityRequired();
-                }
-                if(holder != address(internalLiquidity)) {
-                    // prevent panic when user will sell to uniswap
-                    amount = _preventPanic(holder, recipient, amount);
-                    // burn taxes from remainder
-                    amount = _burnTaxes(holder, amount, sellTax());
-                }
-            }
-        } catch Error(string memory _err) {
-            // do nothing
-        } catch (bytes memory _err) {
-            // do nothing, this can happen when sending to EOA etc.
-        }
+        amount = _handleTransferToUniswap(holder, recipient, amount);
         
         holdersCheckBeforeTransfer(holder, recipient, amount);
         
@@ -921,6 +906,29 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupDays, LOCKUP_INTERVAL, true);
         }
 
+    }
+
+    function _handleTransferToUniswap(address holder, address recipient, uint256 amount) private returns(uint256) {
+        try IUniswapV2Pair(recipient).factory() returns (address f) {
+            if (f != uniswapRouterFactory) {
+                return amount;
+            }
+            if(!addedInitialLiquidityRun) {
+                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                revert InitialLiquidityRequired();
+            }
+            if(holder != address(internalLiquidity)) {
+                // prevent panic when user will sell to uniswap
+                amount = _preventPanic(holder, recipient, amount);
+                // burn taxes from remainder
+                amount = _burnTaxes(holder, amount, sellTax());
+            }
+        } catch Error(string memory _err) {
+            // do nothing
+        } catch (bytes memory _err) {
+            // do nothing, this can happen when sending to EOA etc.
+        }
+        return amount;
     }
 
     function _mint(
