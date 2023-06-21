@@ -88,6 +88,10 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
     // Constants representing operations
     uint8 internal constant OPERATION_INITIALIZE = 0x0;
 
+    constructor() {
+        _disableInitializers();
+    }
+    
     function initialize(
         address tradedToken_,
         ClaimSettings memory claimSettings,
