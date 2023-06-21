@@ -171,6 +171,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
     error MaxHoldersCountExceeded(uint256 count);
+    error InvalidSellRateLimitFraction();
 
     /**
      * @param tokenName_ token name
@@ -240,6 +241,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             revert reserveTokenInvalid();
         }
 
+        if (reserveToken_ == address(0)) {
+            revert EmptyAddress();
+        }
+
         // check inputs
         if (uniswapRouter == address(0) || uniswapRouterFactory == address(0)) {
             revert EmptyAddress();
@@ -247,6 +252,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
        
         if (buyTaxMax > FRACTION || sellTaxMax > FRACTION) {
             revert TaxesTooHigh();
+        }
+
+        if (panicSellRateLimit_.fraction > FRACTION) {
+            revert InvalidSellRateLimitFraction();
         }
         
 
