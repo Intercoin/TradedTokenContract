@@ -723,34 +723,44 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
-        if (to != address(0)
-        && balanceOf(to) < holdersThreshold
-        && (balanceOf(to) + amount >= holdersThreshold)) {
-            ++holdersCount;
+        
+        if (to != address(0)) {
+        
+            uint256 toBalanceOf = balanceOf(to);
 
-            if (holdersMax != 0) {
-                // onlyOwnerAndManagers and internalliquidity
-                // send tokens to new users available only for managers and owner
-                // here we exclude transactions such as:
-                // 1. address(this) -> internalLiquidity
-                // 2. internalLiquidity -> uniswap
-                if (from != address(this)
-                && from != address(internalLiquidity)
-                && from != address(0)) {
-                    onlyOwnerAndManagers();
-                }
-                if (holdersCount > holdersMax) {
-                    revert MaxHoldersCountExceeded(holdersMax);
+            if (
+                toBalanceOf <= holdersThreshold && 
+                toBalanceOf + amount > holdersThreshold           
+            ) {
+
+                ++holdersCount;
+
+                if (holdersMax != 0) {
+                    // onlyOwnerAndManagers and internalliquidity
+                    // send tokens to new users available only for managers and owner
+                    // here we exclude transactions such as:
+                    // 1. address(this) -> internalLiquidity
+                    // 2. internalLiquidity -> uniswap
+                    if (from != address(this)
+                    && from != address(internalLiquidity)
+                    && from != address(0)) {
+                        onlyOwnerAndManagers();
+                    }
+                    
+                    if (holdersCount > holdersMax) {
+                        revert MaxHoldersCountExceeded(holdersMax);
+                    }
                 }
             }
-            
         }
-        if (balanceOf(from) < amount) {
-            // will revert inside transferFrom or transfer method
-        } else {
-            if (from != address(0)
-            && balanceOf(from) - amount < holdersThreshold) {
-                --holdersCount;
+
+        if (from != address(0)) {
+            if (balanceOf(from) < amount) {
+                // will revert inside transferFrom or transfer method
+            } else {
+                if (balanceOf(from) - amount <= holdersThreshold) {
+                    --holdersCount;
+                }
             }
         }
     }
