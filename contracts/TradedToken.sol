@@ -68,8 +68,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
-
-    address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
     
     uint64 public claimsEnabledTime;
   
@@ -124,7 +122,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     uint256 public holdersThreshold;
     uint16 public holdersMax;
     uint16 public holdersCount;
-    uint256 internal constant numDen =  18446744073709551616;//2 ** 64;
 
     uint256 public totalCumulativeClaimed;
 
@@ -149,6 +146,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
     event IncreasedHoldersMax(uint16 newHoldersMax);
     event IncreasedHoldersThreshold(uint256 newHoldersThreshold);
+    event ClaimsEnabled(uint64 claimsEnabledTime);
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
@@ -157,7 +155,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error EmptyAddress();
     error EmptyAccountAddress();
     error EmptyManagerAddress();
-    error EmptyTokenAddress();
     error InputAmountCanNotBeZero();
     error ZeroDenominator();
     error InsufficientAmount();
@@ -166,20 +163,15 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error OwnerAndManagersOnly();
     error ManagersOnly();
     error CantCreatePair(address tradedToken, address reserveToken);
-    error BuyTaxInvalid();
-    error SellTaxInvalid();
     error EmptyReserves();
     error ClaimValidationError();
     error PriceHasBecomeALowerThanMinClaimPrice();
     error ClaimsDisabled();
     error ClaimsEnabledTimeAlreadySetup();
-    error ClaimTooFast(uint256 untilTime);
-    error InsufficientAmountToClaim(uint256 requested, uint256 maxAvailable);
     error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
-    error NotAuthorized();
     error MaxHoldersCountExceeded(uint256 count);
-    error SenderIsNotInWhitelist();
+    error InvalidSellRateLimitFraction();
 
     /**
      * @param tokenName_ token name
@@ -249,6 +241,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             revert reserveTokenInvalid();
         }
 
+        if (reserveToken_ == address(0)) {
+            revert EmptyAddress();
+        }
+
         // check inputs
         if (uniswapRouter == address(0) || uniswapRouterFactory == address(0)) {
             revert EmptyAddress();
@@ -256,6 +252,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
        
         if (buyTaxMax > FRACTION || sellTaxMax > FRACTION) {
             revert TaxesTooHigh();
+        }
+
+        if (panicSellRateLimit_.fraction > FRACTION) {
+            revert InvalidSellRateLimitFraction();
         }
         
 
@@ -433,6 +433,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             revert ClaimsEnabledTimeAlreadySetup();
         }
         claimsEnabledTime = uint64(block.timestamp);
+        emit ClaimsEnabled(claimsEnabledTime);
     }
 
     /**
@@ -568,6 +569,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             }
             amount = _burnTaxes(_msgSender(), amount, buyTax());
         } else {
+            //The way a user sends tokens directly to a Uniswap pair in the hope of executing a flash swap.
             amount = _handleTransferToUniswap(_msgSender(), recipient, amount);
         }
 
@@ -690,7 +692,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         internal 
         returns(uint256 adjustedAmount)
     {
-
         if (
             holder == address(internalLiquidity) ||
             recipient == address(internalLiquidity) ||
@@ -703,18 +704,15 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         
         uint256 currentBalance = balanceOf(holder);
 
-        uint32 duration = panicSellRateLimit.duration;
-        duration = (duration == 0) ? 1 : duration; // make no sense if duration eq 0      
-
-        if (block.timestamp / duration * duration > _buckets[holder].lastBucketTime) {
+        if (block.timestamp / panicSellRateLimit.duration * panicSellRateLimit.duration > _buckets[holder].lastBucketTime) {
             _buckets[holder].lastBucketTime = uint64(block.timestamp);
             _buckets[holder].remainingToSell = currentBalance * panicSellRateLimit.fraction / FRACTION;
         }
 
-        if (_buckets[holder]remainingToSell == 0) {
+        if (_buckets[holder].remainingToSell == 0) {
             emit PanicSellRateExceeded(holder, recipient, amount);
             return 5;
-        } else if (_buckets[holder]remainingToSell > amount) {
+        } else if (_buckets[holder].remainingToSell >= amount) {
             _buckets[holder].remainingToSell -= amount;
             return amount;
         } else {
@@ -723,34 +721,44 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
-        if (to != address(0)
-        && balanceOf(to) < holdersThreshold
-        && (balanceOf(to) + amount >= holdersThreshold)) {
-            ++holdersCount;
+        
+        if (to != address(0)) {
+        
+            uint256 toBalanceOf = balanceOf(to);
 
-            if (holdersMax != 0) {
-                // onlyOwnerAndManagers and internalliquidity
-                // send tokens to new users available only for managers and owner
-                // here we exclude transactions such as:
-                // 1. address(this) -> internalLiquidity
-                // 2. internalLiquidity -> uniswap
-                if (from != address(this)
-                && from != address(internalLiquidity)
-                && from != address(0)) {
-                    onlyOwnerAndManagers();
-                }
-                if (holdersCount > holdersMax) {
-                    revert MaxHoldersCountExceeded(holdersMax);
+            if (
+                toBalanceOf <= holdersThreshold && 
+                toBalanceOf + amount > holdersThreshold           
+            ) {
+
+                ++holdersCount;
+
+                if (holdersMax != 0) {
+                    // onlyOwnerAndManagers and internalliquidity
+                    // send tokens to new users available only for managers and owner
+                    // here we exclude transactions such as:
+                    // 1. address(this) -> internalLiquidity
+                    // 2. internalLiquidity -> uniswap
+                    if (from != address(this)
+                    && from != address(internalLiquidity)
+                    && from != address(0)) {
+                        onlyOwnerAndManagers();
+                    }
+                    
+                    if (holdersCount > holdersMax) {
+                        revert MaxHoldersCountExceeded(holdersMax);
+                    }
                 }
             }
-            
         }
-        if (balanceOf(from) < amount) {
-            // will revert inside transferFrom or transfer method
-        } else {
-            if (from != address(0)
-            && balanceOf(from) - amount < holdersThreshold) {
-                --holdersCount;
+
+        if (from != address(0)) {
+            if (balanceOf(from) < amount) {
+                // will revert inside transferFrom or transfer method
+            } else {
+                if (balanceOf(from) - amount <= holdersThreshold) {
+                    --holdersCount;
+                }
             }
         }
     }
@@ -875,7 +883,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
     function availableToClaim() public view returns(uint256 tradedTokenAmount) {
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-        tradedTokenAmount = (numDen * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/numDen;
+        tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
         if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
             tradedTokenAmount -= (_reserve0 + totalCumulativeClaimed);
         } else {
@@ -909,24 +917,27 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
     function _handleTransferToUniswap(address holder, address recipient, uint256 amount) private returns(uint256) {
-        try IUniswapV2Pair(recipient).factory() returns (address f) {
-            if (f != uniswapRouterFactory) {
-                return amount;
+        if (recipient.isContract()) {
+            try IUniswapV2Pair(recipient).factory() returns (address f) {
+    
+                if (f != uniswapRouterFactory) {
+                    return amount;
+                }
+                if(!addedInitialLiquidityRun) {
+                    // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                    revert InitialLiquidityRequired();
+                }
+                if(holder != address(internalLiquidity)) {
+                    // prevent panic when user will sell to uniswap
+                    amount = _preventPanic(holder, recipient, amount);
+                    // burn taxes from remainder
+                    amount = _burnTaxes(holder, amount, sellTax());
+                }
+            } catch Error(string memory _err) {
+                // do nothing
+            } catch (bytes memory _err) {
+                // do nothing
             }
-            if(!addedInitialLiquidityRun) {
-                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
-                revert InitialLiquidityRequired();
-            }
-            if(holder != address(internalLiquidity)) {
-                // prevent panic when user will sell to uniswap
-                amount = _preventPanic(holder, recipient, amount);
-                // burn taxes from remainder
-                amount = _burnTaxes(holder, amount, sellTax());
-            }
-        } catch Error(string memory _err) {
-            // do nothing
-        } catch (bytes memory _err) {
-            // do nothing, this can happen when sending to EOA etc.
         }
         return amount;
     }

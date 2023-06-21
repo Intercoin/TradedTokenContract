@@ -67,6 +67,8 @@ contract ClaimManagerFactory is Ownable, CostManagerFactoryHelper, ReleaseManage
 
     address[] public instances;
 
+    error EmptyAddress();
+
     event InstanceCreated(address instance, uint256 instancesCount);
 
     /**
@@ -82,6 +84,9 @@ contract ClaimManagerFactory is Ownable, CostManagerFactoryHelper, ReleaseManage
         CostManagerFactoryHelper(costManager_) 
         ReleaseManagerHelper(releaseManager_)
     {
+        if (claimManagerImplementation_ == address(0)) {
+            revert EmptyAddress();
+        }
         claimManagerImplementation = claimManagerImplementation_;
     }
 
