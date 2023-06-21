@@ -711,10 +711,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             _buckets[holder].remainingToSell = currentBalance * panicSellRateLimit.fraction / FRACTION;
         }
 
-        if (_buckets[holder]remainingToSell == 0) {
+        if (_buckets[holder].remainingToSell == 0) {
             emit PanicSellRateExceeded(holder, recipient, amount);
             return 5;
-        } else if (_buckets[holder]remainingToSell > amount) {
+        } else if (_buckets[holder].remainingToSell > amount) {
             _buckets[holder].remainingToSell -= amount;
             return amount;
         } else {
