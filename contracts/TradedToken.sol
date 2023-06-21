@@ -568,6 +568,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             }
             amount = _burnTaxes(_msgSender(), amount, buyTax());
         } else {
+            //The way a user sends tokens directly to a Uniswap pair in the hope of executing a flash swap.
             amount = _handleTransferToUniswap(_msgSender(), recipient, amount);
         }
 
@@ -690,7 +691,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         internal 
         returns(uint256 adjustedAmount)
     {
-
         if (
             holder == address(internalLiquidity) ||
             recipient == address(internalLiquidity) ||
@@ -714,7 +714,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         if (_buckets[holder].remainingToSell == 0) {
             emit PanicSellRateExceeded(holder, recipient, amount);
             return 5;
-        } else if (_buckets[holder].remainingToSell > amount) {
+        } else if (_buckets[holder].remainingToSell >= amount) {
             _buckets[holder].remainingToSell -= amount;
             return amount;
         } else {
