@@ -148,6 +148,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
     event IncreasedHoldersMax(uint16 newHoldersMax);
     event IncreasedHoldersThreshold(uint256 newHoldersThreshold);
+    event ClaimsEnabled(uint64 claimsEnabledTime);
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
@@ -432,6 +433,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             revert ClaimsEnabledTimeAlreadySetup();
         }
         claimsEnabledTime = uint64(block.timestamp);
+        emit ClaimsEnabled(claimsEnabledTime);
     }
 
     /**
