@@ -157,7 +157,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error EmptyAddress();
     error EmptyAccountAddress();
     error EmptyManagerAddress();
-    error EmptyTokenAddress();
     error InputAmountCanNotBeZero();
     error ZeroDenominator();
     error InsufficientAmount();
@@ -166,20 +165,14 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error OwnerAndManagersOnly();
     error ManagersOnly();
     error CantCreatePair(address tradedToken, address reserveToken);
-    error BuyTaxInvalid();
-    error SellTaxInvalid();
     error EmptyReserves();
     error ClaimValidationError();
     error PriceHasBecomeALowerThanMinClaimPrice();
     error ClaimsDisabled();
     error ClaimsEnabledTimeAlreadySetup();
-    error ClaimTooFast(uint256 untilTime);
-    error InsufficientAmountToClaim(uint256 requested, uint256 maxAvailable);
     error ShouldBeMoreThanMinClaimPrice();
     error MinClaimPriceGrowTooFast();
-    error NotAuthorized();
     error MaxHoldersCountExceeded(uint256 count);
-    error SenderIsNotInWhitelist();
 
     /**
      * @param tokenName_ token name

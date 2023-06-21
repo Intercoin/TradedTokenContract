@@ -23,7 +23,11 @@ contract LiquidityManager is ILiquidity, IERC777Recipient, IERC777Sender, Reentr
     constructor (
         address tradedToken_    
     ) {
+        if (tradedToken_ == address(0)) {
+            revert EmptyTokenAddress();
+        }
         tradedToken = tradedToken_;
+        
 
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
