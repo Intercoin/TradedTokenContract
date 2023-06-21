@@ -68,8 +68,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
-
-    address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
     
     uint64 public claimsEnabledTime;
   
