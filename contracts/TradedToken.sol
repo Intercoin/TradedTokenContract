@@ -909,24 +909,27 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
     function _handleTransferToUniswap(address holder, address recipient, uint256 amount) private returns(uint256) {
-        try IUniswapV2Pair(recipient).factory() returns (address f) {
-            if (f != uniswapRouterFactory) {
-                return amount;
+        if (recipient.isContract()) {
+            try IUniswapV2Pair(recipient).factory() returns (address f) {
+    
+                if (f != uniswapRouterFactory) {
+                    return amount;
+                }
+                if(!addedInitialLiquidityRun) {
+                    // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                    revert InitialLiquidityRequired();
+                }
+                if(holder != address(internalLiquidity)) {
+                    // prevent panic when user will sell to uniswap
+                    amount = _preventPanic(holder, recipient, amount);
+                    // burn taxes from remainder
+                    amount = _burnTaxes(holder, amount, sellTax());
+                }
+            } catch Error(string memory _err) {
+                // do nothing
+            } catch (bytes memory _err) {
+                // do nothing
             }
-            if(!addedInitialLiquidityRun) {
-                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
-                revert InitialLiquidityRequired();
-            }
-            if(holder != address(internalLiquidity)) {
-                // prevent panic when user will sell to uniswap
-                amount = _preventPanic(holder, recipient, amount);
-                // burn taxes from remainder
-                amount = _burnTaxes(holder, amount, sellTax());
-            }
-        } catch Error(string memory _err) {
-            // do nothing
-        } catch (bytes memory _err) {
-            // do nothing, this can happen when sending to EOA etc.
         }
         return amount;
     }
