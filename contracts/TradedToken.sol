@@ -124,7 +124,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     uint256 public holdersThreshold;
     uint16 public holdersMax;
     uint16 public holdersCount;
-    uint256 internal constant numDen =  18446744073709551616;//2 ** 64;
 
     uint256 public totalCumulativeClaimed;
 
@@ -882,7 +881,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
     function availableToClaim() public view returns(uint256 tradedTokenAmount) {
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-        tradedTokenAmount = (numDen * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/numDen;
+        tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
         if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
             tradedTokenAmount -= (_reserve0 + totalCumulativeClaimed);
         } else {
