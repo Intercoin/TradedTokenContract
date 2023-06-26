@@ -960,7 +960,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint256 amountIn,
         address beneficiary
     ) internal returns (uint256 amountOut) {
-        require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn));
+        require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn), "NEEDS_APPROVAL");
 
         address[] memory path = new address[](2);
         path[0] = address(tokenIn);

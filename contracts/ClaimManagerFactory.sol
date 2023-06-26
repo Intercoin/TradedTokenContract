@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IClaimManagerUpgradeable.sol";
 
 import "@artman325/releasemanager/contracts/CostManagerFactoryHelper.sol";
@@ -56,7 +55,7 @@ This Agreement shall continue to apply to any successors or assigns of either pa
 ARBITRATION
 All disputes related to this agreement shall be governed by and interpreted in accordance with the laws of New York, without regard to principles of conflict of laws. The parties to this agreement will submit all disputes arising under this agreement to arbitration in New York City, New York before a single arbitrator of the American Arbitration Association (“AAA”). The arbitrator shall be selected by application of the rules of the AAA, or by mutual agreement of the parties, except that such arbitrator shall be an attorney admitted to practice law New York. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section.
 **/
-contract ClaimManagerFactory is Ownable, CostManagerFactoryHelper, ReleaseManagerHelper {
+contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
     using Clones for address;
 
     /**
@@ -119,7 +118,7 @@ contract ClaimManagerFactory is Ownable, CostManagerFactoryHelper, ReleaseManage
     function produce(
         address tradedToken,
         IClaimManagerUpgradeable.ClaimSettings memory claimSettings
-    ) public onlyOwner returns (address instance) {
+    ) returns (address instance) {
 
         instance = claimManagerImplementation.clone();
         
@@ -153,7 +152,7 @@ contract ClaimManagerFactory is Ownable, CostManagerFactoryHelper, ReleaseManage
         bytes32 salt,
         address tradedToken,
         IClaimManagerUpgradeable.ClaimSettings memory claimSettings
-    ) public onlyOwner returns (address instance) {
+    ) returns (address instance) {
 
         instance = claimManagerImplementation.cloneDeterministic(salt);
         
