@@ -364,7 +364,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @custom:calledby owner
      */
     function increaseHoldersMax(uint16 newMax) external onlyOwner {
-        if (newMax > holdersMax) {
+        if (newMax > holdersMax && holdersMax != 0) {
             holdersMax = newMax;
             emit IncreasedHoldersMax(holdersMax);
         }        
