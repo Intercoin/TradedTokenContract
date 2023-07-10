@@ -43,6 +43,11 @@ contract ClaimManager is IClaimManager, IERC777Recipient, IERC777Sender, Reentra
         if (tradedToken_ == address(0) || claimSettings.claimingToken == address(0)) {
             revert EmptyTokenAddress();
         }
+
+        if (claimSettings.claimingTokenExchangePrice.denominator == 0
+        || claimSettings.claimingTokenExchangePrice.numerator == 0) {
+            revert InputAmountCanNotBeZero();
+        }
         
         tradedToken = tradedToken_;
         claimingToken = claimSettings.claimingToken;
