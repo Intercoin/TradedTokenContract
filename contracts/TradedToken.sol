@@ -474,14 +474,12 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @notice called by owner or managers to automatically sell some tokens and add liquidity
      * @param tradedTokenAmount the amount of tradedToken to use.
      *   Some of it is sold for reserveToken, and the rest is added, together with
-     *   the obtained reserveToken, to both sides of the liquidity pool
+     *   the obtained reserveToken, to both sides of the liquidity pool.
+     *   Pass zero here to use the maximum amount.
      */
     function addLiquidity(uint256 tradedTokenAmount) external {
         initialLiquidityRequired();
         onlyOwnerAndManagers();
-        if (tradedTokenAmount == 0) {
-            revert InputAmountCanNotBeZero();
-        }
         
         uint256 tradedReserve1;
         uint256 tradedReserve2;
@@ -506,7 +504,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
 
         if (!err) {
-            //if zero we've try to use max as possible of available tokens
+            // if tradedTokenAmount is zero, let's use the maximum amount of traded tokens allowed
             if (tradedTokenAmount == 0) {
                 tradedTokenAmount = tradedReserve2 - tradedReserve1;
             }
