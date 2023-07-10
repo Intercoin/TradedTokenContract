@@ -118,7 +118,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
     function produce(
         address tradedToken,
         IClaimManagerUpgradeable.ClaimSettings memory claimSettings
-    ) returns (address instance) {
+    ) public returns (address instance) {
 
         instance = claimManagerImplementation.clone();
         
@@ -152,7 +152,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
         bytes32 salt,
         address tradedToken,
         IClaimManagerUpgradeable.ClaimSettings memory claimSettings
-    ) returns (address instance) {
+    ) public returns (address instance) {
 
         instance = claimManagerImplementation.cloneDeterministic(salt);
         
