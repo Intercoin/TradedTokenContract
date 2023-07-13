@@ -798,6 +798,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         address to,
         uint256 amount
     ) internal virtual override {
+        
+        if (presales[from] != 0) {
+            tokensLocked[to]._minimumsAdd(amount, presales[from], LOCKUP_INTERVAL, true);
+        } 
         if (
             // if minted
             (from == address(0)) ||
@@ -812,6 +816,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 revert InsufficientAmount();
             }
         }
+        
     }
 
     /**
