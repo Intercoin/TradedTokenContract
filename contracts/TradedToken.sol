@@ -131,7 +131,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
     mapping(address => uint64) public managers;
-    mapping(address => uint64) internal presales;
+    mapping(address => uint64) public presales;
 
     bool private addedInitialLiquidityRun;
 
