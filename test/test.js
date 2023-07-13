@@ -40,7 +40,8 @@ describe("TradedTokenInstance", function () {
     const HOUR = 60*60; // * interval: HOUR in seconds
     const DAY = 24*HOUR; // * interval: DAY in seconds
 
-    const lockupIntervalAmount = 365; // year in days(dayInSeconds)
+    const lockupIntervalDay = 1; // one day
+    const lockupIntervalAmount = 365; // year in days
 
     const tokenName = "Intercoin Investor Token";
     const tokenSymbol = "ITR";
@@ -442,6 +443,51 @@ describe("TradedTokenInstance", function () {
                 //console.log("revert to snapshot");
             });
 
+            
+            it.only("should presale", async() => {
+                
+                const snapId = await ethers.provider.send('evm_snapshot', []);
+
+                await Presale.setEndTime(timeUntil);
+
+                //const tokenBefore = await mainInstance.balanceOf(Presale.address);
+                await mainInstance.connect(owner).startPresale(Presale.address, ONE_ETH, lockupIntervalDay);
+
+                const amountSend = ONE_ETH.div(TEN);
+                const lockedBefore = await mainInstance.getLockedAmount(bob.address);
+                const lockedPresaleBefore = await mainInstance.getLockedAmount(Presale.address);
+
+                // imitation presale operations
+                let tx = await Presale.transferTokens(mainInstance.address, bob.address, amountSend);
+
+                const lockedAfter = await mainInstance.getLockedAmount(bob.address);
+                const lockedPresaleAfter = await mainInstance.getLockedAmount(Presale.address);
+
+                const rc = await tx.wait();
+                const block = await web3.eth.getBlock(rc.blockNumber);
+                const startts = Math.floor(block.timestamp/DAY)*DAY;
+                const timePassed = block.timestamp - startts;
+                const speed = amountSend.div(lockupIntervalDay*DAY);
+                const expectLocked = amountSend.sub(speed.mul(timePassed));
+                
+                expect(lockedBefore).to.be.eq(ZERO);
+                expect(lockedPresaleBefore).to.be.eq(ZERO);
+                expect(lockedPresaleAfter).to.be.eq(ZERO);
+
+                // floating point in js. So didnt check last six digits/ for the numbers like below
+                // lockedAfter = BigNumber.from('53031249999981333');
+                // expectLocked = BigNumber.from('53031250000016533');
+
+                expect(
+                    Math.round(lockedAfter/1000000)*1000000
+                ).to.be.eq(
+                    Math.round(expectLocked/1000000)*1000000
+                );
+
+                await ethers.provider.send('evm_revert', [snapId]);
+            });
+            // it("", async() => {});
+
             describe("shouldnt presale if Presale contract invalid", function () {
                 it(" --- zero address", async() => {
                     await expect(
@@ -481,10 +527,6 @@ describe("TradedTokenInstance", function () {
                 
             });
            
-            // it("should presale", async() => {
-            //     Presale
-            // });
-            // it("", async() => {});
         }); 
 
         describe("claim", function () {

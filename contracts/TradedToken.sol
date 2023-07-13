@@ -678,6 +678,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         
     }
 
+    function getLockedAmount(address from) public view returns(uint256) {
+        return tokensLocked[from]._getMinimum();
+    }
+
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -798,7 +802,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         address to,
         uint256 amount
     ) internal virtual override {
-        
+
         if (presales[from] != 0) {
             tokensLocked[to]._minimumsAdd(amount, presales[from], LOCKUP_INTERVAL, true);
         } 

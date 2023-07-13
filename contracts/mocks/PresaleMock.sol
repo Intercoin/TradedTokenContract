@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/IPresale.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
+import "@openzeppelin/contracts/token/ERC777/IERC777.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 
 contract PresaleMock is IERC777Recipient, IPresale {
@@ -22,7 +23,7 @@ contract PresaleMock is IERC777Recipient, IPresale {
         return endTimeTs;
     }
 
-      function tokensReceived(
+    function tokensReceived(
         address operator,
         address from,
         address to,
@@ -31,5 +32,9 @@ contract PresaleMock is IERC777Recipient, IPresale {
         bytes calldata operatorData
     ) external {
 
+    }
+
+    function transferTokens(address token, address to, uint256 amount) external {
+        IERC777(token).send(to, amount, bytes(""));
     }
 }
