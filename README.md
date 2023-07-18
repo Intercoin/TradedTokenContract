@@ -3,7 +3,7 @@ A straightforward token contract for early investors to gradually begin selling 
 
 **[Power your next token with Intercoin smart contracts!](https://community.intercoin.app/t/power-your-next-token-with-intercoins-smart-contracts/2832)**
 
-Intercoin's TradedTokenContract has been carefully designed, from the bottom up, to its holders massive confidence. Unlike most tokens out there, it can guarantee things like:
+Intercoin's TradedTokenContract has been carefully designed, from the bottom up, to give its holders massive confidence. Unlike most tokens out there, it can guarantee things like:
 
 💧 **Auto-Liquidity**: Project managers don't have to worry about adding too much or too little liquidity to the trading pool. As more people buy the token, it can automatically mint small amounts of itself, to swap and grow both sides of the liquidity pool. **[This helps reduce slippage for holders,](https://redefine.net/media/uniswap/)** without requiring liquidity providers to expose themselves to risk of impermanent loss
 
