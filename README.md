@@ -1,6 +1,20 @@
 # TradedTokenContract
 A straightforward token contract for early investors to gradually begin selling on public exchanges
 
+## Technology
+
+The original goal of Bitcoin and other cryptocurrencies was to eliminate the need for participants to trust a centralized third party. It worked because the software was distributed to a large ecosystem of nodes and miners. No one worried about the Litecoin or Ripple network "rugpulling" them.
+
+But in the last few years, many projects released their own tokens, by hiring devs that ended up cloning some smart contract they found on the internet. Usually it was a smart contract of a famous project, like SafeMoon or EverRise. However, many of those contracts ended up having **[bugs](https://community.intercoin.app/t/safemoon-upgrade-has-a-fatal-bug-public-burn-function/2778)**, or intentional **[scams and honeypots](https://www.youtube.com/watch?v=bs_-tu9qgM8)**. Other times, the team simply **[rug-pulled](https://www.bankrate.com/investing/what-is-a-rug-pull/)** liquidity from the exchange. The Web3 token ecosystem is largely broken. Token holders started to verbalize **[learned helplessness](https://en.wikipedia.org/wiki/Learned_helplessness)**, saying it's just the "wild west". But it doesn't have to be!
+
+Intercoin spent the last 5 years building **[smart contract factories](https://community.intercoin.app/t/intercoin-smart-contract-security/2759)** to restore confidence in the Web3 token ecosystem. Using Intercoin's technology, projects can produce their tokens on-chain from a carefully developed and audited factory, thus ensuring they all have identical code. Tokens powered by Intercoin benefit from day 1 from having been officially audited and endorsed by companies like CertiK:
+
+**https://www.certik.com/projects/intercoin**
+
+Think of how UniSwap's factory, for instance, produces liquidity pools. People have confidence in the UniSwap ecosystem precisely because each instance has identical code, and only differs in a limited set of parameters that were selected when it was produced. These parameters are described below.
+
+## Features
+
 **[Power your next token with Intercoin smart contracts!](https://community.intercoin.app/t/power-your-next-token-with-intercoins-smart-contracts/2832)**
 
 Intercoin's TradedTokenContract has been carefully designed, from the bottom up, to give its holders massive confidence. Unlike most tokens out there, it can guarantee things like:
