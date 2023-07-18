@@ -31,6 +31,8 @@ Intercoin's TradedTokenContract has been carefully designed, from the bottom up,
 
 🎁 **Presale Support**: The token contract supports designating other smart contracts to conduct pre-sales, before liquidity is added to the Uniswap trading pool. For this purpose, we recommend using Intercoin's **[FundContract](https://github.com/Intercoin/FundContract)**, which has features such whitelists, prices, tranches, and even group discounts! Together, our smart contracts can give holders confidence that no one got the token without buying it for a specific floor price. **[This helps protect people from dumping by those who may have received it via an airdrop or in exchange for some off-chain arrangements.](https://ontropy.substack.com/p/why-99-of-airdrops-dump)**
 
+👨‍👨‍👧‍👦 **Max Holders**: Sometimes, project admins may want to limit the maximum number of holders, while still having all the other features be active as they trade the tokens among each other. **[This helps companies issue tokens to represent things like equity securities avoid having to register with the SEC.](https://www.investopedia.com/terms/1/2000-investor-limit.asp)**
+
 🛒 **Buy and Sell Taxes**: Intercoin's token contract also supports setting a tax rate for buying, and a separate rate for selling (configurable parameters). The taxes can even be set to increase or decrease gradually over a period, such as a year, so people know exactly what to expect. Tokens collected via taxes are immediately burned, **[which can be used to balance the minting to insiders and for auto-liquidity, or even to make the token hyper-deflationary!](https://www.yahoo.com/video/deflationary-tokens-empower-crypto-project-153845806.html)**
 
 ## Claiming
