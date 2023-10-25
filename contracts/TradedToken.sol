@@ -571,8 +571,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             amount = _handleTransferToUniswap(_msgSender(), recipient, amount);
         }
 
-        holdersCheckBeforeTransfer(_msgSender(), recipient, amount);
-
         return super.transfer(recipient, amount);
 
         // 2. do usual transaction, then make calculation and burn tax from sides(buyer or seller)
@@ -594,8 +592,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     ) public virtual override returns (bool) {
         
         amount = _handleTransferToUniswap(holder, recipient, amount);
-        
-        holdersCheckBeforeTransfer(holder, recipient, amount);
         
         return super.transferFrom(holder, recipient, amount);
     }
@@ -736,14 +732,16 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 ++holdersCount;
 
                 if (holdersMax != 0) {
-                    // onlyOwnerAndManagers and internalliquidity
-                    // send tokens to new users available only for managers and owner
+                    // onlyOwnerAndManagers and internalLiquidity and presales
+                    // with lockups can send tokens to new users, in that case.
                     // here we exclude transactions such as:
                     // 1. address(this) -> internalLiquidity
                     // 2. internalLiquidity -> uniswap
+                    // 3. presale -> early buyer of locked-up tokens
                     if (from != address(this)
                     && from != address(internalLiquidity)
-                    && from != address(0)) {
+                    && from != address(0)
+                    && presales[from] == 0) {
                         onlyOwnerAndManagers();
                     }
                     
@@ -803,6 +801,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint256 amount
     ) internal virtual override {
 
+        holdersCheckBeforeTransfer(from, to, amount);
         if (presales[from] != 0) {
             tokensLocked[to]._minimumsAdd(amount, presales[from], LOCKUP_INTERVAL, true);
         } 
@@ -909,7 +908,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
         totalCumulativeClaimed += tradedTokenAmount;
 
-        holdersCheckBeforeTransfer(address(0), account, tradedTokenAmount);
         _mint(account, tradedTokenAmount, "", "");
         
         emit Claimed(account, tradedTokenAmount);
@@ -955,7 +953,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         bytes memory userData,
         bytes memory operatorData
     ) internal virtual override {
-        holdersCheckBeforeTransfer(address(0), account, amount);
         super._mint(account, amount, userData, operatorData);
     }
 
