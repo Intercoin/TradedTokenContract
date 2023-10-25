@@ -741,7 +741,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                     if (from != address(this)
                     && from != address(internalLiquidity)
                     && from != address(0)
-                    && presales[address] == 0) {
+                    && presales[from] == 0) {
                         onlyOwnerAndManagers();
                     }
                     
