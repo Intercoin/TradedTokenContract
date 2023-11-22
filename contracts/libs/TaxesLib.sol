@@ -9,15 +9,15 @@ library TaxesLib {
         uint16 toSellTax;
         uint64 buyTaxTimestamp;
         uint64 sellTaxTimestamp;
-        uint16 buyTaxDuration;
-        uint16 sellTaxDuration;
+        uint64 buyTaxDuration;
+        uint64 sellTaxDuration;
         bool buyTaxGradual;
         bool sellTaxGradual;
     } 
 
     struct TaxesInfoInit { 
-        uint16 buyTaxDuration;
-        uint16 sellTaxDuration;
+        uint64 buyTaxDuration;
+        uint64 sellTaxDuration;
         bool buyTaxGradual;
         bool sellTaxGradual;
     }
@@ -69,9 +69,9 @@ library TaxesLib {
         ) {
             if (taxesInfo.sellTaxGradual) {
                 if (taxesInfo.toSellTax > taxesInfo.fromSellTax) {
-                    return taxesInfo.fromSellTax + uint16(uint32(taxesInfo.toSellTax - taxesInfo.fromSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
+                    return taxesInfo.fromSellTax + uint16(uint64(taxesInfo.toSellTax - taxesInfo.fromSellTax) * uint64(block.timestamp - taxesInfo.sellTaxTimestamp) / uint64(taxesInfo.sellTaxDuration));
                 } else {
-                    return taxesInfo.fromSellTax - uint16(uint32(taxesInfo.fromSellTax - taxesInfo.toSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
+                    return taxesInfo.fromSellTax - uint16(uint64(taxesInfo.fromSellTax - taxesInfo.toSellTax) * uint64(block.timestamp - taxesInfo.sellTaxTimestamp) / uint64(taxesInfo.sellTaxDuration));
                 }
             } else {
                 return taxesInfo.fromSellTax;

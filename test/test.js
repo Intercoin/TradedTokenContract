@@ -514,6 +514,7 @@ describe("TradedTokenInstance", function () {
                     await expect(
                         mainInstance.connect(owner).startPresale(presaleBad2.address, ONE_ETH, timeUntil)
                     ).to.be.revertedWith("Transaction reverted: function selector was not recognized and there's no fallback function");
+
                 });
                 it(" --- fallback method only", async() => {
                     const PresaleBad3F = await ethers.getContractFactory("PresaleBad3");
