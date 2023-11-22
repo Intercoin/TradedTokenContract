@@ -26,7 +26,6 @@ import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
 import "./interfaces/IClaim.sol";
-import "./interfaces/IOwner.sol";
 
 //import "hardhat/console.sol";
 
@@ -54,7 +53,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
     TaxesLib.TaxesInfo public taxesInfo;
-
+    
     struct Bucket {
         uint256 remainingToSell;
         uint64 lastBucketTime;
@@ -141,11 +140,11 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     event AddedManager(address account, address sender);
     event RemovedManager(address account, address sender);
     event AddedInitialLiquidity(uint256 tradedTokenAmount, uint256 reserveTokenAmount);
-    event UpdatedTaxes(uint256 sellTax, uint256 buyTax, address receiver);
+    event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
     event Claimed(address account, uint256 amount);
     event Presale(address account, uint256 amount);
     event PresaleTokensBurned(address account, uint256 burnedAmount);
-    event Sale(address saleContract, uint256 amount);
+    event Sale(address saleContract, uint64 lockupDays);
     event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
     event IncreasedHoldersMax(uint16 newHoldersMax);
     event IncreasedHoldersThreshold(uint256 newHoldersThreshold);
@@ -348,15 +347,14 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      *  from Uniswap v2 liquidity pool. Callable by owner.
      * @param newBuyTax Buy tax
      * @param newSellTax Sell tax
-	 * @param receiver Set 0 to burn them, or an address to send them to
      * 
      */
-    function setTaxes(uint16 newBuyTax, uint16 newSellTax, address receiver) external onlyOwner {
+    function setTaxes(uint16 newBuyTax, uint16 newSellTax) external onlyOwner {
         if (newBuyTax > buyTaxMax || newSellTax > sellTaxMax) {
             revert TaxesTooHigh();
         }
-        taxesInfo.setTaxes(newBuyTax, newSellTax, receiver);
-        
+
+        taxesInfo.setTaxes(newBuyTax, newSellTax);
         emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
     }
     
@@ -658,17 +656,14 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     * @notice owner of a smart contract can designate it as a Sale contract
 	*   to enforce lockups and exclude it from MaxHolders checks
     * @param contract_ the sale contract but msg.sender must be the owner
-    * @param saleLockupDays_ the number of days people who obtained the token in the sale cannot transfer tokens for
+    * @param saleLockupDays the number of days people who obtained the token in the sale cannot transfer tokens for
     */
-	function startSale(address contract_, uint64 saleLockupDays) {
-		if (IOwner(contract_).owner() != msg.sender) {
-			revert OwnerAndManagersOnly();
-		}
-		if (sales[contract_]) {
+	function startSale(address contract_, uint64 saleLockupDays) public onlyOwner {
+		if (sales[contract_] != 0) {
 			revert AlreadyCalled();
 		}
 		sales[contract_] = saleLockupDays;
-		emit Sale(contract_, amount);
+		emit Sale(contract_, saleLockupDays);
 	}
 
     /**
@@ -680,11 +675,12 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     */
     function burnRemaining(address contract_) public {
         uint64 endTime = IPresale(contract_).endTime();
+
         // allow it one hour before the endTime, so owner can't withdraw money
         if (block.timestamp <= endTime - 3600) {
             return;
         }
-        
+
         uint256 toBurn = balanceOf(contract_);
         if (toBurn == 0) {
             return;
@@ -777,11 +773,15 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
 
         if (from != address(0)) {
-            if (balanceOf(from) < amount) {
+            uint256 fromBalanceOf = balanceOf(from);
+            if (fromBalanceOf < amount) {
                 // will revert inside transferFrom or transfer method
             } else {
-                if (balanceOf(from) - amount <= holdersThreshold
-				&& sales[from] > 0) {
+                if (
+                    fromBalanceOf > holdersThreshold
+                    && fromBalanceOf - amount <= holdersThreshold
+                    && sales[from] == 0
+                ) {
                     --holdersCount;
                 }
             }
