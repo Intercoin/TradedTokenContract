@@ -59,7 +59,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
     using Clones for address;
 
     /**
-     * @custom:shortd ClaimManager implementation address
+     * 
      * @notice ClaimManager implementation address
      */
     address public immutable claimManagerImplementation;
@@ -96,7 +96,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
     /**
      * @dev view amount of created instances
      * @return amount amount instances
-     * @custom:shortd view amount of created instances
+     * 
      */
     function instancesCount() external view returns (uint256 amount) {
         amount = instances.length;
@@ -113,7 +113,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
      *        claimSettings.claimingTokenExchangePrice tuple of exchange price [numerator, denominator]
      *        claimSettings.claimFrequency claiming frequency. hot often user can claim
      * @return instance address of created instance pool `ClaimManagerUpgradeable`
-     * @custom:shortd creation instance
+     * 
      */
     function produce(
         address tradedToken,
@@ -146,7 +146,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
      *        claimSettings.claimingTokenExchangePrice tuple of exchange price [numerator, denominator]
      *        claimSettings.claimFrequency claiming frequency. hot often user can claim
      * @return instance address of created instance pool `ClaimManagerUpgradeable`
-     * @custom:shortd creation instance
+     * 
      */
     function produceDeterministic(
         bytes32 salt,

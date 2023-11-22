@@ -45,7 +45,7 @@ contract LiquidityManager is ILiquidity, IERC777Recipient, IERC777Sender, Reentr
 
     /**
      * @dev claims, sells, adds liquidity, sends LP to 0x0
-     * @custom:calledby owner
+     * 
      */
     function addLiquidity(uint256 tradedTokenAmount) nonReentrant external {
         ILiquidity(tradedToken).addLiquidity(tradedTokenAmount);

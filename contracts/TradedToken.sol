@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL
-pragma solidity 0.8.15;
+pragma solidity >= 0.4.21 < 0.9.0;
 
 /**
  * @title TradedTokenContract
@@ -26,6 +26,7 @@ import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
 import "./interfaces/IClaim.sol";
+import "./interfaces/IReleaseManager";
 
 //import "hardhat/console.sol";
 
@@ -72,19 +73,19 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     uint64 public claimsEnabledTime;
   
     /**
-     * @custom:shortd traded token address
+     * 
      * @notice traded token address
      */
     address public immutable tradedToken;
 
     /**
-     * @custom:shortd reserve token address
+     * 
      * @notice reserve token address
      */
     address public immutable reserveToken;
 
     /**
-     * @custom:shortd price drop (mul by fraction)
+     * 
      * @notice price drop (mul by fraction)
      */
     uint256 public immutable priceDrop;
@@ -94,7 +95,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     PriceNumDen minClaimPriceGrow;
 
     /**
-     * @custom:shortd uniswap v2 pair
+     * 
      * @notice uniswap v2 pair
      */
     address public immutable uniswapV2Pair;
@@ -131,7 +132,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
     mapping(address => uint64) public managers;
-    mapping(address => uint64) public presales;
+    mapping(address => uint64) public sales;
 
     bool private addedInitialLiquidityRun;
 
@@ -143,6 +144,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     event Claimed(address account, uint256 amount);
     event Presale(address account, uint256 amount);
     event PresaleTokensBurned(address account, uint256 burnedAmount);
+    event Sale(address saleContract, uint256 amount);
     event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
     event IncreasedHoldersMax(uint16 newHoldersMax);
     event IncreasedHoldersThreshold(uint256 newHoldersThreshold);
@@ -345,7 +347,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      *  from Uniswap v2 liquidity pool. Callable by owner.
      * @param newBuyTax Buy tax
      * @param newSellTax Sell tax
-     * @custom:calledby owner
+     * 
      */
     function setTaxes(uint16 newBuyTax, uint16 newSellTax) external onlyOwner {
         if (newBuyTax > buyTaxMax || newSellTax > sellTaxMax) {
@@ -361,7 +363,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      *   which may be capped for legal reasons. A initial holdersMax of 0
      *   means there is no restriction on max holders.
      * @param newMax The new maximum amount of holders, must be higher than before
-     * @custom:calledby owner
+     * 
      */
     function increaseHoldersMax(uint16 newMax) external onlyOwner {
         if (newMax > holdersMax && holdersMax != 0) {
@@ -375,7 +377,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      *   By default, the threshold is 0, meaning any nonzero balance
      *   makes someone a holder.
      * @param newThreshold The new threshold
-     * @custom:calledby owner
+     * 
      */
     function increaseHoldersThreshold(uint256 newThreshold) external onlyOwner {
         if (newThreshold > holdersThreshold) {
@@ -391,7 +393,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      *   Only callable by owner or managers.
      * @param amountTradedToken initial amount of traded tokens
      * @param amountReserveToken initial amount of reserve tokens
-     * @custom:calledby owner or managers
+     * 
      */
     function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external {
         onlyOwnerAndManagers();
@@ -418,7 +420,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      *   only callable by owner or managers
      * @param tradedTokenAmount amount to attempt to claim
      * @param account the account to mint the tokens to
-     * @custom:calledby owner or managers
+     * 
      */
     function claim(uint256 tradedTokenAmount, address account)
         external
@@ -443,7 +445,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @param newMinimumPrice below which the token price on Uniswap v2 pair
      *  won't drop, if all claimed tokens were sold right after being minted.
      *  This price can't increase faster than minClaimPriceGrow per day.
-     * @custom:calledby managers
+     * 
      */
     function restrictClaiming(PriceNumDen memory newMinimumPrice) external {
         onlyManagers();
@@ -634,7 +636,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      *  and which occurs at least two hours after block.timestamp
      * @param contract_ the address of the contract that will manage the presale.
      * @param amount amount of tokens to mint to the contract, this is the maximum taht can be sold in the presale
-     * @param presaleLockupDays the number of days people who obtained the token in the presale cannot trade tokens for
+     * @param presaleLockupDays the number of days people who obtained the token in the presale cannot transfer tokens for
      */
     function startPresale(address contract_, uint256 amount, uint64 presaleLockupDays) public onlyOwner {
 
@@ -645,10 +647,27 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         // give at least two hours for the presale because burnRemaining can be called in the second hour
         if (block.timestamp < endTime - 3600 * 2) {
             _mint(contract_, amount, "", "");
-            presales[contract_] = presaleLockupDays;
+            sales[contract_] = presaleLockupDays;
             emit Presale(contract_, amount);
         }
     }
+	
+    /**
+    * @notice owner of a smart contract can designate it as a Sale contract
+	*   to enforce lockups and exclude it from MaxHolders checks
+    * @param contract_ the sale contract but msg.sender must be the owner
+    * @param saleLockupDays_ the number of days people who obtained the token in the sale cannot transfer tokens for
+    */
+	function startSale(address contract_, uint64 saleLockupDays) {
+		if (contract_.owner != msg.sender) {
+			revert OwnerAndManagersOnly();
+		}
+		if (sales[contract_]) {
+			revert AlreadyCalled();
+		}
+		sales[contract_] = saleLockupDays;
+		emit Sale(contract_, amount);
+	}
 
     /**
     * @notice starting one hour before a presale's endTime(),
@@ -741,7 +760,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                     if (from != address(this)
                     && from != address(internalLiquidity)
                     && from != address(0)
-                    && presales[from] == 0) {
+                    && sales[from] == 0
+					&& sales[to] == 0) {
                         onlyOwnerAndManagers();
                     }
                     
@@ -802,8 +822,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     ) internal virtual override {
 
         holdersCheckBeforeTransfer(from, to, amount);
-        if (presales[from] != 0) {
-            tokensLocked[to]._minimumsAdd(amount, presales[from], LOCKUP_INTERVAL, true);
+        if (sales[from] != 0) {
+            tokensLocked[to]._minimumsAdd(amount, sales[from], LOCKUP_INTERVAL, true);
         } 
         if (
             // if minted
