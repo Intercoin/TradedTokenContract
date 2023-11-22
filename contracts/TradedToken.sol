@@ -132,6 +132,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
     mapping(address => uint64) public managers;
+    mapping(address => uint64) public presales;
     mapping(address => uint64) public sales;
 
     bool private addedInitialLiquidityRun;
@@ -140,7 +141,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     event AddedManager(address account, address sender);
     event RemovedManager(address account, address sender);
     event AddedInitialLiquidity(uint256 tradedTokenAmount, uint256 reserveTokenAmount);
-    event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
+    event UpdatedTaxes(uint256 sellTax, uint256 buyTax, address receiver);
     event Claimed(address account, uint256 amount);
     event Presale(address account, uint256 amount);
     event PresaleTokensBurned(address account, uint256 burnedAmount);
@@ -347,13 +348,14 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      *  from Uniswap v2 liquidity pool. Callable by owner.
      * @param newBuyTax Buy tax
      * @param newSellTax Sell tax
+	 * @param receiver Set 0 to burn them, or an address to send them to
      * 
      */
-    function setTaxes(uint16 newBuyTax, uint16 newSellTax) external onlyOwner {
+    function setTaxes(uint16 newBuyTax, uint16 newSellTax, address receiver) external onlyOwner {
         if (newBuyTax > buyTaxMax || newSellTax > sellTaxMax) {
             revert TaxesTooHigh();
         }
-        taxesInfo.setTaxes(newBuyTax, newSellTax);
+        taxesInfo.setTaxes(newBuyTax, newSellTax, receiver);
         
         emit UpdatedTaxes(taxesInfo.toSellTax, taxesInfo.toBuyTax);
     }
@@ -647,7 +649,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         // give at least two hours for the presale because burnRemaining can be called in the second hour
         if (block.timestamp < endTime - 3600 * 2) {
             _mint(contract_, amount, "", "");
-            sales[contract_] = presaleLockupDays;
+            presales[contract_] = sales[contract_] =presaleLockupDays;
             emit Presale(contract_, amount);
         }
     }
@@ -748,7 +750,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 toBalanceOf + amount > holdersThreshold           
             ) {
 
-                ++holdersCount;
+				if (sales[to] != 0) {
+					++holdersCount;
+				}
 
                 if (holdersMax != 0) {
                     // onlyOwnerAndManagers and internalLiquidity and presales
@@ -760,7 +764,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                     if (from != address(this)
                     && from != address(internalLiquidity)
                     && from != address(0)
-                    && sales[from] == 0
+                    && presales[from] == 0
 					&& sales[to] == 0) {
                         onlyOwnerAndManagers();
                     }
@@ -776,7 +780,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             if (balanceOf(from) < amount) {
                 // will revert inside transferFrom or transfer method
             } else {
-                if (balanceOf(from) - amount <= holdersThreshold) {
+                if (balanceOf(from) - amount <= holdersThreshold
+				&& sales[from] > 0) {
                     --holdersCount;
                 }
             }
@@ -932,7 +937,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         
         emit Claimed(account, tradedTokenAmount);
 
-        // lockup tokens for any except:
+        // _handleTransferToUniswap tokens for any except:
         // - owner(because it's owner)
         // - current contract(because do sell traded tokens and add liquidity)
         if (_msgSender() != owner() && account != address(this)) {
