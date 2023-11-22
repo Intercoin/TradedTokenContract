@@ -69,7 +69,7 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
     address public claimingToken;
     PriceNumDen claimingTokenExchangePrice;
     /**
-     * @custom:shortd claimFrequency
+     * 
      * @notice claimFrequency
      */
     uint16 public claimFrequency;

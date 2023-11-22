@@ -20,7 +20,7 @@ contract ClaimManager is IClaimManager, IERC777Recipient, IERC777Sender, Reentra
     address public immutable claimingToken;
     PriceNumDen claimingTokenExchangePrice;
     /**
-     * @custom:shortd claimFrequency
+     * 
      * @notice claimFrequency
      */
     uint16 public immutable claimFrequency;
