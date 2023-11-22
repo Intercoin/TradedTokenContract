@@ -26,7 +26,7 @@ import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
 import "./interfaces/IClaim.sol";
-import "./interfaces/IReleaseManager";
+import "./interfaces/IOwner.sol";
 
 //import "hardhat/console.sol";
 
@@ -659,7 +659,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     * @param saleLockupDays_ the number of days people who obtained the token in the sale cannot transfer tokens for
     */
 	function startSale(address contract_, uint64 saleLockupDays) {
-		if (contract_.owner != msg.sender) {
+		if (IOwner(contract_).owner() != msg.sender) {
 			revert OwnerAndManagersOnly();
 		}
 		if (sales[contract_]) {
