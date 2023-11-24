@@ -580,6 +580,7 @@ describe("TradedTokenInstance", function () {
             it("shouldnt presale already added liquidity", async() => {
                 let ts = await time.latest();
                 let timeUntil = parseInt(ts)+parseInt(lockupIntervalAmount*DAY);
+
                 await expect(
                     mainInstance.connect(owner).startPresale(alice.address, ONE_ETH, timeUntil)
                 ).to.be.revertedWith("BeforeInitialLiquidityRequired()");

@@ -164,6 +164,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error PriceDropTooBig();
     error OwnerAndManagersOnly();
     error ManagersOnly();
+    error OwnersOnly();
     error CantCreatePair(address tradedToken, address reserveToken);
     error EmptyReserves();
     error ClaimValidationError();
@@ -647,7 +648,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         // give at least two hours for the presale because burnRemaining can be called in the second hour
         if (block.timestamp < endTime - 3600 * 2) {
             _mint(contract_, amount, "", "");
-            presales[contract_] = sales[contract_] =presaleLockupDays;
+            presales[contract_] = sales[contract_] = presaleLockupDays;
             emit Presale(contract_, amount);
         }
     }
@@ -658,7 +659,12 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     * @param contract_ the sale contract but msg.sender must be the owner
     * @param saleLockupDays the number of days people who obtained the token in the sale cannot transfer tokens for
     */
-	function startSale(address contract_, uint64 saleLockupDays) public onlyOwner {
+	function startSale(address contract_, uint64 saleLockupDays) public {
+
+        if (Ownable(contract_).owner() != msg.sender) {
+			revert OwnersOnly();
+		}
+        
 		if (sales[contract_] != 0) {
 			revert AlreadyCalled();
 		}
@@ -746,7 +752,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 toBalanceOf + amount > holdersThreshold           
             ) {
 
-				if (sales[to] != 0) {
+				if (sales[to] == 0) {
 					++holdersCount;
 				}
 
@@ -780,9 +786,11 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 if (
                     fromBalanceOf > holdersThreshold
                     && fromBalanceOf - amount <= holdersThreshold
-                    && sales[from] == 0
+                    
                 ) {
-                    --holdersCount;
+                    if ((sales[from]) == 0) {
+                        --holdersCount;
+                    }
                 }
             }
         }
