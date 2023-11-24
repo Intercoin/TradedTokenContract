@@ -147,7 +147,7 @@ describe("TradedTokenInstance", function () {
         );
         await expect(
             mainInstance.availableToClaimByAddress(bob.address)
-        ).to.be.revertedWith(`EmptyReserves()`);
+        ).to.be.revertedWith(`EmptyReserves`);
 
         await erc20ReservedToken.connect(owner).mint(owner.address, ONE_ETH.mul(TEN));
         await erc20ReservedToken.connect(owner).transfer(mainInstance.address, ONE_ETH.mul(TEN));
@@ -203,7 +203,7 @@ describe("TradedTokenInstance", function () {
                     maxSellTax,
                     holdersMax
                 )
-            ).to.be.revertedWith("reserveTokenInvalid()");
+            ).to.be.revertedWith("reserveTokenInvalid");
         });
     });
 
@@ -243,7 +243,7 @@ describe("TradedTokenInstance", function () {
                         claimFrequency
                     ]
                 )
-            ).to.be.revertedWith("EmptyTokenAddress()");
+            ).to.be.revertedWith("EmptyTokenAddress");
 
             await expect(
                     ClaimManagerF.deploy(
@@ -254,7 +254,7 @@ describe("TradedTokenInstance", function () {
                         claimFrequency
                     ]
                 )
-            ).to.be.revertedWith("EmptyTokenAddress()");
+            ).to.be.revertedWith("EmptyTokenAddress");
 
             claimManager = await ClaimManagerF.deploy(
                 mainInstance.address,
@@ -274,7 +274,7 @@ describe("TradedTokenInstance", function () {
         it("reverted if didn't add liquidity before", async() => {
             await expect(
                 mainInstance.availableToClaim()
-            ).to.be.revertedWith(`EmptyReserves()`);
+            ).to.be.revertedWith(`EmptyReserves`);
         });
         
         it("should valid ClamedEnabledTime", async() => {
@@ -282,7 +282,7 @@ describe("TradedTokenInstance", function () {
             await expect(mainInstance.connect(bob).enableClaims()).revertedWith("Ownable: caller is not the owner");
             await mainInstance.connect(owner).enableClaims();
             expect(await mainInstance.claimsEnabledTime()).not.to.be.eq(ZERO);
-            await expect(mainInstance.connect(owner).enableClaims()).revertedWith("ClaimsEnabledTimeAlreadySetup()");
+            await expect(mainInstance.connect(owner).enableClaims()).revertedWith("ClaimsEnabledTimeAlreadySetup");
         });
 
         it("cover sqrt func", async() => {
@@ -305,7 +305,7 @@ describe("TradedTokenInstance", function () {
         it("shouldnt `addLiquidity` without liquidity", async() => {
             await expect(
                 mainInstance.connect(owner).addLiquidity(ONE_ETH)
-            ).to.be.revertedWith("InitialLiquidityRequired()");
+            ).to.be.revertedWith("InitialLiquidityRequired");
         }); 
 
         it("shouldnt addLiquidity manually without method `addInitialLiquidity`", async() => {
@@ -381,7 +381,7 @@ describe("TradedTokenInstance", function () {
             await mainInstance.connect(owner).setTotalCumulativeClaimed(ONE);
             await expect(
                 mainInstance.connect(owner).claim(ONE, bob.address)
-            ).to.be.revertedWith("ClaimValidationError()");
+            ).to.be.revertedWith("ClaimValidationError");
         });             
 
         describe("presale", function () {
@@ -492,12 +492,12 @@ describe("TradedTokenInstance", function () {
                 it(" --- zero address", async() => {
                     await expect(
                         mainInstance.connect(owner).startPresale(ZERO_ADDRESS, ONE_ETH, timeUntil)
-                    ).to.be.revertedWith('Transaction reverted: function returned an unexpected amount of data');
+                    ).to.be.revertedWith('function returned an unexpected amount of data');
                 });
                 it(" --- eoa address", async() => {
                     await expect(
                         mainInstance.connect(owner).startPresale(bob.address, ONE_ETH, timeUntil)
-                    ).to.be.revertedWith('Transaction reverted: function returned an unexpected amount of data');
+                    ).to.be.revertedWith('function returned an unexpected amount of data');
                 });
                 it(" --- without endTime method", async() => {
                     const PresaleBad1F = await ethers.getContractFactory("PresaleBad1");
@@ -505,7 +505,7 @@ describe("TradedTokenInstance", function () {
 
                     await expect(
                         mainInstance.connect(owner).startPresale(presaleBad1.address, ONE_ETH, timeUntil)
-                    ).to.be.revertedWith("Transaction reverted: function selector was not recognized and there's no fallback function");
+                    ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
                 });
                 xit(" --- endTime have wrong output", async() => {
                     const PresaleBad2F = await ethers.getContractFactory("PresaleBad2");
@@ -513,7 +513,7 @@ describe("TradedTokenInstance", function () {
 
                     await expect(
                         mainInstance.connect(owner).startPresale(presaleBad2.address, ONE_ETH, timeUntil)
-                    ).to.be.revertedWith("Transaction reverted: function selector was not recognized and there's no fallback function");
+                    ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
 
                 });
                 it(" --- fallback method only", async() => {
@@ -522,7 +522,7 @@ describe("TradedTokenInstance", function () {
 
                     await expect(
                         mainInstance.connect(owner).startPresale(presaleBad3.address, ONE_ETH, timeUntil)
-                    ).to.be.revertedWith('Transaction reverted: function returned an unexpected amount of data');
+                    ).to.be.revertedWith('function returned an unexpected amount of data');
                 });
                 // it(" --- without wrong signature endTime", async() => {});
                 
@@ -545,16 +545,16 @@ describe("TradedTokenInstance", function () {
                 
                 await expect(
                     mainInstance.connect(owner).addLiquidity(ONE_ETH)
-                ).to.be.revertedWith("InitialLiquidityRequired()");
+                ).to.be.revertedWith("InitialLiquidityRequired");
 
                 await expect(
                     mainInstance.connect(charlie).addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN))
-                ).to.be.revertedWith("OwnerAndManagersOnly()");
+                ).to.be.revertedWith("OwnerAndManagersOnly");
 
                 await mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN));
                 await expect(
                     mainInstance.addInitialLiquidity(ONE_ETH.mul(TEN),ONE_ETH.mul(TEN))
-                ).to.be.revertedWith("AlreadyCalled()");
+                ).to.be.revertedWith("AlreadyCalled");
 
                 // tmp = await pair.getReserves();
                 // console.log("js::pair:price0CumulativeLast(1) = ", await pair.price0CumulativeLast());  
@@ -583,7 +583,7 @@ describe("TradedTokenInstance", function () {
 
                 await expect(
                     mainInstance.connect(owner).startPresale(alice.address, ONE_ETH, timeUntil)
-                ).to.be.revertedWith("BeforeInitialLiquidityRequired()");
+                ).to.be.revertedWith("BeforeInitialLiquidityRequired");
             });
 
             it("[cover] available to claim == 0", async() => {
@@ -598,37 +598,37 @@ describe("TradedTokenInstance", function () {
 
                 await expect(
                     claimManager.connect(bob).claim(ZERO, bob.address)
-                ).to.be.revertedWith("InputAmountCanNotBeZero()");
+                ).to.be.revertedWith("InputAmountCanNotBeZero");
 
                 // by owner
                 await mainInstance.connect(owner).enableClaims();
                 await expect(
                     mainInstance.connect(owner).claim(ZERO, owner.address)
-                ).to.be.revertedWith("InputAmountCanNotBeZero()");
+                ).to.be.revertedWith("InputAmountCanNotBeZero");
             });
 
             it("shouldnt claim with empty address", async() => {
                 await mainInstance.connect(owner).enableClaims();
                 await expect(
                     mainInstance.connect(owner).claim(ONE_ETH, ZERO_ADDRESS)
-                ).to.be.revertedWith("EmptyAccountAddress()");
+                ).to.be.revertedWith("EmptyAccountAddress");
             });
 
             it("shouldnt call restrictClaiming by owner", async() => {
                 await expect(
                     mainInstance.connect(owner).restrictClaiming([ONE_ETH, 1])
-                ).to.be.revertedWith("ManagersOnly()");
+                ).to.be.revertedWith("ManagersOnly");
             });
 
             it("shouldnt setup zero denominator", async() => {
                 await expect(
                     mainInstance.connect(bob).restrictClaiming([ONE_ETH, 1])
-                ).to.be.revertedWith("ManagersOnly()");
+                ).to.be.revertedWith("ManagersOnly");
 
                 await mainInstance.connect(owner).addManager(bob.address);
                 await expect(
                     mainInstance.connect(bob).restrictClaiming([ONE_ETH, 0])
-                ).to.be.revertedWith("ZeroDenominator()");
+                ).to.be.revertedWith("ZeroDenominator");
             });
 
             
@@ -637,7 +637,7 @@ describe("TradedTokenInstance", function () {
                 await mainInstance.connect(owner).addManager(bob.address);
                 await expect(
                     mainInstance.connect(bob).restrictClaiming([ONE, HUN])
-                ).to.be.revertedWith("MinClaimPriceGrowTooFast()");
+                ).to.be.revertedWith("MinClaimPriceGrowTooFast");
             });
 
             it("shouldnt price less than setup before", async() => {
@@ -650,7 +650,7 @@ describe("TradedTokenInstance", function () {
 
                 await expect(
                     mainInstance.connect(bob).restrictClaiming([minClaimPriceNumerator, minClaimPriceDenominator+1])
-                ).to.be.revertedWith("ShouldBeMoreThanMinClaimPrice()");
+                ).to.be.revertedWith("ShouldBeMoreThanMinClaimPrice");
             });
 
             
@@ -674,13 +674,13 @@ describe("TradedTokenInstance", function () {
                     await mainInstance.connect(owner).enableClaims();
                     await expect(
                         claimManager.connect(charlie).claim(tokensToClaim, bob.address)
-                    ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice()");
+                    ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice");
                 });
 
                 it("shouldnt claim if claimTime == 0 (disabled)", async() => {
                     await expect(
                         claimManager.connect(charlie).claim(tokensToClaim, bob.address)
-                    ).to.be.revertedWith("ClaimsDisabled()");
+                    ).to.be.revertedWith("ClaimsDisabled");
                 });
             });
 
@@ -695,13 +695,13 @@ describe("TradedTokenInstance", function () {
                 it("shouldnt claim if claimingTokenAmount more than allowance", async() => {
                     await expect(
                         claimManager.connect(bob).claim(ONE_ETH.add(ONE_ETH), bob.address)
-                    ).to.be.revertedWith("InsufficientAmount()");
+                    ).to.be.revertedWith("InsufficientAmount");
                 });
                 
                 it("shouldnt wantToClaim if amount more that available", async() => {
                     await expect(
                         claimManager.connect(bob).wantToClaim(HUN.mul(ONE_ETH))
-                    ).to.be.revertedWith(`InsufficientAmount()`);
+                    ).to.be.revertedWith(`InsufficientAmount`);
                 });
 
                 it("shouldnt claim too fast", async() => {
@@ -709,7 +709,7 @@ describe("TradedTokenInstance", function () {
                     const lastActionTs = await claimManager.getLastActionTime(bob.address);
                     await expect(
                         claimManager.connect(bob).claim(ONE_ETH, bob.address)
-                    ).to.be.revertedWith(`ClaimTooFast(${lastActionTs.add(claimFrequency)})`);
+                    ).to.be.revertedWith('ClaimTooFast').withArgs(lastActionTs.add(claimFrequency));
                 });   
 
                 
@@ -720,7 +720,7 @@ describe("TradedTokenInstance", function () {
 
                     await expect(
                         claimManager.connect(bob).claim(ONE_ETH, bob.address)
-                    ).to.be.revertedWith(`InsufficientAmountToClaim(${ONE_ETH}, ${ZERO})`);
+                    ).to.be.revertedWith('InsufficientAmountToClaim').withArgs(ONE_ETH, ZERO);
                 });
 
 
@@ -737,7 +737,7 @@ describe("TradedTokenInstance", function () {
                     it("shouldnt claim if claimManager is not a manager for TradedToken ", async() => {
                         await expect(
                             claimManager.connect(bob).claim(ONE_ETH, bob.address)
-                        ).to.be.revertedWith(`OwnerAndManagersOnly()`);
+                        ).to.be.revertedWith(`OwnerAndManagersOnly`);
     
                     });
 
@@ -787,7 +787,7 @@ describe("TradedTokenInstance", function () {
 
                             await expect(
                                 claimManager.connect(bob).claim(userWantToClaim, bob.address)
-                            ).to.be.revertedWith(`InsufficientAmountToClaim(${userWantToClaim}, ${userWantToClaim.mul(availableToClaim).div(wantToClaimTotal)})`);
+                            ).to.be.revertedWith('InsufficientAmountToClaim').withArgs(userWantToClaim, userWantToClaim.mul(availableToClaim).div(wantToClaimTotal));
 
                             let scaledAmount = userWantToClaim.mul(availableToClaim).div(wantToClaimTotal);
                             await claimManager.connect(bob).claim(scaledAmount, bob.address);
@@ -867,7 +867,7 @@ describe("TradedTokenInstance", function () {
 
                     await expect(
                         mainInstance.connect(owner).transfer(charlie.address,ONE_ETH)
-                    ).to.be.revertedWith(`MaxHoldersCountExceeded(${ONE})`);
+                    ).to.be.revertedWith('MaxHoldersCountExceeded').withArgs(ONE);
                     
                 });
 
@@ -894,7 +894,7 @@ describe("TradedTokenInstance", function () {
                     // can't send tokens to new members before owner put him into whitelist(will transfer some tokens to him)
                     await expect(
                         mainInstance.connect(bob).transfer(alice.address, bobTokensAfterClaim)
-                    ).to.be.revertedWith("OwnerAndManagersOnly()");
+                    ).to.be.revertedWith("OwnerAndManagersOnly");
                     
                     // send a little
                     await mainInstance.connect(owner).claim(smthFromOwner, alice.address);
@@ -987,7 +987,7 @@ describe("TradedTokenInstance", function () {
                     // can't send tokens to new members before owner put him into whitelist(will transfer some tokens to him)
                     await expect(
                         mainInstance.connect(alice).transfer(bob.address,ONE_ETH)
-                    ).to.be.revertedWith("OwnerAndManagersOnly()");
+                    ).to.be.revertedWith("OwnerAndManagersOnly");
                     
                     // send a little
                     await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
@@ -1006,7 +1006,7 @@ describe("TradedTokenInstance", function () {
                     await mainInstance.connect(owner).addManager(bob.address);
                     await mainInstance.connect(bob).claim(ONE_ETH, bob.address);
                     
-                    await expect(mainInstance.connect(bob).transfer(charlie.address,ONE_ETH)).to.be.revertedWith("InsufficientAmount()");
+                    await expect(mainInstance.connect(bob).transfer(charlie.address,ONE_ETH)).to.be.revertedWith("InsufficientAmount");
                 }); 
 
             }); 
@@ -1069,7 +1069,7 @@ describe("TradedTokenInstance", function () {
                     bob.address, //address to,
                     timeUntil //uint deadline   
 
-                )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly()"
+                )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly"
             });
 
             describe("taxes", function () {
@@ -1090,11 +1090,11 @@ describe("TradedTokenInstance", function () {
                 }); 
 
                 it("shouldt setup buyTax value more then buyTaxMax", async() => {
-                    await expect(mainInstance.setTaxes(maxBuyTax.add(ONE), storedSellTax)).to.be.revertedWith(`TaxesTooHigh()`);
+                    await expect(mainInstance.setTaxes(maxBuyTax.add(ONE), storedSellTax)).to.be.revertedWith(`TaxesTooHigh`);
                 }); 
 
                 it("shouldt setup sellTax value more then sellTaxMax", async() => {
-                    await expect(mainInstance.setTaxes(storedBuyTax, maxSellTax.add(ONE))).to.be.revertedWith(`TaxesTooHigh()`);
+                    await expect(mainInstance.setTaxes(storedBuyTax, maxSellTax.add(ONE))).to.be.revertedWith(`TaxesTooHigh`);
                 }); 
                 
                 it("should setup sellTax", async() => {
@@ -1389,7 +1389,7 @@ describe("TradedTokenInstance", function () {
                         timeUntil //uint deadline   
 
 
-                    )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly()"
+                    )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly"
 
                     const smthFromOwner = 1;
                     await mainInstance.connect(owner).enableClaims();
@@ -1548,11 +1548,11 @@ describe("TradedTokenInstance", function () {
                         maxliquidity = tradedReserve2.sub(tradedReserve1);
                         add2Liquidity = maxliquidity.abs()//.mul(1).div(10000);
 
-                        await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWith("PriceDropTooBig()");
+                        await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWith("PriceDropTooBig");
 
                         // or try to max from maxAddLiquidity
                         // seems we can add ZERO. Contract will try to use max as possible
-                        //await expect(mainInstance.connect(owner).addLiquidity(0)).to.be.revertedWith("CanNotBeZero()");
+                        //await expect(mainInstance.connect(owner).addLiquidity(0)).to.be.revertedWith("CanNotBeZero");
 
                         
  

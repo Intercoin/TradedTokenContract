@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./interfaces/IClaimManagerUpgradeable.sol";
 
-import "@artman325/releasemanager/contracts/CostManagerFactoryHelper.sol";
-import "@artman325/releasemanager/contracts/ReleaseManagerHelper.sol";
+import "@intercoin/releasemanager/contracts/CostManagerFactoryHelper.sol";
+import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
 
 /**
 ****************

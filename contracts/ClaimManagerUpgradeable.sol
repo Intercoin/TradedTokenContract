@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgrade
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@artman325/releasemanager/contracts/CostManagerHelper.sol";
+import "@intercoin/releasemanager/contracts/CostManagerHelper.sol";
 import "./interfaces/IClaimManagerUpgradeable.sol";
 import "./interfaces/IClaim.sol";
 
