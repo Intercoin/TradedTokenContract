@@ -854,13 +854,20 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             //     revert InsufficientAmount();
             // }
             bool isLocked = (balance - locked < amount);
-            if ((receivedTransfersCount[from] >= MAX_TRANSFER_COUNT) && isLocked) {
-                revert InsufficientAmount();
-            }
-            if (isLocked) {
-                tokensLocked[from].minimumsTransfer(tokensLocked[to], false, amount);
-            }
+            // if ((receivedTransfersCount[from] >= MAX_TRANSFER_COUNT) && isLocked) {
+            //     revert InsufficientAmount();
+            // }
 
+            if (isLocked) {
+                if ((receivedTransfersCount[from] < MAX_TRANSFER_COUNT) && (balance >= amount)) {
+                    // pass
+                    tokensLocked[from].minimumsTransfer(tokensLocked[to], false, amount);
+                } else {
+                    revert InsufficientAmount();
+                }
+                
+            }
+            
             if (receivedTransfersCount[from] < MAX_TRANSFER_COUNT) {
                 receivedTransfersCount[from] += 1;
             }

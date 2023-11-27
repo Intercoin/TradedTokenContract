@@ -998,7 +998,7 @@ describe("TradedTokenInstance", function () {
                     
                 }); 
 
-                it("should locked up tokens", async() => {
+                it("shouldnt locked up tokens", async() => {
                     const smthFromOwner= 1;
                     // send a little
                     await mainInstance.connect(owner).claim(smthFromOwner, charlie.address);
