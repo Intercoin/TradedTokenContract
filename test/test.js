@@ -1006,7 +1006,53 @@ describe("TradedTokenInstance", function () {
                     await mainInstance.connect(owner).addManager(bob.address);
                     await mainInstance.connect(bob).claim(ONE_ETH, bob.address);
                     
-                    await expect(mainInstance.connect(bob).transfer(charlie.address,ONE_ETH)).to.be.revertedWith("InsufficientAmount");
+                    //await expect(mainInstance.connect(bob).transfer(charlie.address,ONE_ETH)).to.be.revertedWith("InsufficientAmount");
+                    await expect(mainInstance.connect(bob).transfer(charlie.address,ONE_ETH)).not.to.be.revertedWith("InsufficientAmount");
+                }); 
+
+                it("should locked up tokens when receivedTransfersCount > 4", async() => {
+                    const smthFromOwner= 1;
+                    // send a little
+                    await mainInstance.connect(owner).claim(smthFromOwner, charlie.address);
+
+                    await mainInstance.connect(owner).addManager(bob.address);
+                    await mainInstance.connect(bob).claim(ONE_ETH, bob.address);
+
+                    await mainInstance.connect(owner).addManager(charlie.address);
+
+                    // start to calculate transfersCount
+                    expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(ZERO);
+                    expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(ZERO);
+
+                    // transfer to charlies and back to bob 
+                    await mainInstance.connect(bob).transfer(charlie.address,ONE_ETH);
+                    await mainInstance.connect(charlie).transfer(bob.address,ONE_ETH);
+                    expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(ONE);
+                    expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(ONE);
+
+                    // again
+                    await mainInstance.connect(bob).transfer(charlie.address,ONE_ETH);
+                    await mainInstance.connect(charlie).transfer(bob.address,ONE_ETH);
+                    expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(TWO);
+                    expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(TWO);
+
+                    // and again
+                    await mainInstance.connect(bob).transfer(charlie.address,ONE_ETH);
+                    await mainInstance.connect(charlie).transfer(bob.address,ONE_ETH);
+                    expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(THREE);
+                    expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(THREE);
+
+                    // the last one, but charlie send only half of it
+                    await mainInstance.connect(bob).transfer(charlie.address,ONE_ETH);
+                    await mainInstance.connect(charlie).transfer(bob.address,ONE_ETH.div(2));
+                    expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(FOURTH);
+                    expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(FOURTH);
+
+                    // bob should have receivedTransfersCount => 4. after that tokens(which keep save gradual lock-up) can't be transferred until lock-up passed
+                    await expect(mainInstance.connect(bob).transfer(charlie.address,ONE_ETH.div(2))).to.be.revertedWith("InsufficientAmount");
+                    // charlie have receivedTransfersCount => 4 too. and  can't be transferred until lock-up passed
+                    await expect(mainInstance.connect(charlie).transfer(bob.address,ONE_ETH.div(2))).to.be.revertedWith("InsufficientAmount");
+
                 }); 
 
             }); 
