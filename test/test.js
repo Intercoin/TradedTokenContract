@@ -67,6 +67,9 @@ describe("TradedTokenInstance", function () {
     const maxBuyTax = FRACTION.mul(15).div(100); // 0.15*fraction
     const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
     const holdersMax = HUN;
+    const maxTotalSupply = 0;
+    const buyTokenAddress = ZERO_ADDRESS;
+    const buyPrice = 0;
 
     const claimFrequency = 60;  // 1 min
 
@@ -201,9 +204,16 @@ describe("TradedTokenInstance", function () {
                     ],
                     taxesInfo,
                     [RateLimitDuration, RateLimitValue],
-                    maxBuyTax,
-                    maxSellTax,
-                    holdersMax
+                    [
+                        maxBuyTax,
+                        maxSellTax,
+                        holdersMax,
+                        maxTotalSupply
+                    ],
+                    [
+                        buyTokenAddress,
+                        buyPrice
+                    ]
                 )
             ).to.be.revertedWith("reserveTokenInvalid");
         });
@@ -231,9 +241,16 @@ describe("TradedTokenInstance", function () {
                 ],
                 taxesInfo,
                 [RateLimitDuration, RateLimitValue],
-                maxBuyTax,
-                maxSellTax,
-                holdersMax
+                [
+                    maxBuyTax,
+                    maxSellTax,
+                    holdersMax,
+                    maxTotalSupply
+                ],
+                [
+                    buyTokenAddress,
+                    buyPrice
+                ]
             );
 
             await expect(
@@ -481,10 +498,11 @@ describe("TradedTokenInstance", function () {
                 // expectLocked = BigNumber.from('53031250000016533');
                 // console.log(lockedAfter.toString());
                 // console.log(expectLocked.toString());
+                var ratio =  10000000;
                 expect(
-                    Math.round(lockedAfter/1000000)*1000000
+                    Math.round(lockedAfter/ratio)*ratio
                 ).to.be.eq(
-                    Math.round(expectLocked/1000000)*1000000
+                    Math.round(expectLocked/ratio)*ratio
                 );
 
                 await ethers.provider.send('evm_revert', [snapId]);

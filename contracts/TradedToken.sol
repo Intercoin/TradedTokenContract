@@ -64,6 +64,19 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint32 duration; // for time ranges, 32 bits are enough, can also define constants like DAY, WEEK, MONTH
         uint32 fraction; // out of 10,000
     }
+
+    struct BuyInfo {
+        address token;
+        uint256 price;
+    }
+
+    struct MaxVars {
+        uint16 buyTaxMax;
+        uint16 sellTaxMax;
+        uint16 holdersMax;
+        uint256 maxTotalSupply;
+    }
+    
     RateLimit public panicSellRateLimit;
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
@@ -125,6 +138,11 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     uint256 public totalCumulativeClaimed;
 
+    uint256 public maxTotalSupply;
+
+    address public buyToken;
+    uint256 public buyPrice;
+
     Liquidity internal internalLiquidity;
     Observation internal pairObservation;
 
@@ -175,6 +193,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error MinClaimPriceGrowTooFast();
     error MaxHoldersCountExceeded(uint256 count);
     error InvalidSellRateLimitFraction();
+    error BuyNotAvailable();
+    error MaxTotalSupplyExceeded();
 
     /**
      * @param tokenName_ token name
@@ -186,9 +206,14 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
      * @param claimSettings.minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
      * @param panicSellRateLimit_ (fraction, duration) if fraction != 0, can sell at most this fraction of balance per interval with this duration
-     * @param buyTaxMax_ buyTaxMax_
-     * @param sellTaxMax_ sellTaxMax_
-     * @param holdersMax_ the maximum number of holders, may be increased by owner later
+     * @param maxVars struct with maximum vars for several variables
+     *  param buyTaxMax buyTaxMax_
+     *  param sellTaxMax sellTaxMax_
+     *  param holdersMax the maximum number of holders, may be increased by owner later
+     *  param maxTotalSupply the maximum totalSupply can be minted,  if 0 - unlimited
+     * @param buyInfo struct with token and price
+     *  param token token's address 
+     *  param price buy price
      */
     constructor(
         string memory tokenName_,
@@ -199,14 +224,17 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
-        uint16 buyTaxMax_,
-        uint16 sellTaxMax_,
-        uint16 holdersMax_
+        MaxVars memory maxVars,
+        BuyInfo memory buyInfo
+        
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
 
         //setup
-        (buyTaxMax,  sellTaxMax,  holdersMax) =
-        (buyTaxMax_, sellTaxMax_, holdersMax_);
+        (buyTaxMax,  sellTaxMax,  holdersMax, maxTotalSupply) =
+        (maxVars.buyTaxMax, maxVars.sellTaxMax, maxVars.holdersMax, maxVars.maxTotalSupply);
+
+        buyToken = buyInfo.token;
+        buyPrice = buyInfo.price;
 
         tradedToken = address(this);
         reserveToken = reserveToken_;
@@ -546,6 +574,25 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         emit AddedLiquidity(tradedTokenAmount, priceAverageData);
 
         _update();
+    }
+
+    function buy(uint256 amount) external payable {
+
+        if (buyPrice == 0) {
+            revert BuyNotAvailable();
+        }
+
+        if (buyToken == address(0)) {
+            amount = msg.value;
+        } else {
+            IERC20(buyToken).transferFrom(msg.sender, address(this), amount);
+        }
+        uint256 amountToMint = amount / buyPrice;
+        if (amountToMint == 0) {
+            revert BuyNotAvailable();
+        }
+        _mint(msg.sender, amountToMint, "", "");
+
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -986,6 +1033,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         bytes memory userData,
         bytes memory operatorData
     ) internal virtual override {
+        if (maxTotalSupply > 0 && totalSupply()+amount > maxTotalSupply) {
+            revert MaxTotalSupplyExceeded();
+        }
         super._mint(account, amount, userData, operatorData);
     }
 
