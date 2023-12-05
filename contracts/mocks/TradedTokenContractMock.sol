@@ -94,6 +94,20 @@ contract TradedTokenMock is TradedToken {
     ) 
         public 
     {
+        TaxesLib.setTaxes(taxesInfo, taxesInfoInit.buyTax, taxesInfoInit.sellTax);
+
+        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+ 
+    }
+    function setTaxesInfoInitWithoutTaxes(
+        TaxesLib.TaxesInfoInit memory taxesInfoInit
+    ) 
+        public 
+    {
+
         taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
         taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
         taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;

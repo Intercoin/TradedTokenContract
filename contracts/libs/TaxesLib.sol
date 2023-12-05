@@ -16,18 +16,32 @@ library TaxesLib {
     } 
 
     struct TaxesInfoInit { 
+        uint16 buyTax;
+        uint16 sellTax;
         uint64 buyTaxDuration;
         uint64 sellTaxDuration;
         bool buyTaxGradual;
         bool sellTaxGradual;
     }
 
+    function init(TaxesInfo storage taxesInfo, TaxesInfoInit memory taxesInfoInit) external {
+        _setTaxes(taxesInfo, taxesInfoInit.buyTax, taxesInfoInit.sellTax);
+
+        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+    }
+
+    function setTaxes(TaxesInfo storage taxesInfo, uint16 newBuyTax, uint16 newSellTax) external {
+        _setTaxes(taxesInfo, newBuyTax, newSellTax);
+    }
+
     function buyTax(TaxesInfo storage taxesInfo) external view returns(uint16) {
         return _buyTax(taxesInfo);
     }
 
-
-    function sellTax(TaxesInfo storage taxesInfo) public view returns(uint16) {
+    function sellTax(TaxesInfo storage taxesInfo) external view returns(uint16) {
         return _sellTax(taxesInfo);
     }
 
@@ -83,15 +97,7 @@ library TaxesLib {
         
     }
 
-
-    function init(TaxesInfo storage taxesInfo, TaxesInfoInit memory taxesInfoInit) external {
-        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
-        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
-        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
-        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
-    }
-
-    function setTaxes(TaxesInfo storage taxesInfo, uint16 newBuyTax, uint16 newSellTax) external {
+    function _setTaxes(TaxesInfo storage taxesInfo, uint16 newBuyTax, uint16 newSellTax) private {
         taxesInfo.fromSellTax = _sellTax(taxesInfo);
         taxesInfo.toSellTax = newSellTax;
         taxesInfo.sellTaxTimestamp = uint64(block.timestamp);

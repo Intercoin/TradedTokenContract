@@ -71,6 +71,8 @@ describe("TradedTokenInstance", function () {
     const claimFrequency = 60;  // 1 min
 
     const taxesInfo = [
+        0,//buytax
+        0,//selltax
         0,
         0,
         false,
@@ -477,7 +479,8 @@ describe("TradedTokenInstance", function () {
                 // floating point in js. So didnt check last six digits/ for the numbers like below
                 // lockedAfter = BigNumber.from('53031249999981333');
                 // expectLocked = BigNumber.from('53031250000016533');
-
+                // console.log(lockedAfter.toString());
+                // console.log(expectLocked.toString());
                 expect(
                     Math.round(lockedAfter/1000000)*1000000
                 ).to.be.eq(
@@ -1122,7 +1125,7 @@ describe("TradedTokenInstance", function () {
                 }); 
 
                 it("should setup sellTax gradually", async() => {
-                    await mainInstance.setTaxesInfoInit([1000,1000,true,true]);
+                    await mainInstance.setTaxesInfoInitWithoutTaxes([storedBuyTax,storedSellTax,1000,1000,true,true]);
                     const oldValue = await mainInstance.sellTax();
 
                     const value = maxSellTax.sub(ONE);
@@ -1148,7 +1151,7 @@ describe("TradedTokenInstance", function () {
                 }); 
 
                 it("should setup buyTax gradually", async() => {
-                    await mainInstance.setTaxesInfoInit([1000,1000,true,true]);
+                    await mainInstance.setTaxesInfoInitWithoutTaxes([storedBuyTax,storedSellTax,1000,1000,true,true]);
                     const oldValue = await mainInstance.buyTax();
 
                     const value = maxBuyTax.sub(ONE);
@@ -1180,7 +1183,7 @@ describe("TradedTokenInstance", function () {
                     await mainInstance.setTaxes(value, storedSellTax);
                     const oldValue = await mainInstance.buyTax();
 
-                    await mainInstance.setTaxesInfoInit([1000,1000,true,true]);
+                    await mainInstance.setTaxesInfoInitWithoutTaxes([storedBuyTax,storedSellTax,1000,1000,true,true]);
                     // to make setup fromTax as `maxBuyTax.sub(ONE)` need to pass full time duration. 
                     // if call setTax in the middle of period then contract will calculate taxFrom as (from+to)/2
                     await network.provider.send("evm_increaseTime", [10000]);
