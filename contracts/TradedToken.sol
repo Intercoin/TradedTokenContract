@@ -136,7 +136,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     uint16 public holdersMax;
     uint16 public holdersCount;
 
-    uint256 public totalCumulativeClaimed;
+    uint256 public cumulativeClaimed;
 
     uint256 public maxTotalSupply;
 
@@ -946,7 +946,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
 
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-        uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
+        uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
         uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
             currentIterationTotalCumulativeClaimed,
@@ -970,8 +970,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     function availableToClaim() public view returns(uint256 tradedTokenAmount) {
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
-        if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
-            tradedTokenAmount -= (_reserve0 + totalCumulativeClaimed);
+        if (tradedTokenAmount > _reserve0 + cumulativeClaimed) {
+            tradedTokenAmount -= (_reserve0 + cumulativeClaimed);
         } else {
             tradedTokenAmount = 0;
         }
@@ -986,7 +986,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             revert EmptyAccountAddress();
         }
 
-        totalCumulativeClaimed += tradedTokenAmount;
+        cumulativeClaimed += tradedTokenAmount;
 
         _mint(account, tradedTokenAmount, "", "");
         
