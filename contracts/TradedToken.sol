@@ -1054,9 +1054,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                     // burn taxes from remainder
                     amount = _burnTaxes(holder, amount, sellTax());
                 }
-            } catch Error(string memory _err) {
+            } catch Error(string memory/* _err*/) {
                 // do nothing
-            } catch (bytes memory _err) {
+            } catch (bytes memory /*_err*/) {
                 // do nothing
             }
         }
