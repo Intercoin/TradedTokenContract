@@ -157,19 +157,19 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     bool private addedInitialLiquidityRun;
 
+    event AddedInitialLiquidity(uint256 tradedTokenAmount, uint256 reserveTokenAmount);
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
     event AddedManager(address account, address sender);
-    event RemovedManager(address account, address sender);
-    event AddedInitialLiquidity(uint256 tradedTokenAmount, uint256 reserveTokenAmount);
-    event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
     event Claimed(address account, uint256 amount);
-    event Presale(address account, uint256 amount);
-    event PresaleTokensBurned(address account, uint256 burnedAmount);
-    event Sale(address saleContract, uint64 lockupDays);
-    event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
+    event ClaimsEnabled(uint64 claimsEnabledTime);
     event IncreasedHoldersMax(uint16 newHoldersMax);
     event IncreasedHoldersThreshold(uint256 newHoldersThreshold);
-    event ClaimsEnabled(uint64 claimsEnabledTime);
+    event PanicSellRateExceeded(address indexed holder, address indexed recipient, uint256 amount);
+    event Presale(address account, uint256 amount);
+    event PresaleTokensBurned(address account, uint256 burnedAmount);
+    event RemovedManager(address account, address sender);
+    event Sale(address saleContract, uint64 lockupDays);
+    event UpdatedTaxes(uint256 sellTax, uint256 buyTax);
 
     error AlreadyCalled();
     error BeforeInitialLiquidityRequired();
