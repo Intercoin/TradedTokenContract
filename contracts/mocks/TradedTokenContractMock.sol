@@ -54,7 +54,13 @@ contract TradedTokenMock is TradedToken {
         //      traded1 -> traded2->priceAverageData
         returns(uint256, uint256, uint256) 
     {  
-        return _maxAddLiquidity();
+        uint112 traded;
+        uint112 reserved;
+        //uint32 blockTimestampLast;
+
+        (traded, reserved, /*blockTimestampLast*/) = _uniswapReserves();
+        //_hitAllTimeHigh(traded, reserved);
+        return _maxAddLiquidity(traded, reserved);
     }
 
     // function getTradedAveragePrice(
@@ -127,7 +133,7 @@ contract TradedTokenMock is TradedToken {
     }
 
     function setTotalCumulativeClaimed(uint256 total) public {
-        totalCumulativeClaimed = total;
+        cumulativeClaimed = total;
     }
 
     function getMinClaimPriceUpdatedTime() public pure returns(uint64) {

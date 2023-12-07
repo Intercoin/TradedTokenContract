@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL
-pragma solidity >= 0.4.21 < 0.9.0;
+pragma solidity >= 0.8.0 < 0.9.0;
 
 /**
  * @title TradedTokenContract
@@ -142,6 +142,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     address public buyToken;
     uint256 public buyPrice;
+
+    uint256 allTimeHighGrowthFraction;
+    PriceNumDen allTimeHigh;
 
     Liquidity internal internalLiquidity;
     Observation internal pairObservation;
@@ -455,6 +458,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         external
     {
         onlyOwnerAndManagers();
+        
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, account);
     }
@@ -524,7 +528,13 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
         FixedPoint.uq112x112 memory averageWithPriceDrop;
 
-        (tradedReserve1, tradedReserve2, priceAverageData) = _maxAddLiquidity();
+        uint112 traded;
+        uint112 reserved;
+        //uint32 blockTimestampLast;
+        (traded, reserved,/* blockTimestampLast*/) = _uniswapReserves();
+        _hitAllTimeHigh(traded, reserved);
+
+        (tradedReserve1, tradedReserve2, priceAverageData) = _maxAddLiquidity(traded, reserved);
 
         bool err;
 
@@ -935,7 +945,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
 
-    function _validateClaim(uint256 tradedTokenAmount) internal view {
+    function _validateClaim(uint256 tradedTokenAmount) internal {
 
         if (claimsEnabledTime == 0) {
             revert ClaimsDisabled();
@@ -946,6 +956,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
 
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
+        _hitAllTimeHigh(_reserve0, _reserve1);
+
         uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
         uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
@@ -974,6 +986,30 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             tradedTokenAmount -= (_reserve0 + cumulativeClaimed);
         } else {
             tradedTokenAmount = 0;
+        }
+    }
+
+    function _hitAllTimeHigh(
+        uint112 _reserve0, 
+        uint112 _reserve1
+    ) 
+        internal
+    {
+        if
+        (
+            FixedPoint.fraction(_reserve0, _reserve1)._x // spotPrice
+            > 
+            FixedPoint.muluq(
+                FixedPoint.fraction(allTimeHigh.numerator, allTimeHigh.denominator),
+                FixedPoint.divuq(
+                    FixedPoint.encode(uint112(allTimeHighGrowthFraction) + uint112(FRACTION)),
+                    FixedPoint.encode(uint112(FRACTION))
+                )
+            )._x
+        ) {
+            allTimeHigh.numerator = _reserve0;
+            allTimeHigh.denominator = _reserve1;
+            cumulativeClaimed = 0;
         }
     }
 
@@ -1137,7 +1173,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         internalLiquidity.addLiquidity();
     }
 
-    function _maxAddLiquidity()
+    function _maxAddLiquidity(
+        uint112 traded,
+        uint112 reserved
+    )
         internal
         view
         returns (
@@ -1149,11 +1188,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     {
         // tradedNew = Math.sqrt(@tokenPair.r0 * @tokenPair.r1 / (average_price*(1-@price_drop)))
 
-        uint112 traded;
-        uint112 reserved;
-        uint32 blockTimestampLast;
-
-        (traded, reserved, blockTimestampLast) = _uniswapReserves();
         FixedPoint.uq112x112 memory priceAverageData = _tradedAveragePrice();
 
         uint256 tradedNew = FixedPoint.decode(

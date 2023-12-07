@@ -14,6 +14,8 @@ interface IClaimManager {
         address claimingToken;
         PriceNumDen claimingTokenExchangePrice;
         uint16 claimFrequency;
+        PriceNumDen exchangeRateIncrease;
+        uint64 exchangeRateInterval;
     }
 }
 

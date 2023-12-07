@@ -74,6 +74,9 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
      */
     uint16 public claimFrequency;
 
+    PriceNumDen exchangeRateIncrease;
+    uint64 exchangeRateInterval;
+
     uint256 public wantToClaimTotal; // value that accomulated all users `wantToClaim requests`
     
     mapping(address => ClaimStruct) public wantToClaimMap;
@@ -113,6 +116,10 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
         claimingTokenExchangePrice.denominator = claimSettings.claimingTokenExchangePrice.denominator;
         
         claimFrequency = claimSettings.claimFrequency;
+
+        exchangeRateIncrease.numerator = claimSettings.exchangeRateIncrease.numerator;
+        exchangeRateIncrease.denominator = claimSettings.exchangeRateIncrease.denominator;
+        exchangeRateInterval = claimSettings.exchangeRateInterval;
 
         timeDeploy = block.timestamp;
         
@@ -191,6 +198,8 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
         uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
             claimingTokenExchangePrice.denominator;
 
+        tradedTokenAmount += tradedTokenAmount*exchangeRateIncrease.numerator/exchangeRateIncrease.denominator*(exchangeRateInterval-timeDeploy);
+        
         uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(msg.sender);
 
         if (scalingMaxTradedTokenAmount < tradedTokenAmount) {
