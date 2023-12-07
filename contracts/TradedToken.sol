@@ -172,32 +172,32 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     event ClaimsEnabled(uint64 claimsEnabledTime);
 
     error AlreadyCalled();
-    error InitialLiquidityRequired();
     error BeforeInitialLiquidityRequired();
-    error reserveTokenInvalid();
-    error EmptyAddress();
-    error EmptyAccountAddress();
-    error EmptyManagerAddress();
-    error InputAmountCanNotBeZero();
-    error ZeroDenominator();
-    error InsufficientAmount();
-    error TaxesTooHigh();
-    error PriceDropTooBig();
-    error OwnerAndManagersOnly();
-    error ManagersOnly();
-    error OwnersOnly();
-    error CantCreatePair(address tradedToken, address reserveToken);
-    error EmptyReserves();
-    error ClaimValidationError();
-    error PriceHasBecomeALowerThanMinClaimPrice();
-    error ClaimsDisabled();
-    error ClaimsEnabledTimeAlreadySetup();
-    error ShouldBeMoreThanMinClaimPrice();
-    error MinClaimPriceGrowTooFast();
-    error MaxHoldersCountExceeded(uint256 count);
-    error InvalidSellRateLimitFraction();
     error BuyNotAvailable();
+    error CantCreatePair(address tradedToken, address reserveToken);
+    error ClaimsEnabledTimeAlreadySetup();
+    error ClaimsDisabled();
+    error ClaimValidationError();
+    error EmptyAccountAddress();
+    error EmptyAddress();
+    error EmptyManagerAddress();
+    error EmptyReserves();
+    error InitialLiquidityRequired();
+    error InputAmountCanNotBeZero();
+    error InsufficientAmount();
+    error InvalidSellRateLimitFraction();
+    error ManagersOnly();
+    error MaxHoldersCountExceeded(uint256 count);
     error MaxTotalSupplyExceeded();
+    error MinClaimPriceGrowTooFast();
+    error OwnerAndManagersOnly();
+    error OwnersOnly();
+    error PriceDropTooBig();
+    error PriceHasBecomeALowerThanMinClaimPrice();
+    error TaxesTooHigh();
+    error ReserveTokenInvalid();
+    error ShouldBeMoreThanMinClaimPrice();
+    error ZeroDenominator();
 
     /**
      * @param tokenName_ token name
@@ -272,7 +272,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
 
         if (reserveToken == address(0)) {
-            revert reserveTokenInvalid();
+            revert ReserveTokenInvalid();
         }
 
         if (reserveToken_ == address(0)) {
