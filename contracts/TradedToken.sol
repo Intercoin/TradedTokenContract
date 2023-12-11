@@ -144,7 +144,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     uint256 public buyPrice;
 
     uint256 allTimeHighGrowthFraction;
-    PriceNumDen allTimeHigh;
+    FixedPoint.uq112x112 allTimeHighPriceAverageData;
 
     Liquidity internal internalLiquidity;
     Observation internal pairObservation;
@@ -458,6 +458,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         
         _validateClaim(tradedTokenAmount);
         _claim(tradedTokenAmount, account);
+
+        _update();
     }
 
     function enableClaims() external onlyOwner {
@@ -575,7 +577,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
 
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-        _hitAllTimeHigh(_reserve0, _reserve1);
+        // _hitAllTimeHigh
+        cumulativeClaimed = _actualCumulativeClaimed();
+        //-------------
 
         uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
@@ -626,8 +630,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint112 reserved;
         //uint32 blockTimestampLast;
         (traded, reserved,/* blockTimestampLast*/) = _uniswapReserves();
-        _hitAllTimeHigh(traded, reserved);
-
+        // _hitAllTimeHigh
+        cumulativeClaimed = _actualCumulativeClaimed();
+        //-------------
         bool err;
         (
             err,
@@ -1015,37 +1020,20 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
         if (err) {
             tradedTokenAmount = 0;
-        }
-        // tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
-        // if (tradedTokenAmount > _reserve0 + cumulativeClaimed) {
-        //     tradedTokenAmount -= (_reserve0 + cumulativeClaimed);
-        // } else {
-        //     tradedTokenAmount = 0;
-        // }
-    }
+        } else {
 
-    function _hitAllTimeHigh(
-        uint112 _reserve0, 
-        uint112 _reserve1
-    ) 
-        internal
-    {
-        if
-        (
-            FixedPoint.fraction(_reserve0, _reserve1)._x // spotPrice
-            > 
-            FixedPoint.muluq(
-                FixedPoint.fraction(allTimeHigh.numerator, allTimeHigh.denominator),
-                FixedPoint.divuq(
-                    FixedPoint.encode(uint112(allTimeHighGrowthFraction) + uint112(FRACTION)),
-                    FixedPoint.encode(uint112(FRACTION))
-                )
-            )._x
-        ) {
-            allTimeHigh.numerator = _reserve0;
-            allTimeHigh.denominator = _reserve1;
-            cumulativeClaimed = 0;
+            uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmount;
+            // amountin reservein reserveout
+            tradedTokenAmount = IUniswapV2Router02(uniswapRouter).getAmountOut(
+                currentIterationTotalCumulativeClaimed,
+                _reserve0,
+                _reserve1
+            );
         }
+
+        // if (amountOut == 0) {
+        //     revert ClaimValidationError();
+        // }
     }
 
     /**
@@ -1110,8 +1098,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         super._mint(account, amount, userData, operatorData);
     }
 
-
-
     function _doSwapOnUniswap(
         address tokenIn,
         address tokenOut,
@@ -1169,6 +1155,35 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             pairObservation.price0CumulativeLast = price0Cumulative;
 
             pairObservation.timestampLast = blockTimestamp;
+        }
+
+        // allTimeHigh
+
+
+    }
+
+    function _actualCumulativeClaimed(
+    )
+        internal 
+        view
+        returns(uint256)
+    {
+        FixedPoint.uq112x112 memory priceAverageData = _tradedAveragePrice();
+        if
+        (
+            priceAverageData._x
+            > 
+            FixedPoint.muluq(
+                allTimeHighPriceAverageData,
+                FixedPoint.divuq(
+                    FixedPoint.encode(uint112(allTimeHighGrowthFraction) + uint112(FRACTION)),
+                    FixedPoint.encode(uint112(FRACTION))
+                )
+            )._x
+        ) {
+            return 0;
+        } else {
+            return cumulativeClaimed;
         }
     }
 
