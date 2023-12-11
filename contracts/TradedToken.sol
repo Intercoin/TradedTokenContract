@@ -47,10 +47,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         FixedPoint.uq112x112 price0Average;
     }
     
-    struct ClaimSettings {
-        PriceNumDen minClaimPrice;
-        PriceNumDen minClaimPriceGrow;
-    }
+    // struct ClaimSettings {
+    //     PriceNumDen minClaimPrice;
+    //     PriceNumDen minClaimPriceGrow;
+    // }
 
     TaxesLib.TaxesInfo public taxesInfo;
     
@@ -102,9 +102,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      */
     uint256 public immutable priceDrop;
 
-    PriceNumDen minClaimPrice;
-    uint64 internal lastMinClaimPriceUpdatedTime;
-    PriceNumDen minClaimPriceGrow;
+    //PriceNumDen minClaimPrice;
+    //uint64 internal lastMinClaimPriceUpdatedTime;
+    //PriceNumDen minClaimPriceGrow;
 
     /**
      * 
@@ -189,14 +189,14 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error ManagersOnly();
     error MaxHoldersCountExceeded(uint256 count);
     error MaxTotalSupplyExceeded();
-    error MinClaimPriceGrowTooFast();
+    //error MinClaimPriceGrowTooFast();
     error OwnerAndManagersOnly();
     error OwnersOnly();
     error PriceDropTooBig();
-    error PriceHasBecomeALowerThanMinClaimPrice();
+    //error PriceHasBecomeALowerThanMinClaimPrice();
     error TaxesTooHigh();
     error ReserveTokenInvalid();
-    error ShouldBeMoreThanMinClaimPrice();
+    //error ShouldBeMoreThanMinClaimPrice();
     error ZeroDenominator();
 
     /**
@@ -205,9 +205,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @param reserveToken_ reserve token address
      * @param priceDrop_ price drop while add liquidity
      * @param lockupDays_ interval amount in days (see minimum lib)
-     * @param claimSettings struct of claim settings
-     * @param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
-     * @param claimSettings.minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
      * @param panicSellRateLimit_ (fraction, duration) if fraction != 0, can sell at most this fraction of balance per interval with this duration
      * @param maxVars struct with maximum vars for several variables
      *  param buyTaxMax buyTaxMax_
@@ -224,7 +221,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         address reserveToken_, //” (USDC)
         uint256 priceDrop_,
         uint64 lockupDays_,
-        ClaimSettings memory claimSettings,
+//        ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
         MaxVars memory maxVars,
@@ -251,25 +248,25 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         priceDrop = priceDrop_;
         lockupDays = lockupDays_;
         
-        minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
-        minClaimPriceGrow.denominator = claimSettings.minClaimPriceGrow.denominator;
-        minClaimPrice.numerator = claimSettings.minClaimPrice.numerator;
-        minClaimPrice.denominator = claimSettings.minClaimPrice.denominator;
+        // minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
+        // minClaimPriceGrow.denominator = claimSettings.minClaimPriceGrow.denominator;
+        // minClaimPrice.numerator = claimSettings.minClaimPrice.numerator;
+        // minClaimPrice.denominator = claimSettings.minClaimPrice.denominator;
 
         panicSellRateLimit.duration = panicSellRateLimit_.duration;
         panicSellRateLimit.fraction = panicSellRateLimit_.fraction;
 
-        lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
+        //lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
 
         taxesInfo.init(taxesInfoInit);
 
         //validations
-        if (
-            claimSettings.minClaimPriceGrow.denominator == 0 ||
-            claimSettings.minClaimPrice.denominator == 0
-        ) { 
-            revert ZeroDenominator();
-        }
+        // if (
+        //     claimSettings.minClaimPriceGrow.denominator == 0 ||
+        //     claimSettings.minClaimPrice.denominator == 0
+        // ) { 
+        //     revert ZeroDenominator();
+        // }
 
         if (reserveToken == address(0)) {
             revert ReserveTokenInvalid();
@@ -471,90 +468,79 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         emit ClaimsEnabled(claimsEnabledTime);
     }
 
-    /**
-     * @notice managers can restrict future claims to make sure
-     *  that selling all claimed tokens will never drop price below
-     *  the newMinimumPrice.
-     * @param newMinimumPrice below which the token price on Uniswap v2 pair
-     *  won't drop, if all claimed tokens were sold right after being minted.
-     *  This price can't increase faster than minClaimPriceGrow per day.
-     * 
-     */
-    function restrictClaiming(PriceNumDen memory newMinimumPrice) external {
-        onlyManagers();
-        if (newMinimumPrice.denominator == 0) {
-            revert ZeroDenominator();
-        }
+    // **
+    //  * @notice managers can restrict future claims to make sure
+    //  *  that selling all claimed tokens will never drop price below
+    //  *  the newMinimumPrice.
+    //  * @param newMinimumPrice below which the token price on Uniswap v2 pair
+    //  *  won't drop, if all claimed tokens were sold right after being minted.
+    //  *  This price can't increase faster than minClaimPriceGrow per day.
+    //  * 
+    //  *
+    // function restrictClaiming(PriceNumDen memory newMinimumPrice) external {
+    //     onlyManagers();
+    //     if (newMinimumPrice.denominator == 0) {
+    //         revert ZeroDenominator();
+    //     }
 
-        FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
-        FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
-        FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
-        if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
-            revert ShouldBeMoreThanMinClaimPrice();
-        }
-        if (
-            newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
-            lastMinClaimPriceUpdatedTime <= block.timestamp + MIN_CLAIM_PRICE_UPDATED_TIME
-        ) {
-            revert MinClaimPriceGrowTooFast();
-        }
+    //     FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
+    //     FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
+    //     FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
+    //     if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
+    //         revert ShouldBeMoreThanMinClaimPrice();
+    //     }
+    //     if (
+    //         newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
+    //         lastMinClaimPriceUpdatedTime <= block.timestamp + MIN_CLAIM_PRICE_UPDATED_TIME
+    //     ) {
+    //         revert MinClaimPriceGrowTooFast();
+    //     }
 
-        lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
+    //     lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
             
-        minClaimPrice.numerator = newMinimumPrice.numerator;
-        minClaimPrice.denominator = newMinimumPrice.denominator;
-    }
+    //     minClaimPrice.numerator = newMinimumPrice.numerator;
+    //     minClaimPrice.denominator = newMinimumPrice.denominator;
+    // }
 
-    /**
-     * @notice called by owner or managers to automatically sell some tokens and add liquidity
-     * @param tradedTokenAmount the amount of tradedToken to use.
-     *   Some of it is sold for reserveToken, and the rest is added, together with
-     *   the obtained reserveToken, to both sides of the liquidity pool.
-     *   Pass zero here to use the maximum amount.
-     */
-    function addLiquidity(uint256 tradedTokenAmount) external {
-        initialLiquidityRequired();
-        onlyOwnerAndManagers();
+    function _validatePriceDrop(
+        uint112 traded,
+        uint112 reserved,
+        uint256 tradedTokenAmount
+    ) 
+        internal 
+        view
+        returns(
+            bool err,                       // true - if cant exchange or priceDrop too big
+            uint256 tradedTokenAmountRet,   // if tradedTokenAmount == 0then return maximum as possible, overwise - tradedTokenAmount == tradedTokenAmountRet
+            uint256 traded2Swap,            // what's part need to swap from tradedTokenAmount to reserveToken to add liquidity without tradedToken remainder
+            uint256 traded2Liq,             // parts without traded2Swap to add liquidity without tradedToken remainder
+            uint256 priceAverageData // it's fixed point uint224
+        )
+    {
+        uint256 reserved2Liq;
+        uint256 rTraded;
+        uint256 rReserved;
         
         uint256 tradedReserve1;
         uint256 tradedReserve2;
-        uint256 priceAverageData; // it's fixed point uint224
-
-        uint256 rTraded;
-        uint256 rReserved;
-        uint256 traded2Swap;
-        uint256 traded2Liq;
-        uint256 reserved2Liq;
-
-        FixedPoint.uq112x112 memory averageWithPriceDrop;
-
-        uint112 traded;
-        uint112 reserved;
-        //uint32 blockTimestampLast;
-        (traded, reserved,/* blockTimestampLast*/) = _uniswapReserves();
-        _hitAllTimeHigh(traded, reserved);
 
         (tradedReserve1, tradedReserve2, priceAverageData) = _maxAddLiquidity(traded, reserved);
 
-        bool err;
-
         if (tradedReserve1 < tradedReserve2 && tradedTokenAmount <= (tradedReserve2 - tradedReserve1)) {
-            err = false;
-        } else {
-            err = true;
-        }
-
-        if (!err) {
+            //err = false;
+            
             // if tradedTokenAmount is zero, let's use the maximum amount of traded tokens allowed
             if (tradedTokenAmount == 0) {
-                tradedTokenAmount = tradedReserve2 - tradedReserve1;
+                tradedTokenAmountRet = tradedReserve2 - tradedReserve1;
+            } else {
+                tradedTokenAmountRet = tradedTokenAmount;
             }
 
             (rTraded, rReserved, traded2Swap, traded2Liq, reserved2Liq) = _calculateSellTradedAndLiquidity(
-                tradedTokenAmount
+                tradedTokenAmountRet
             );
 
-            averageWithPriceDrop = (
+            FixedPoint.uq112x112 memory averageWithPriceDrop = (
                 FixedPoint.muluq(
                     FixedPoint.uq112x112(uint224(priceAverageData)),
                     FixedPoint.muluq(
@@ -572,8 +558,84 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             ) {
                 err = true;
             }
+        } else {
+            err = true;
+        }
+    }
+
+    
+    function _validateClaim(uint256 tradedTokenAmount) internal {
+
+        if (claimsEnabledTime == 0) {
+            revert ClaimsDisabled();
         }
 
+        if (tradedTokenAmount == 0) {
+            revert InputAmountCanNotBeZero();
+        }
+
+        (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
+        _hitAllTimeHigh(_reserve0, _reserve1);
+
+        uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmount;
+        // amountin reservein reserveout
+        uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
+            currentIterationTotalCumulativeClaimed,
+            _reserve0,
+            _reserve1
+        );
+
+        if (amountOut == 0) {
+            revert ClaimValidationError();
+        }
+
+// minClaimPrice убрать
+        // if (
+        //     FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + currentIterationTotalCumulativeClaimed)._x <=
+        //     FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
+        // ) {
+        //     revert PriceHasBecomeALowerThanMinClaimPrice();
+        // }
+
+
+    }
+
+    /**
+     * @notice called by owner or managers to automatically sell some tokens and add liquidity
+     * @param tradedTokenAmount the amount of tradedToken to use.
+     *   Some of it is sold for reserveToken, and the rest is added, together with
+     *   the obtained reserveToken, to both sides of the liquidity pool.
+     *   Pass zero here to use the maximum amount.
+     */
+    function addLiquidity(uint256 tradedTokenAmount) external {
+        initialLiquidityRequired();
+        onlyOwnerAndManagers();
+        
+
+        //uint256 traded2Swap;
+        //uint256 traded2Liq;
+        
+
+        //FixedPoint.uq112x112 memory averageWithPriceDrop;
+
+        uint256 traded2Swap;
+        uint256 traded2Liq;
+        uint256 priceAverageData; // it's fixed point uint224
+
+        uint112 traded;
+        uint112 reserved;
+        //uint32 blockTimestampLast;
+        (traded, reserved,/* blockTimestampLast*/) = _uniswapReserves();
+        _hitAllTimeHigh(traded, reserved);
+
+        bool err;
+        (
+            err,
+            tradedTokenAmount,
+            traded2Swap,
+            traded2Liq,
+            priceAverageData
+        ) = _validatePriceDrop(traded, reserved, tradedTokenAmount);
         if (err) {
             revert PriceDropTooBig();
         }
@@ -945,48 +1007,21 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
 
 
-    function _validateClaim(uint256 tradedTokenAmount) internal {
-
-        if (claimsEnabledTime == 0) {
-            revert ClaimsDisabled();
-        }
-
-        if (tradedTokenAmount == 0) {
-            revert InputAmountCanNotBeZero();
-        }
-
-        (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-        _hitAllTimeHigh(_reserve0, _reserve1);
-
-        uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmount;
-        // amountin reservein reserveout
-        uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
-            currentIterationTotalCumulativeClaimed,
-            _reserve0,
-            _reserve1
-        );
-
-        if (amountOut == 0) {
-            revert ClaimValidationError();
-        }
-
-        if (
-            FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + currentIterationTotalCumulativeClaimed)._x <=
-            FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
-        ) {
-            revert PriceHasBecomeALowerThanMinClaimPrice();
-        }
-
-
-    }
     function availableToClaim() public view returns(uint256 tradedTokenAmount) {
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-        tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
-        if (tradedTokenAmount > _reserve0 + cumulativeClaimed) {
-            tradedTokenAmount -= (_reserve0 + cumulativeClaimed);
-        } else {
+        bool err;
+        
+        (err,,,,) = _validatePriceDrop(_reserve0, _reserve1, tradedTokenAmount);
+
+        if (err) {
             tradedTokenAmount = 0;
         }
+        // tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
+        // if (tradedTokenAmount > _reserve0 + cumulativeClaimed) {
+        //     tradedTokenAmount -= (_reserve0 + cumulativeClaimed);
+        // } else {
+        //     tradedTokenAmount = 0;
+        // }
     }
 
     function _hitAllTimeHigh(
