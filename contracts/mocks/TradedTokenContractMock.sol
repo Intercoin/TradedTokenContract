@@ -13,12 +13,11 @@ contract TradedTokenMock is TradedToken {
         address reserveToken_, //” (USDC)
         uint256 priceDrop_,
         uint64 lockupIntervalAmount,
-        ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
         MaxVars memory maxVars,
         BuyInfo memory buyInfo
-    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, panicSellRateLimit_, maxVars, buyInfo)
+    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount, taxesInfoInit, panicSellRateLimit_, maxVars, buyInfo)
     {
     }
 
@@ -124,20 +123,8 @@ contract TradedTokenMock is TradedToken {
         return holdersCount;
     }
 
-    function setRestrictClaiming(PriceNumDen memory newMinimumPrice) external {
-        
-        lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
-            
-        minClaimPrice.numerator = newMinimumPrice.numerator;
-        minClaimPrice.denominator = newMinimumPrice.denominator;
-    }
-
     function setTotalCumulativeClaimed(uint256 total) public {
         cumulativeClaimed = total;
-    }
-
-    function getMinClaimPriceUpdatedTime() public pure returns(uint64) {
-        return MIN_CLAIM_PRICE_UPDATED_TIME;
     }
 
     function setHoldersMax(uint16 i) public  {
