@@ -576,31 +576,13 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             revert InputAmountCanNotBeZero();
         }
 
-        (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-        // _hitAllTimeHigh
         cumulativeClaimed = _actualCumulativeClaimed();
         //-------------
+        uint256 amountOut = availableToClaim();
 
-        uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmount;
-        // amountin reservein reserveout
-        uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
-            currentIterationTotalCumulativeClaimed,
-            _reserve0,
-            _reserve1
-        );
-
-        if (amountOut == 0) {
+        if (amountOut == 0 || amountOut < tradedTokenAmount) {
             revert ClaimValidationError();
         }
-
-// minClaimPrice убрать
-        // if (
-        //     FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + currentIterationTotalCumulativeClaimed)._x <=
-        //     FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
-        // ) {
-        //     revert PriceHasBecomeALowerThanMinClaimPrice();
-        // }
-
 
     }
 
@@ -630,7 +612,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint112 reserved;
         //uint32 blockTimestampLast;
         (traded, reserved,/* blockTimestampLast*/) = _uniswapReserves();
-        // _hitAllTimeHigh
+        // updating cumulativeClaimed
         cumulativeClaimed = _actualCumulativeClaimed();
         //-------------
         bool err;
@@ -1016,7 +998,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         bool err;
         
-        (err,,,,) = _validatePriceDrop(_reserve0, _reserve1, tradedTokenAmount);
+        (err,tradedTokenAmount,,,) = _validatePriceDrop(_reserve0, _reserve1, 0);
 
         if (err) {
             tradedTokenAmount = 0;
@@ -1024,16 +1006,15 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
             uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmount;
             // amountin reservein reserveout
-            tradedTokenAmount = IUniswapV2Router02(uniswapRouter).getAmountOut(
+            uint256 reservedTokenAmount = IUniswapV2Router02(uniswapRouter).getAmountOut(
                 currentIterationTotalCumulativeClaimed,
                 _reserve0,
                 _reserve1
             );
+            if (reservedTokenAmount == 0) {
+                tradedTokenAmount = 0;
+            }
         }
-
-        // if (amountOut == 0) {
-        //     revert ClaimValidationError();
-        // }
     }
 
     /**
@@ -1157,11 +1138,11 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             pairObservation.timestampLast = blockTimestamp;
         }
 
-        // allTimeHigh
-
-
     }
 
+    /**
+    * @notice updating cumulativeClaimed. 
+    */
     function _actualCumulativeClaimed(
     )
         internal 
