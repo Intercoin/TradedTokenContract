@@ -144,6 +144,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     uint256 allTimeHighGrowthFraction;
     FixedPoint.uq112x112 allTimeHighPriceAverageData;
+    FixedPoint.uq112x112 allTimeHighPriceAverageDataPrev;
 
     Liquidity internal internalLiquidity;
     Observation internal pairObservation;
@@ -1145,7 +1146,6 @@ console.log("_availableToClaim:tradedTokenAmountRet =", tradedTokenAmountRet);
         }
     }
 
-//FixedPoint.uq112x112 price0AverageAllTimeHigh;
     /**
     * @notice updates price0Average. method called in every `claim` and `addLiquidity` methods
     */
@@ -1162,19 +1162,16 @@ console.log("_availableToClaim:tradedTokenAmountRet =", tradedTokenAmountRet);
             pairObservation.timestampLast = blockTimestamp;
 
             // alltimehigh check
-            if
-            (
-                price0Average._x
-                > 
-                FixedPoint.muluq(
-                    allTimeHighPriceAverageData,
-                    FixedPoint.divuq(
-                        FixedPoint.encode(uint112(allTimeHighGrowthFraction) + uint112(FRACTION)),
-                        FixedPoint.encode(uint112(FRACTION))
-                    )
-                )._x
-            ) {
+            FixedPoint.uq112x112 memory allTimeHigh = FixedPoint.muluq(
+                allTimeHighPriceAverageData,
+                FixedPoint.divuq(
+                    FixedPoint.encode(uint112(allTimeHighGrowthFraction) + uint112(FRACTION)),
+                    FixedPoint.encode(uint112(FRACTION))
+                )
+            );
+            if (price0Average._x> allTimeHigh._x) {
                 cumulativeClaimed = 0;
+                allTimeHighPriceAverageDataPrev = allTimeHighPriceAverageData;
                 allTimeHighPriceAverageData = price0Average;
             }
         }
