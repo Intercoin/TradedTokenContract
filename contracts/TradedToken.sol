@@ -27,7 +27,7 @@ import "./helpers/Liquidity.sol";
 import "./interfaces/IPresale.sol";
 import "./interfaces/IClaim.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
    // using FixedPoint for *;
@@ -725,26 +725,26 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 )
                     
             );
-console.log("_validatePriceDrop:averageWithPriceDrop =", averageWithPriceDrop._x);
+//console.log("_validatePriceDrop:averageWithPriceDrop =", averageWithPriceDrop._x);
             // "new_current_price" should be more than "average_price(1-price_drop)"
             if (
                 FixedPoint.fraction(rReserved, rTraded + traded2Swap + traded2Liq)._x <=
                 averageWithPriceDrop._x
             ) {
-console.log("_validatePriceDrop:err(0)=",true);
-console.log("_validatePriceDrop:traded2Swap=",traded2Swap);
-console.log("_validatePriceDrop:traded2Liq=",traded2Liq);
-console.log("_validatePriceDrop:tradedTokenAmount=",tradedTokenAmount);
-console.log("_validatePriceDrop:tradedTokenAmountRet=",tradedTokenAmountRet);
-console.log("_validatePriceDrop:rReserved / (rTraded + traded2Swap + traded2Liq))._x=",FixedPoint.fraction(rReserved, rTraded + traded2Swap + traded2Liq)._x);
-console.log("_validatePriceDrop:rReserved / rTraded)._x                             =",FixedPoint.fraction(rReserved, rTraded)._x);
-console.log("_validatePriceDrop:priceAverageData._x                                 =",priceAverageData);
-console.log("_validatePriceDrop:averageWithPriceDrop._x                             =",averageWithPriceDrop._x);
+// console.log("_validatePriceDrop:err(0)=",true);
+// console.log("_validatePriceDrop:traded2Swap=",traded2Swap);
+// console.log("_validatePriceDrop:traded2Liq=",traded2Liq);
+// console.log("_validatePriceDrop:tradedTokenAmount=",tradedTokenAmount);
+// console.log("_validatePriceDrop:tradedTokenAmountRet=",tradedTokenAmountRet);
+// console.log("_validatePriceDrop:rReserved / (rTraded + traded2Swap + traded2Liq))._x=",FixedPoint.fraction(rReserved, rTraded + traded2Swap + traded2Liq)._x);
+// console.log("_validatePriceDrop:rReserved / rTraded)._x                             =",FixedPoint.fraction(rReserved, rTraded)._x);
+// console.log("_validatePriceDrop:priceAverageData._x                                 =",priceAverageData);
+// console.log("_validatePriceDrop:averageWithPriceDrop._x                             =",averageWithPriceDrop._x);
 
                 err = true;
             }
         } else {
-console.log("_validatePriceDrop:err(1)=",true);
+// console.log("_validatePriceDrop:err(1)=",true);
             err = true;
         }
     }
@@ -994,11 +994,11 @@ console.log("_validatePriceDrop:err(1)=",true);
         bool err;
 
         (err,tradedTokenAmountRet,,,) = _validatePriceDrop(_reserve0, _reserve1, tradedTokenAmount);
-console.log("_availableToClaim:err =", err);
+//console.log("_availableToClaim:err =", err);
         if (err) {
             tradedTokenAmountRet = 0;
         } else {
-console.log("_availableToClaim:tradedTokenAmountRet =", tradedTokenAmountRet);
+//console.log("_availableToClaim:tradedTokenAmountRet =", tradedTokenAmountRet);
             uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmountRet;
             // amountin reservein reserveout
             uint256 reservedTokenAmount = IUniswapV2Router02(uniswapRouter).getAmountOut(
