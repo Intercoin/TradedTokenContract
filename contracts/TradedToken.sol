@@ -471,8 +471,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
         (traded, reserved,/* blockTimestampLast*/) = _uniswapReserves();
 
-        // updating cumulativeClaimed
-        cumulativeClaimed = _actualCumulativeClaimed();
         //-------------
         bool err;
         (
@@ -754,7 +752,7 @@ console.log("_validatePriceDrop:err(1)=",true);
     * @notice validate claim for `tradedTokenAmount`
     * @param tradedTokenAmount tradedToken amount
     */
-    function _validateClaim(uint256 tradedTokenAmount, address account) internal {
+    function _validateClaim(uint256 tradedTokenAmount, address account) internal view {
 
         if (claimsEnabledTime == 0) {
             revert ClaimsDisabled();
@@ -768,8 +766,6 @@ console.log("_validatePriceDrop:err(1)=",true);
             revert EmptyAccountAddress();
         }
 
-        cumulativeClaimed = _actualCumulativeClaimed();
-        //-------------
         uint256 amountOut = availableToClaim();
 
         if (amountOut == 0 || amountOut < tradedTokenAmount) {
@@ -1164,38 +1160,27 @@ console.log("_availableToClaim:tradedTokenAmountRet =", tradedTokenAmountRet);
             pairObservation.price0Average = price0Average;
             pairObservation.price0CumulativeLast = price0Cumulative;
             pairObservation.timestampLast = blockTimestamp;
+
+            // alltimehigh check
+            if
+            (
+                price0Average._x
+                > 
+                FixedPoint.muluq(
+                    allTimeHighPriceAverageData,
+                    FixedPoint.divuq(
+                        FixedPoint.encode(uint112(allTimeHighGrowthFraction) + uint112(FRACTION)),
+                        FixedPoint.encode(uint112(FRACTION))
+                    )
+                )._x
+            ) {
+                cumulativeClaimed = 0;
+                allTimeHighPriceAverageData = price0Average;
+            }
         }
         
-        // alltimehigh check
-        // if (price0AverageAllTimeHigh._x < pairObservation.price0Average._x) {
-        //     price0AverageAllTimeHigh = pairObservation.price0Average;
-        //     cumulativeClaimed = 0;
-        // }
+        
 
-    }
-
-    /**
-    * @notice get actual cumulativeClaimed. 
-    */
-    function _actualCumulativeClaimed() internal returns(uint256) {
-        FixedPoint.uq112x112 memory priceAverage;
-        (, priceAverage, ,) = _tradedAveragePrice();
-        if
-        (
-            priceAverage._x
-            > 
-            FixedPoint.muluq(
-                allTimeHighPriceAverageData,
-                FixedPoint.divuq(
-                    FixedPoint.encode(uint112(allTimeHighGrowthFraction) + uint112(FRACTION)),
-                    FixedPoint.encode(uint112(FRACTION))
-                )
-            )._x
-        ) {
-            return 0;
-        } else {
-            return cumulativeClaimed;
-        }
     }
 
     /**
