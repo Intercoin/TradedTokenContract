@@ -27,7 +27,7 @@ import "./helpers/Liquidity.sol";
 import "./interfaces/IPresale.sol";
 import "./interfaces/IClaim.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard {
    // using FixedPoint for *;
@@ -434,7 +434,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     function claim(uint256 tradedTokenAmount, address account) external {
         onlyOwnerAndManagers();
         
-        _validateClaim(tradedTokenAmount);
+        _validateClaim(tradedTokenAmount, account);
         _claim(tradedTokenAmount, account);
 
         _update();
@@ -726,15 +726,26 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                 )
                     
             );
-
+console.log("_validatePriceDrop:averageWithPriceDrop =", averageWithPriceDrop._x);
             // "new_current_price" should be more than "average_price(1-price_drop)"
             if (
                 FixedPoint.fraction(rReserved, rTraded + traded2Swap + traded2Liq)._x <=
                 averageWithPriceDrop._x
             ) {
+console.log("_validatePriceDrop:err(0)=",true);
+console.log("_validatePriceDrop:traded2Swap=",traded2Swap);
+console.log("_validatePriceDrop:traded2Liq=",traded2Liq);
+console.log("_validatePriceDrop:tradedTokenAmount=",tradedTokenAmount);
+console.log("_validatePriceDrop:tradedTokenAmountRet=",tradedTokenAmountRet);
+console.log("_validatePriceDrop:rReserved / (rTraded + traded2Swap + traded2Liq))._x=",FixedPoint.fraction(rReserved, rTraded + traded2Swap + traded2Liq)._x);
+console.log("_validatePriceDrop:rReserved / rTraded)._x                             =",FixedPoint.fraction(rReserved, rTraded)._x);
+console.log("_validatePriceDrop:priceAverageData._x                                 =",priceAverageData);
+console.log("_validatePriceDrop:averageWithPriceDrop._x                             =",averageWithPriceDrop._x);
+
                 err = true;
             }
         } else {
+console.log("_validatePriceDrop:err(1)=",true);
             err = true;
         }
     }
@@ -743,7 +754,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     * @notice validate claim for `tradedTokenAmount`
     * @param tradedTokenAmount tradedToken amount
     */
-    function _validateClaim(uint256 tradedTokenAmount) internal {
+    function _validateClaim(uint256 tradedTokenAmount, address account) internal {
 
         if (claimsEnabledTime == 0) {
             revert ClaimsDisabled();
@@ -751,6 +762,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
         if (tradedTokenAmount == 0) {
             revert InputAmountCanNotBeZero();
+        }
+        
+        if (account == address(0)) {
+            revert EmptyAccountAddress();
         }
 
         cumulativeClaimed = _actualCumulativeClaimed();
@@ -982,11 +997,11 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         bool err;
 
         (err,tradedTokenAmountRet,,,) = _validatePriceDrop(_reserve0, _reserve1, tradedTokenAmount);
-
+console.log("_availableToClaim:err =", err);
         if (err) {
             tradedTokenAmountRet = 0;
         } else {
-
+console.log("_availableToClaim:tradedTokenAmountRet =", tradedTokenAmountRet);
             uint256 currentIterationTotalCumulativeClaimed = cumulativeClaimed + tradedTokenAmountRet;
             // amountin reservein reserveout
             uint256 reservedTokenAmount = IUniswapV2Router02(uniswapRouter).getAmountOut(
@@ -1005,10 +1020,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      */
     function _claim(uint256 tradedTokenAmount, address account) internal {
         
-        if (account == address(0)) {
-            revert EmptyAccountAddress();
-        }
-
         cumulativeClaimed += tradedTokenAmount;
 
         _mint(account, tradedTokenAmount, "", "");
@@ -1106,54 +1117,72 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     * @notice returns current(means in window size) price0Average 
     *   traded average price is average from two priceCumulativeLast values
     */
-    function _tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
-        //uint64 blockTimestamp = _currentBlockTimestamp();
-        uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
-        uint64 timeElapsed = _currentBlockTimestamp() - pairObservation.timestampLast;
-        uint64 windowSize = ((_currentBlockTimestamp() - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
+    function _tradedAveragePrice(
+
+    ) 
+        internal 
+        view 
+        returns (
+            bool isNeedUpdate,
+            FixedPoint.uq112x112 memory price0Average,
+            uint256 price0Cumulative,
+            uint64 blockTimestamp
+        ) 
+    {
+        blockTimestamp = _currentBlockTimestamp();
+        uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
+        
+        uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
+
+        price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
 
         if (timeElapsed > windowSize && timeElapsed > 0 && price0Cumulative > pairObservation.price0CumulativeLast) {
-            return
-                FixedPoint.uq112x112(
-                    uint224(price0Cumulative - pairObservation.price0CumulativeLast) / uint224(timeElapsed)
-                );
+            isNeedUpdate = true;
+            price0Average = FixedPoint.divuq(
+                FixedPoint.uq112x112(uint224(price0Cumulative - pairObservation.price0CumulativeLast)),
+                FixedPoint.encode(timeElapsed)
+            );
         } else {
+            isNeedUpdate = false;
             //use stored
-            return pairObservation.price0Average;
+            price0Average = pairObservation.price0Average;
         }
     }
 
+//FixedPoint.uq112x112 price0AverageAllTimeHigh;
     /**
     * @notice updates price0Average. method called in every `claim` and `addLiquidity` methods
     */
     function _update() internal {
-        uint64 blockTimestamp = _currentBlockTimestamp();
-        uint64 timeElapsed = blockTimestamp - pairObservation.timestampLast;
+        bool isNeedUpdate;
+        FixedPoint.uq112x112 memory price0Average;
+        uint256 price0Cumulative;
+        uint64 blockTimestamp;
 
-        uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
-
-        if (timeElapsed > windowSize && timeElapsed > 0) {
-            uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
-            pairObservation.price0Average = FixedPoint.divuq(
-                FixedPoint.uq112x112(uint224(price0Cumulative - pairObservation.price0CumulativeLast)),
-                FixedPoint.encode(timeElapsed)
-            );
-                
+        (isNeedUpdate, price0Average, price0Cumulative, blockTimestamp) = _tradedAveragePrice();
+        if (isNeedUpdate) {
+            pairObservation.price0Average = price0Average;
             pairObservation.price0CumulativeLast = price0Cumulative;
-
             pairObservation.timestampLast = blockTimestamp;
         }
+        
+        // alltimehigh check
+        // if (price0AverageAllTimeHigh._x < pairObservation.price0Average._x) {
+        //     price0AverageAllTimeHigh = pairObservation.price0Average;
+        //     cumulativeClaimed = 0;
+        // }
 
     }
 
     /**
     * @notice get actual cumulativeClaimed. 
     */
-    function _actualCumulativeClaimed() internal view returns(uint256) {
-        FixedPoint.uq112x112 memory priceAverageData = _tradedAveragePrice();
+    function _actualCumulativeClaimed() internal returns(uint256) {
+        FixedPoint.uq112x112 memory priceAverage;
+        (, priceAverage, ,) = _tradedAveragePrice();
         if
         (
-            priceAverageData._x
+            priceAverage._x
             > 
             FixedPoint.muluq(
                 allTimeHighPriceAverageData,
@@ -1230,8 +1259,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         )
     {
         // tradedNew = Math.sqrt(@tokenPair.r0 * @tokenPair.r1 / (average_price*(1-@price_drop)))
-
-        FixedPoint.uq112x112 memory priceAverageData = _tradedAveragePrice();
+        FixedPoint.uq112x112 memory priceAverage;
+        (,priceAverage,,) = _tradedAveragePrice();
 
         uint256 tradedNew = FixedPoint.decode(
             FixedPoint.muluq(
@@ -1245,7 +1274,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
                         FixedPoint.encode(uint112(1)), 
                         FixedPoint.sqrt(
                             FixedPoint.muluq(
-                                priceAverageData,
+                                priceAverage,
                                 FixedPoint.muluq(
                                     FixedPoint.encode(uint112(uint256(FRACTION) - priceDrop)),
                                     FixedPoint.fraction(1, FRACTION)
@@ -1258,7 +1287,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             )
         );
 
-        return (traded, tradedNew, priceAverageData._x);
+        return (traded, tradedNew, priceAverage._x);
     }
 
     /**
