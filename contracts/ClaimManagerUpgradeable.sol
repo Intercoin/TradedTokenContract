@@ -162,7 +162,15 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
         uint256 a = IClaim(tradedToken).availableToClaim(); 
         uint256 w = wantToClaimMap[account].amount; 
         return wantToClaimTotal <= a ? w : w * a / wantToClaimTotal; 
-        
+    }
+
+    function availableToClaim(
+    ) 
+        public 
+        view 
+        returns(uint256) 
+    {
+        return availableToClaimByAddress(msg.sender); 
     }
 
     /**

@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 
 
-import "./interfaces/IClaim.sol";
+import "./interfaces/IClaimManager.sol";
 
 /**
 * @title DistributionManager 
@@ -33,6 +33,9 @@ contract DistributionManager is Ownable, IERC777Recipient, IERC777Sender, Reentr
         claimManager = manager;
         IERC20(claimingToken).approve(manager, type(uint256).max);
 
+        // register interfaces
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
 
     function transfer(address account, uint256 amount) public onlyOwner {
@@ -40,11 +43,11 @@ contract DistributionManager is Ownable, IERC777Recipient, IERC777Sender, Reentr
     }
     
     function wantToClaim(uint256 amount) public onlyOwner {
-        IClaim(claimManager).wantToClaim(amount);
+        IClaimManager(claimManager).wantToClaim(amount);
     }
 
     function claim(uint256 amount, address account) public onlyOwner {
-        IClaim(claimManager).claim(amount, account); // receive refund on unused ClaimingToken
+        IClaimManager(claimManager).claim(amount, account); // receive refund on unused ClaimingToken
     }
 
     

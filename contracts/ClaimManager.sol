@@ -99,6 +99,15 @@ contract ClaimManager is IClaimManager, IERC777Recipient, IERC777Sender, Reentra
         return wantToClaimTotal <= a ? w : w * a / wantToClaimTotal; 
         
     }
+    
+    function availableToClaim(
+    ) 
+        public 
+        view 
+        returns(uint256) 
+    {
+        return availableToClaimByAddress(msg.sender); 
+    }
 
     /**
      * @notice claims to account traded tokens instead external tokens(if set). external tokens will send to dead address
