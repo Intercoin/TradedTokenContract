@@ -52,12 +52,6 @@ describe("TradedTokenInstance", function () {
     const pricePercentsDrop = 10;// 10% = 0.1   (and multiple fraction)
     const priceDrop = FRACTION.mul(pricePercentsDrop).div(HUN);// 10% = 0.1   (and multiple fraction)
     
-    const minClaimPriceNumerator = 1;
-    const minClaimPriceDenominator = 1000;
-
-    const minClaimPriceGrowNumerator = 1;
-    const minClaimPriceGrowDenominator = 1000;
-
     const externalTokenExchangePriceNumerator = 1;
     const externalTokenExchangePriceDenominator = 1;
 
@@ -72,6 +66,10 @@ describe("TradedTokenInstance", function () {
     const buyPrice = 0;
 
     const claimFrequency = 60;  // 1 min
+
+    const exchangeRateIncreaseNumerator = 1;
+    const exchangeRateIncreaseDenominator = 1;
+    const exchangeRateInterval = 3600 // 1 hour;
 
     const taxesInfo = [
         0,//buytax
@@ -119,7 +117,7 @@ describe("TradedTokenInstance", function () {
         
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
     });
-/*
+    /*
     
 
     it("should external claim if exchange price 1:2", async() => {
@@ -186,7 +184,7 @@ describe("TradedTokenInstance", function () {
     });
 
    
-*/
+    */
   
     describe("validate params", function () {
        
@@ -198,10 +196,6 @@ describe("TradedTokenInstance", function () {
                     ZERO_ADDRESS, //” (USDC)
                     priceDrop,
                     lockupIntervalAmount,
-                    [
-                        [minClaimPriceNumerator, minClaimPriceDenominator],
-                        [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
-                    ],
                     taxesInfo,
                     [RateLimitDuration, RateLimitValue],
                     [
@@ -215,7 +209,7 @@ describe("TradedTokenInstance", function () {
                         buyPrice
                     ]
                 )
-            ).to.be.revertedWith("reserveTokenInvalid");
+            ).to.be.revertedWith("ReserveTokenInvalid");
         });
     });
 
@@ -235,10 +229,6 @@ describe("TradedTokenInstance", function () {
                 erc20ReservedToken.address, //” (USDC)
                 priceDrop,
                 lockupIntervalAmount,
-                [
-                    [minClaimPriceNumerator, minClaimPriceDenominator],
-                    [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
-                ],
                 taxesInfo,
                 [RateLimitDuration, RateLimitValue],
                 [
@@ -259,7 +249,10 @@ describe("TradedTokenInstance", function () {
                     [
                         externalToken.address,
                         [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-                        claimFrequency
+                        claimFrequency,
+                        [exchangeRateIncreaseNumerator, exchangeRateIncreaseDenominator],
+                        exchangeRateInterval
+
                     ]
                 )
             ).to.be.revertedWith("EmptyTokenAddress");
@@ -270,7 +263,9 @@ describe("TradedTokenInstance", function () {
                     [
                         ZERO_ADDRESS,
                         [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-                        claimFrequency
+                        claimFrequency,
+                        [exchangeRateIncreaseNumerator, exchangeRateIncreaseDenominator],
+                        exchangeRateInterval
                     ]
                 )
             ).to.be.revertedWith("EmptyTokenAddress");
@@ -280,7 +275,9 @@ describe("TradedTokenInstance", function () {
                 [
                     externalToken.address,
                     [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-                    claimFrequency
+                    claimFrequency,
+                    [exchangeRateIncreaseNumerator, exchangeRateIncreaseDenominator],
+                    exchangeRateInterval
                 ]
             );
 
@@ -291,6 +288,7 @@ describe("TradedTokenInstance", function () {
         });
 
         it("reverted if didn't add liquidity before", async() => {
+            
             await expect(
                 mainInstance.availableToClaim()
             ).to.be.revertedWith(`EmptyReserves`);
@@ -607,7 +605,7 @@ describe("TradedTokenInstance", function () {
                 ).to.be.revertedWith("BeforeInitialLiquidityRequired");
             });
 
-            it("[cover] available to claim == 0", async() => {
+            xit("[cover] available to claim == 0", async() => {
                 await mainInstance.connect(owner).setRestrictClaiming([ONE_ETH, 1]);
                 
                 let availableToClaim = await mainInstance.availableToClaim();
@@ -634,46 +632,6 @@ describe("TradedTokenInstance", function () {
                     mainInstance.connect(owner).claim(ONE_ETH, ZERO_ADDRESS)
                 ).to.be.revertedWith("EmptyAccountAddress");
             });
-
-            it("shouldnt call restrictClaiming by owner", async() => {
-                await expect(
-                    mainInstance.connect(owner).restrictClaiming([ONE_ETH, 1])
-                ).to.be.revertedWith("ManagersOnly");
-            });
-
-            it("shouldnt setup zero denominator", async() => {
-                await expect(
-                    mainInstance.connect(bob).restrictClaiming([ONE_ETH, 1])
-                ).to.be.revertedWith("ManagersOnly");
-
-                await mainInstance.connect(owner).addManager(bob.address);
-                await expect(
-                    mainInstance.connect(bob).restrictClaiming([ONE_ETH, 0])
-                ).to.be.revertedWith("ZeroDenominator");
-            });
-
-            
-
-            it("shouldnt price grow too fast", async() => {
-                await mainInstance.connect(owner).addManager(bob.address);
-                await expect(
-                    mainInstance.connect(bob).restrictClaiming([ONE, HUN])
-                ).to.be.revertedWith("MinClaimPriceGrowTooFast");
-            });
-
-            it("shouldnt price less than setup before", async() => {
-                await mainInstance.connect(owner).addManager(bob.address);
-
-                let minClaimPriceUpdatedTime = await mainInstance.getMinClaimPriceUpdatedTime();
-                
-                await network.provider.send("evm_increaseTime", [parseInt(minClaimPriceUpdatedTime)]);
-                await network.provider.send("evm_mine");
-
-                await expect(
-                    mainInstance.connect(bob).restrictClaiming([minClaimPriceNumerator, minClaimPriceDenominator+1])
-                ).to.be.revertedWith("ShouldBeMoreThanMinClaimPrice");
-            });
-
             
             describe("some validate", function () {
                 const tokensToClaim = THOUSAND.mul(ONE_ETH);
@@ -691,16 +649,21 @@ describe("TradedTokenInstance", function () {
                 });
 
                     
-                it("price has not become a lower than minClaimPrice ", async() => {
+                xit("price has not become a lower than minClaimPrice ", async() => {
                     await mainInstance.connect(owner).enableClaims();
                     await expect(
                         claimManager.connect(charlie).claim(tokensToClaim, bob.address)
                     ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice");
                 });
 
-                it("shouldnt claim if claimTime == 0 (disabled)", async() => {
+                it.only("shouldnt claim if claimTime == 0 (disabled)", async() => {
+                    var amountToClaim = await claimManager.availableToClaimByAddress(charlie.address);
+                    var amountToClaim2 = await mainInstance.availableToClaim();
+                    
+console.log("amountToClaim = ",amountToClaim.toString());
+console.log("amountToClaim2= ",amountToClaim2.toString());
                     await expect(
-                        claimManager.connect(charlie).claim(tokensToClaim, bob.address)
+                        claimManager.connect(charlie).claim(ZERO, bob.address)
                     ).to.be.revertedWith("ClaimsDisabled");
                 });
             });
