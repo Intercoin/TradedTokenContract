@@ -125,6 +125,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     uint16 public holdersCount;
     uint256 public holdersThreshold;
 
+    uint256 public totalBought;
     uint256 public totalCumulativeClaimed;
 
     /**
@@ -655,25 +656,26 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @notice used to buy tokens for a fixed price in reserveToken
      */
     function buy(amount) public {
-        if (buySellPrice == 0 || buyPaused) {
+        if (buyPrice == 0 || buyPaused) {
             revert BuySellNotAvailable();
         }
         if (buySellToken == address(0)) {
-            _mint(msg.sender, msg.value / buySellPrice, "", ""); // ignore amount
+            _mint(msg.sender, msg.value * FRACTION / buyPrice, "", ""); // ignore amount
         } else {
             IERC20(buySellToken).transferFrom(msg.sender, amount);
-            _mint(msg.sender, amount / buySellPrice, "", "");
+            _mint(msg.sender, amount * FRACTION / buyPrice, "", "");
         }
+        totalBought += amount;
     }
 
     /**
      * @notice used to sell TradedTokens for a fixed price in reserveToken
      */
     function sell(amount) public {
-        if (buySellPrice == 0) {
+        if (sellPrice == 0) {
             revert BuySellNotAvailable();
         }
-        uint256 out = amount * buySellPrice;
+        uint256 out = amount * sellPrice / FRACTION;
         if (buySellToken == address(0)) {
             if (address(this).balance < out) {
                 revert InsufficientAmount();
@@ -984,9 +986,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         ) {
             revert PriceHasBecomeALowerThanMinClaimPrice();
         }
-
-
     }
+
     function availableToClaim() public view returns(uint256 tradedTokenAmount) {
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
@@ -995,6 +996,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         } else {
             tradedTokenAmount = 0;
         }
+        tradedTokenAmount += totalBought * (buyPrice - sellPrice) / FRACTION;
     }
 
     /**
