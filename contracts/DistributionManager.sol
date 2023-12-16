@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 
-
+import "./interfaces/ITradedToken.sol";
 import "./interfaces/IClaimManager.sol";
 
 /**
@@ -50,6 +50,9 @@ contract DistributionManager is Ownable, IERC777Recipient, IERC777Sender, Reentr
         IClaimManager(claimManager).claim(amount, account); // receive refund on unused ClaimingToken
     }
 
+    function pauseBuy(bool status) public onlyOwner {
+        ITradedToken(tradedToken).pauseBuy(status);
+    }
     
     /**
      * @notice part of IERC777Recipient

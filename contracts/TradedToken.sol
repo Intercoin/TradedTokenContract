@@ -109,6 +109,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     // keep gas when try to get reserves
     // if token01 == true then (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) so reserve0 it's reserves of TradedToken
     bool internal immutable token01;
+    bool internal buyPaused;
+    bool private addedInitialLiquidityRun;
 
     uint64 internal constant MIN_CLAIM_PRICE_UPDATED_TIME = 1 days;
     uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
@@ -119,11 +121,24 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     uint16 public immutable buyTaxMax;
     uint16 public immutable sellTaxMax;
-    uint256 public holdersThreshold;
     uint16 public holdersMax;
     uint16 public holdersCount;
+    uint256 public holdersThreshold;
 
     uint256 public totalCumulativeClaimed;
+
+    /**
+     * @notice address of token used to buy and sell, default is native coin
+     */
+    address public immutable buySellToken;
+    /**
+     * @notice TradedToken buy price in buySellToken, 0 means BuySellNotAvailable
+     */
+    uint256 public buyPrice;
+    /**
+     * @notice TradedToken sell price in buySellToken, should be less than buyPrice
+     */
+    uint256 public sellPrice;
 
     Liquidity internal internalLiquidity;
     Observation internal pairObservation;
@@ -133,8 +148,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     mapping(address => uint64) public managers;
     mapping(address => uint64) public presales;
     mapping(address => uint64) public sales;
-
-    bool private addedInitialLiquidityRun;
 
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
     event AddedManager(address account, address sender);
@@ -153,7 +166,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error AlreadyCalled();
     error InitialLiquidityRequired();
     error BeforeInitialLiquidityRequired();
-    error reserveTokenInvalid();
+    error ReserveTokenInvalid();
     error EmptyAddress();
     error EmptyAccountAddress();
     error EmptyManagerAddress();
@@ -175,6 +188,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error MinClaimPriceGrowTooFast();
     error MaxHoldersCountExceeded(uint256 count);
     error InvalidSellRateLimitFraction();
+    error BuySellNotAvailable();
 
     /**
      * @param tokenName_ token name
@@ -201,12 +215,15 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         RateLimit memory panicSellRateLimit_,
         uint16 buyTaxMax_,
         uint16 sellTaxMax_,
-        uint16 holdersMax_
+        uint16 holdersMax_,
+        address buySellToken_,
+        uint256 buyPrice_,
+        uint256 sellPrice_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
 
         //setup
-        (buyTaxMax,  sellTaxMax,  holdersMax) =
-        (buyTaxMax_, sellTaxMax_, holdersMax_);
+        (buyTaxMax,  sellTaxMax,  holdersMax,  buySellToken,  buyPrice,  sellPrice) =
+        (buyTaxMax_, sellTaxMax_, holdersMax_, buySellToken_, buyPrice_, sellPrice_);
 
         tradedToken = address(this);
         reserveToken = reserveToken_;
@@ -233,6 +250,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         taxesInfo.init(taxesInfoInit);
 
         //validations
+        if (sellPrice > buyPrice) {
+            revert BuySellNotAvailable();
+        }
         if (
             claimSettings.minClaimPriceGrow.denominator == 0 ||
             claimSettings.minClaimPrice.denominator == 0
@@ -241,7 +261,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
 
         if (reserveToken == address(0)) {
-            revert reserveTokenInvalid();
+            revert ReserveTokenInvalid();
         }
 
         if (reserveToken_ == address(0)) {
@@ -629,6 +649,53 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      */
     function sellTax() public view returns(uint16) {
         return taxesInfo.sellTax();
+    }
+
+    /**
+     * @notice used to buy tokens for a fixed price in reserveToken
+     */
+    function buy(amount) public {
+        if (buySellPrice == 0 || buyPaused) {
+            revert BuySellNotAvailable();
+        }
+        if (buySellToken == address(0)) {
+            _mint(msg.sender, msg.value / buySellPrice, "", ""); // ignore amount
+        } else {
+            IERC20(buySellToken).transferFrom(msg.sender, amount);
+            _mint(msg.sender, amount / buySellPrice, "", "");
+        }
+    }
+
+    /**
+     * @notice used to sell TradedTokens for a fixed price in reserveToken
+     */
+    function sell(amount) public {
+        if (buySellPrice == 0) {
+            revert BuySellNotAvailable();
+        }
+        uint256 out = amount * buySellPrice;
+        if (buySellToken == address(0)) {
+            if (address(this).balance < out) {
+                revert InsufficientAmount();
+            }
+            // see https://ethereum.stackexchange.com/a/56760/19734
+            (bool sent, bytes memory data) = address(msg.sender).call{value: out}("");
+            if (!sent) {
+                revert BuySellNotAvailable();
+            }
+        } else {
+            if (IERC20(buySellToken).balanceOf(address(this)) < out) {
+                revert InsufficientAmount();
+            }
+            IERC20(buySellToken).transfer(msg.sender, amount);
+        }
+    }
+
+    /**
+     * @notice used to pause buying, e.g. if buySellToken is compromised
+     */
+    function pauseBuy(bool status) public onlyOwnerAndManagers {
+        buyPaused = status;
     }
 
     /**
