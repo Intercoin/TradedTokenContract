@@ -184,7 +184,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error CantCreatePair(address tradedToken, address reserveToken);
     error EmptyReserves();
     error ClaimValidationError();
-    error PriceHasBecomeLowerThanMinClaimPrice();
+    error PriceMayBecomeLowerThanMinClaimPrice();
     error ClaimsDisabled();
     error ClaimsEnabledTimeAlreadySetup();
     error ShouldBeMoreThanMinClaimPrice();
@@ -983,7 +983,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + currentIterationTotalCumulativeClaimed)._x <=
             FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
         ) {
-            revert PriceHasBecomeLowerThanMinClaimPrice();
+            revert PriceMayBecomeLowerThanMinClaimPrice();
         }
     }
 
