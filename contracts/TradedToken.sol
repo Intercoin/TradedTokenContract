@@ -1091,15 +1091,15 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint64 timeElapsed = _currentBlockTimestamp() - pairObservation.timestampLast;
         uint64 windowSize = ((_currentBlockTimestamp() - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
-        if (timeElapsed > windowSize && timeElapsed > 0 && price0Cumulative > pairObservation.price0CumulativeLast) {
-            return
-                FixedPoint.uq112x112(
-                    uint224(price0Cumulative - pairObservation.price0CumulativeLast) / uint224(timeElapsed)
-                );
-        } else {
-            //use stored
-            return pairObservation.price0Average;
+        if (timeElapsed > windowSize
+        && timeElapsed > 0
+        && price0Cumulative > pairObservation.price0CumulativeLast) {
+            return FixedPoint.uq112x112(
+                uint224(price0Cumulative - pairObservation.price0CumulativeLast) / uint224(timeElapsed)
+            );
         }
+        //use stored
+        return pairObservation.price0Average;
     }
 
     function _update() internal {
