@@ -677,7 +677,7 @@ describe("TradedTokenInstance", function () {
                     await mainInstance.connect(owner).enableClaims();
                     await expect(
                         claimManager.connect(charlie).claim(tokensToClaim, bob.address)
-                    ).to.be.revertedWith("PriceHasBecomeALowerThanMinClaimPrice");
+                    ).to.be.revertedWith("PriceHasBecomeLowerThanMinClaimPrice");
                 });
 
                 it("shouldnt claim if claimTime == 0 (disabled)", async() => {
