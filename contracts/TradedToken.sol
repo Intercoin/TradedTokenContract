@@ -521,13 +521,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
         (tradedReserve1, tradedReserve2, priceAverageData) = _maxAddLiquidity();
 
-        bool err;
-
-        if (tradedReserve1 < tradedReserve2 && tradedTokenAmount <= (tradedReserve2 - tradedReserve1)) {
-            err = false;
-        } else {
-            err = true;
-        }
+        bool err = (
+            tradedReserve1 >= tradedReserve2 || 
+            tradedTokenAmount > (tradedReserve2 - tradedReserve1)
+        );
 
         if (!err) {
             // if tradedTokenAmount is zero, let's use the maximum amount of traded tokens allowed
