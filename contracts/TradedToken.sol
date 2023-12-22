@@ -168,6 +168,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     error InitialLiquidityRequired();
     error BeforeInitialLiquidityRequired();
     error ReserveTokenInvalid();
+    error BadAmount();
+    error NeedsApproval();
     error EmptyAddress();
     error EmptyAccountAddress();
     error EmptyManagerAddress();
@@ -1066,7 +1068,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint256 amountIn,
         address beneficiary
     ) internal returns (uint256 amountOut) {
-        require(ERC777(tokenIn).approve(address(uniswapRouter), amountIn), "NEEDS_APPROVAL");
+        if (!ERC777(tokenIn).approve(address(uniswapRouter), amountIn)) {
+            revert NeedsApproval();
+        }
 
         address[] memory path = new address[](2);
         path[0] = address(tokenIn);
@@ -1138,7 +1142,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         ) = _uniswapReserves();
         traded2Swap = (_sqrt(rTraded*(incomingTradedToken*k1 + rTraded*k2)) - rTraded*k3) / k4;
 
-        require(traded2Swap > 0 && incomingTradedToken > traded2Swap, "BAD_AMOUNT");
+        if (traded2Swap <= 0 || incomingTradedToken <= traded2Swap) {
+            revert BadAmount();
+        }
 
         reserved2Liq = IUniswapV2Router02(uniswapRouter).getAmountOut(traded2Swap, rTraded, rReserved);
         traded2Liq = incomingTradedToken - traded2Swap;
