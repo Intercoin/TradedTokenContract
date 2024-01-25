@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL
-pragma solidity >= 0.4.21 < 0.9.0;
+pragma solidity 0.8.24;
 
 /**
  * @title TradedTokenContract
