@@ -654,23 +654,24 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     /**
      * @notice used to buy tokens for a fixed price in reserveToken
      */
-    function buy(amount) public {
+    function buy(uint256 amount) public payable {
         if (buyPrice == 0 || buyPaused) {
             revert BuySellNotAvailable();
         }
+
         if (buySellToken == address(0)) {
-            _mint(msg.sender, msg.value * FRACTION / buyPrice, "", ""); // ignore amount
+            amount = msg.value;
         } else {
-            IERC20(buySellToken).transferFrom(msg.sender, amount);
-            _mint(msg.sender, amount * FRACTION / buyPrice, "", "");
+            IERC20(buySellToken).transferFrom(msg.sender, address(this), amount);
         }
+        _mint(msg.sender, amount * FRACTION / buyPrice, "", "");
         totalBought += amount;
     }
 
     /**
      * @notice used to sell TradedTokens for a fixed price in reserveToken
      */
-    function sell(amount) public {
+    function sell(uint256 amount) public {
         if (sellPrice == 0) {
             revert BuySellNotAvailable();
         }
@@ -695,7 +696,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     /**
      * @notice used to pause buying, e.g. if buySellToken is compromised
      */
-    function pauseBuy(bool status) public onlyOwnerAndManagers {
+    function pauseBuy(bool status) public {
+        onlyOwnerAndManagers();
         buyPaused = status;
     }
 
