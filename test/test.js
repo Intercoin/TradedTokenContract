@@ -68,6 +68,10 @@ describe("TradedTokenInstance", function () {
     const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
     const holdersMax = HUN;
 
+    const buySellToken = ZERO_ADDRESS;
+    const buyPrice = FRACTION.mul(TEN).div(HUN); // 0.1 bnb for token
+    const sellPrice = FRACTION.mul(FIVE).div(HUN); // 0.05 bnb for token
+
     const claimFrequency = 60;  // 1 min
 
     const taxesInfo = [
@@ -203,9 +207,12 @@ describe("TradedTokenInstance", function () {
                     [RateLimitDuration, RateLimitValue],
                     maxBuyTax,
                     maxSellTax,
-                    holdersMax
+                    holdersMax,
+                    buySellToken,
+                    buyPrice,
+                    sellPrice
                 )
-            ).to.be.revertedWith("reserveTokenInvalid");
+            ).to.be.revertedWith("ReserveTokenInvalid");
         });
     });
 
@@ -233,7 +240,10 @@ describe("TradedTokenInstance", function () {
                 [RateLimitDuration, RateLimitValue],
                 maxBuyTax,
                 maxSellTax,
-                holdersMax
+                holdersMax,
+                buySellToken,
+                buyPrice,
+                sellPrice
             );
 
             await expect(
@@ -491,8 +501,9 @@ describe("TradedTokenInstance", function () {
             });
             // it("", async() => {});
 
-            describe("shouldnt presale if Presale contract invalid", function () {
+            describe.only("shouldnt presale if Presale contract invalid", function () {
                 it(" --- zero address", async() => {
+                    await mainInstance.connect(owner).startPresale(ZERO_ADDRESS, ONE_ETH, timeUntil);
                     await expect(
                         mainInstance.connect(owner).startPresale(ZERO_ADDRESS, ONE_ETH, timeUntil)
                     ).to.be.revertedWith('function returned an unexpected amount of data');

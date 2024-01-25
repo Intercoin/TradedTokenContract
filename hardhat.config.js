@@ -143,8 +143,8 @@ module.exports = {
         {
           version: "0.8.24",
           settings: {
+            //viaIR: true,
             optimizer: {
-              viaIR: true,
               enabled: true,
               runs: 10,
             },
@@ -159,8 +159,8 @@ module.exports = {
         {
           version: "0.8.15",
           settings: {
+            //viaIR: true,
             optimizer: {
-              viaIR: true,
               enabled: true,
               runs: 10,
             },
@@ -176,8 +176,8 @@ module.exports = {
           version: "0.6.7",
           settings: {},
           settings: {
+            //viaIR: true,
             optimizer: {
-              viaIR: true,
               enabled: false,
               runs: 200,
             },
