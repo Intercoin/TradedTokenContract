@@ -481,6 +481,17 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         emit ClaimsEnabled(claimsEnabledTime);
     }
 
+    function availableToClaim() external view returns(uint256 tradedTokenAmount) {
+        (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
+        tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
+        if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
+            tradedTokenAmount -= (_reserve0 + totalCumulativeClaimed);
+        } else {
+            tradedTokenAmount = 0;
+        }
+        tradedTokenAmount += totalBought * (buyPrice - sellPrice) / FRACTION;
+    }
+
     /**
      * @notice managers can restrict future claims to make sure
      *  that selling all claimed tokens will never drop price below
@@ -1012,17 +1023,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         ) {
             revert PriceMayBecomeLowerThanMinClaimPrice();
         }
-    }
-
-    function availableToClaim() public view returns(uint256 tradedTokenAmount) {
-        (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
-        tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
-        if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
-            tradedTokenAmount -= (_reserve0 + totalCumulativeClaimed);
-        } else {
-            tradedTokenAmount = 0;
-        }
-        tradedTokenAmount += totalBought * (buyPrice - sellPrice) / FRACTION;
     }
 
     /**
