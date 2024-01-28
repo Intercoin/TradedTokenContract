@@ -67,6 +67,17 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     }
     RateLimit public panicSellRateLimit;
 
+    struct TaxStruct {
+        uint16 buyTaxMax;
+        uint16 sellTaxMax;
+        uint16 holdersMax;
+    }
+    struct BuySellStruct {
+        address buySellToken;
+        uint256 buyPrice;
+        uint256 sellPrice;
+    }
+
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
     
@@ -204,9 +215,14 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
      * @param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
      * @param claimSettings.minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
      * @param panicSellRateLimit_ (fraction, duration) if fraction != 0, can sell at most this fraction of balance per interval with this duration
-     * @param buyTaxMax_ buyTaxMax_
-     * @param sellTaxMax_ sellTaxMax_
-     * @param holdersMax_ the maximum number of holders, may be increased by owner later
+     * @param taxStruct imploded variables to avoid stuck too deep error
+     *      buyTaxMax - buyTaxMax
+     *      sellTaxMax - sellTaxMax
+     *      holdersMax - the maximum number of holders, may be increased by owner later
+     * @param buySellStruct  imploded variables to avoid stuck too deep error
+     *      buySellToken - token's address is a paying token 
+     *      buyPrice - buy price
+     *      sellPrice - sell price
      */
     constructor(
         string memory tokenName_,
@@ -217,17 +233,13 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
-        uint16 buyTaxMax_,
-        uint16 sellTaxMax_,
-        uint16 holdersMax_,
-        address buySellToken_,
-        uint256 buyPrice_,
-        uint256 sellPrice_
+        TaxStruct memory taxStruct,
+        BuySellStruct memory buySellStruct
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
 
         //setup
         (buyTaxMax,  sellTaxMax,  holdersMax,  buySellToken,  buyPrice,  sellPrice) =
-        (buyTaxMax_, sellTaxMax_, holdersMax_, buySellToken_, buyPrice_, sellPrice_);
+        (taxStruct.buyTaxMax, taxStruct.sellTaxMax, taxStruct.holdersMax, buySellStruct.buySellToken, buySellStruct.buyPrice, buySellStruct.sellPrice);
 
         tradedToken = address(this);
         reserveToken = reserveToken_;

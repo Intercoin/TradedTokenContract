@@ -16,13 +16,9 @@ contract TradedTokenMock is TradedToken {
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
-        uint16 buyTaxMax_,
-        uint16 sellTaxMax_,
-        uint16 holdersMax_,
-        address buySellToken_,
-        uint256 buyPrice_,
-        uint256 sellPrice_
-    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, panicSellRateLimit_, buyTaxMax_, sellTaxMax_, holdersMax_, buySellToken_, buyPrice_, sellPrice_)
+        TaxStruct memory taxStruct,
+        BuySellStruct memory buySellStruct
+    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct)
     {
     }
 
