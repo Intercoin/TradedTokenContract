@@ -1074,7 +1074,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
         return amount;
     }
-
+/*
     function _mint(
         address account,
         uint256 amount,
@@ -1083,7 +1083,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     ) internal virtual override {
         super._mint(account, amount, userData, operatorData);
     }
-
+*/
 
 
     function _doSwapOnUniswap(
