@@ -29,8 +29,8 @@ module.exports = {
     hardhat: {
       allowUnlimitedContractSize: true,
       forking: {
-        url: mainnetURL,
-        //url: bscURL,
+        //url: mainnetURL,
+        url: bscURL,
         //url: maticURL,
       }
     },

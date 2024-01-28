@@ -72,6 +72,18 @@ describe("TradedTokenInstance", function () {
     const buyPrice = FRACTION.mul(TEN).div(HUN); // 0.1 bnb for token
     const sellPrice = FRACTION.mul(FIVE).div(HUN); // 0.05 bnb for token
 
+    const StructTaxes = [
+        maxBuyTax,
+        maxSellTax,
+        holdersMax
+    ];
+    
+    const StructBuySellPrice = [
+        buySellToken,
+        buyPrice,
+        sellPrice
+    ];
+
     const claimFrequency = 60;  // 1 min
 
     const taxesInfo = [
@@ -86,7 +98,7 @@ describe("TradedTokenInstance", function () {
     // vars
     var mainInstance, erc20ReservedToken;
     var MainFactory, ERC20Factory;
-    
+    var liquidityLib;
     
     var printPrices = async function(str) {
         return;
@@ -107,14 +119,12 @@ describe("TradedTokenInstance", function () {
         const library = await TaxesLib.deploy();
         await library.deployed();
 
-        const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
-        const library2 = await SwapSettingsLib.deploy();
-        await library2.deployed();
+        var libData = await ethers.getContractFactory("@intercoin/liquidity/contracts/LiquidityLib.sol:LiquidityLib");    
+        liquidityLib = await libData.deploy();
 
         MainFactory = await ethers.getContractFactory("TradedTokenMock",  {
             libraries: {
-                TaxesLib:library.address,
-                SwapSettingsLib:library2.address
+                TaxesLib:library.address
             }
         });
         
@@ -205,12 +215,9 @@ describe("TradedTokenInstance", function () {
                     ],
                     taxesInfo,
                     [RateLimitDuration, RateLimitValue],
-                    maxBuyTax,
-                    maxSellTax,
-                    holdersMax,
-                    buySellToken,
-                    buyPrice,
-                    sellPrice
+                    StructTaxes,
+                    StructBuySellPrice,
+                    liquidityLib.address
                 )
             ).to.be.revertedWith("ReserveTokenInvalid");
         });
@@ -238,12 +245,9 @@ describe("TradedTokenInstance", function () {
                 ],
                 taxesInfo,
                 [RateLimitDuration, RateLimitValue],
-                maxBuyTax,
-                maxSellTax,
-                holdersMax,
-                buySellToken,
-                buyPrice,
-                sellPrice
+                StructTaxes,
+                StructBuySellPrice,
+                liquidityLib.address
             );
 
             await expect(
@@ -501,12 +505,11 @@ describe("TradedTokenInstance", function () {
             });
             // it("", async() => {});
 
-            describe.only("shouldnt presale if Presale contract invalid", function () {
+            describe("shouldnt presale if Presale contract invalid", function () {
                 it(" --- zero address", async() => {
-                    await mainInstance.connect(owner).startPresale(ZERO_ADDRESS, ONE_ETH, timeUntil);
                     await expect(
                         mainInstance.connect(owner).startPresale(ZERO_ADDRESS, ONE_ETH, timeUntil)
-                    ).to.be.revertedWith('function returned an unexpected amount of data');
+                    ).to.be.revertedWith('EmptyAddress');
                 });
                 it(" --- eoa address", async() => {
                     await expect(

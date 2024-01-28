@@ -59,6 +59,7 @@
     "ts-node": "^10.4.0"
   },
   "dependencies": {
+    "@intercoin/liquidity": "^1.0.0",
     "@intercoin/releasemanager": "^2.0.0",
     "@openzeppelin/contracts": "^4.3.2",
     "@openzeppelin/contracts-upgradeable": "^4.3.2",

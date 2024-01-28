@@ -18,7 +18,8 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-import "./libs/SwapSettingsLib.sol";
+import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
+
 import "./libs/FixedPoint.sol";
 import "./libs/TaxesLib.sol";
 import "./minimums/libs/MinimumsLib.sol";
@@ -36,6 +37,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     using SafeERC20 for ERC777;
     using Address for address;
     using TaxesLib for TaxesLib.TaxesInfo;
+
+    ILiquidityLib public immutable liquidityLib;
 
     struct PriceNumDen {
         uint256 numerator;
@@ -234,7 +237,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
         TaxStruct memory taxStruct,
-        BuySellStruct memory buySellStruct
+        BuySellStruct memory buySellStruct,
+        address liquidityLib_
     ) ERC777(tokenName_, tokenSymbol_, new address[](0)) {
 
         //setup
@@ -248,7 +252,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         pairObservation.timestampLast = _currentBlockTimestamp();
         
         // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory, k1, k2, k3, k4) = SwapSettingsLib.netWorkSettings();
+        liquidityLib = ILiquidityLib(liquidityLib_);
+        (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
+        (k1, k2, k3, k4,/*k5*/,/*k6*/) = liquidityLib.koefficients();
 
         priceDrop = priceDrop_;
         lockupDays = lockupDays_;
@@ -725,7 +731,9 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     function startPresale(address contract_, uint256 amount, uint64 presaleLockupDays) public onlyOwner {
 
         onlyBeforeInitialLiquidity();
-
+        if (contract_ == address(0)) {
+            revert EmptyAddress();
+        }
         uint64 endTime = IPresale(contract_).endTime();
 
         // give at least two hours for the presale because burnRemaining can be called in the second hour
@@ -744,6 +752,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     */
 	function startSale(address contract_, uint64 saleLockupDays) public {
 
+        if (contract_ == address(0)) {
+            revert EmptyAddress();
+        }
+        
         if (Ownable(contract_).owner() != msg.sender) {
 			revert OwnersOnly();
 		}

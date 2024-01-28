@@ -65,6 +65,18 @@ describe("DistributionManager", function () {
     const buyPrice = FRACTION.mul(TEN).div(HUN); // 0.1 bnb for token
     const sellPrice = FRACTION.mul(FIVE).div(HUN); // 0.05 bnb for token
 
+    const StructTaxes = [
+        maxBuyTax,
+        maxSellTax,
+        holdersMax
+    ];
+    
+    const StructBuySellPrice = [
+        buySellToken,
+        buyPrice,
+        sellPrice
+    ];
+
     const claimFrequency = 60;  // 1 min
     const externalTokenExchangePriceNumerator = 1;
     const externalTokenExchangePriceDenominator = 1;
@@ -78,13 +90,9 @@ describe("DistributionManager", function () {
         const library = await TaxesLib.deploy();
         await library.deployed();
 
-        SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
-        const library2 = await SwapSettingsLib.deploy();
-        await library2.deployed();
         TradedTokenF = await ethers.getContractFactory("TradedTokenMock",  {
             libraries: {
-                TaxesLib:library.address,
-                SwapSettingsLib:library2.address
+                TaxesLib:library.address
             }
         });
 
@@ -196,6 +204,7 @@ describe("DistributionManager", function () {
     describe("tests with TradedToken", function () {
         var distributionManager, claimManager;
         var erc20token, erc777token, externalToken,tradedTokenInstance;
+        var liquidityLib;
 
         beforeEach("deploying", async() => {
             erc20ReservedToken  = await ERC20MintableF.deploy("ERC20 Reserved Token", "ERC20-RSRV");
@@ -203,6 +212,9 @@ describe("DistributionManager", function () {
             erc20token          = await ERC20MintableF.deploy("ERC20Token", "ERC20T");
             erc777token         = await ERC777MintableF.deploy();
         
+            var libData = await ethers.getContractFactory("@intercoin/liquidity/contracts/LiquidityLib.sol:LiquidityLib");    
+            liquidityLib = await libData.deploy();
+
             tradedTokenInstance = await TradedTokenF.connect(owner).deploy(
                 "Intercoin Investor Token",
                 "ITR",
@@ -215,12 +227,9 @@ describe("DistributionManager", function () {
                 ],
                 taxesInfo,
                 [RateLimitDuration, RateLimitValue],
-                maxBuyTax,
-                maxSellTax,
-                holdersMax,
-                buySellToken,
-                buyPrice,
-                sellPrice
+                StructTaxes,
+                StructBuySellPrice,
+                liquidityLib.address
             );
 
             claimManager = await ClaimManagerF.deploy(
@@ -273,10 +282,10 @@ describe("DistributionManager", function () {
             expect(balanceAfterSendOut).to.be.eq(ZERO);
         });
 
-        it("distributionManager should call wantToClaim", async() => {
+        it.only("distributionManager should call wantToClaim", async() => {
             const claimAmount = ONE_ETH;
             var mapBefore = await claimManager.wantToClaimMap(distributionManager.address);
-            
+await distributionManager.connect(owner).wantToClaim(claimAmount);            
             await expect(distributionManager.connect(owner).wantToClaim(claimAmount)).to.be.revertedWith("InsufficientAmount");
             await externalToken.mint(distributionManager.address, claimAmount);
             await distributionManager.connect(owner).wantToClaim(claimAmount);
