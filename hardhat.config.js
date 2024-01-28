@@ -3,8 +3,6 @@ require('dotenv').config()
 require("@nomiclabs/hardhat-ethers")
 require("hardhat-docgen")
 require("@hardhat-docgen/core")
-//require("@hardhat-docgen/markdown")
-require("./docgen-custom-markdown")
 require('hardhat-deploy')
 require("@nomiclabs/hardhat-waffle")
 require("@nomiclabs/hardhat-web3")
@@ -115,13 +113,6 @@ module.exports = {
       saveDeployments: true
     }
   },
-  docgen: {
-    path: './docs',
-    clear: true,
-    only: ['contracts/v2'],
-    theme: '../../docgen-custom-markdown',
-    runOnCompile: false,
-  },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD"
@@ -141,8 +132,9 @@ module.exports = {
   solidity: {
     compilers: [
         {
-          version: "0.8.18",
+          version: "0.8.24",
           settings: {
+            //viaIR: true,
             optimizer: {
               enabled: true,
               runs: 10,
@@ -158,6 +150,7 @@ module.exports = {
         {
           version: "0.8.15",
           settings: {
+            //viaIR: true,
             optimizer: {
               enabled: true,
               runs: 10,
@@ -174,6 +167,7 @@ module.exports = {
           version: "0.6.7",
           settings: {},
           settings: {
+            //viaIR: true,
             optimizer: {
               enabled: false,
               runs: 200,

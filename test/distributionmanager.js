@@ -61,6 +61,10 @@ describe("DistributionManager", function () {
     const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
     const holdersMax = HUN;
 
+    const buySellToken = ZERO_ADDRESS;
+    const buyPrice = FRACTION.mul(TEN).div(HUN); // 0.1 bnb for token
+    const sellPrice = FRACTION.mul(FIVE).div(HUN); // 0.05 bnb for token
+
     const claimFrequency = 60;  // 1 min
     const externalTokenExchangePriceNumerator = 1;
     const externalTokenExchangePriceDenominator = 1;
@@ -213,7 +217,10 @@ describe("DistributionManager", function () {
                 [RateLimitDuration, RateLimitValue],
                 maxBuyTax,
                 maxSellTax,
-                holdersMax
+                holdersMax,
+                buySellToken,
+                buyPrice,
+                sellPrice
             );
 
             claimManager = await ClaimManagerF.deploy(
