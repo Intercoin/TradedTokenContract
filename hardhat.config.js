@@ -1,18 +1,5 @@
-require('dotenv').config()
-
-require("@nomiclabs/hardhat-ethers")
-require("hardhat-docgen")
-require("@hardhat-docgen/core")
-require('hardhat-deploy')
-require("@nomiclabs/hardhat-waffle")
-require("@nomiclabs/hardhat-web3")
-//require("@nomiclabs/hardhat-etherscan")
-require('@nomicfoundation/hardhat-verify');
-require("solidity-coverage")
-require("hardhat-gas-reporter")
-require('hardhat-contract-sizer');
-
-
+require('dotenv').config();
+require("@nomicfoundation/hardhat-toolbox");
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
 const goerliURL = `https://eth-goerli.alchemyapi.io/v2/${process.env.ALCHEMY_GOERLI}`
@@ -25,9 +12,11 @@ const mumbaiURL = `https://matic-mumbai.chainstacklabs.com`;
 
 
 module.exports = {
+  defaultNetwork: "hardhat",
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true,
+      chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
       forking: {
         //url: mainnetURL,
         url: bscURL,
