@@ -31,6 +31,9 @@ contract TradedTokenMock is TradedToken {
         return address(internalLiquidity);
     }
 
+    function getUniswapRouter() public view returns (address) {
+        return uniswapRouter;
+    }
     function getSqrt(
         uint256 x
     ) 
