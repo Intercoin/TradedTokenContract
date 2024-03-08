@@ -131,6 +131,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant LOCKUP_INTERVAL = 1 days; //24 * 60 * 60; // day in seconds
+    uint64 internal constant MAX_TRANSFER_COUNT = 4; // minimum transfers count until user can send to other user above own minimum lockup
     uint64 internal immutable startupTimestamp;
     uint64 internal immutable lockupDays;
 
@@ -164,7 +165,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => uint64) public managers;
     mapping(address => uint64) public presales;
     mapping(address => uint64) public sales;
-
+    mapping(address => uint64) public receivedTransfersCount;
+ 
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
     event AddedManager(address account, address sender);
     event RemovedManager(address account, address sender);
@@ -954,8 +956,25 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         } else {
             uint256 balance = balanceOf(from);
             uint256 locked = tokensLocked[from]._getMinimum();
-            if (balance - locked < amount) {
-                revert InsufficientAmount();
+            // if (balance - locked < amount) {
+            //     revert InsufficientAmount();
+            // }
+            bool isLocked = (balance - locked < amount);
+            // if ((receivedTransfersCount[from] >= MAX_TRANSFER_COUNT) && isLocked) {
+            //     revert InsufficientAmount();
+            // }
+            if (isLocked) {
+                //tokensLocked[from].minimumsTransfer(tokensLocked[to], false, amount);
+                if ((receivedTransfersCount[from] < MAX_TRANSFER_COUNT) && (balance >= amount)) {
+                    // pass
+                    tokensLocked[from].minimumsTransfer(tokensLocked[to], false, amount);
+                } else {
+                    revert InsufficientAmount();
+                }
+            }
+ 
+            if (receivedTransfersCount[from] < MAX_TRANSFER_COUNT) {
+                receivedTransfersCount[from] += 1;
             }
         }
         

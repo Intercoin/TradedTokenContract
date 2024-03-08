@@ -1222,7 +1222,63 @@ describe("TradedTokenInstance", function () {
                         await mainInstance.connect(owner).addManager(bob.address);
                         await mainInstance.connect(bob).claim(ethers.parseEther('1'), bob.address);
                         
-                        await expect(mainInstance.connect(bob).transfer(charlie.address, ethers.parseEther('1'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
+                        //await expect(mainInstance.connect(bob).transfer(charlie.address, ethers.parseEther('1'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
+                        await expect(mainInstance.connect(bob).transfer(charlie.address, ethers.parseEther('1'))).not.to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
+                        
+                    }); 
+
+                    it("should locked up tokens when receivedTransfersCount > 4", async() => {
+                        const {
+                            owner,
+                            bob,
+                            charlie,
+                            mainInstance
+                        } = await loadFixture(deploy3);
+
+                        await mainInstance.connect(owner).enableClaims();
+
+                        const smthFromOwner= 1n;
+                        // send a little
+                        await mainInstance.connect(owner).claim(smthFromOwner, charlie.address);
+
+                        await mainInstance.connect(owner).addManager(bob.address);
+                        await mainInstance.connect(bob).claim(ethers.parseEther('1'), bob.address);
+
+                        await mainInstance.connect(owner).addManager(charlie.address);
+
+                        // start to calculate transfersCount
+                        expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(0);
+                        expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(0);
+
+                        // transfer to charlies and back to bob 
+                        await mainInstance.connect(bob).transfer(charlie.address,ethers.parseEther('1'));
+                        await mainInstance.connect(charlie).transfer(bob.address,ethers.parseEther('1'));
+                        expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(1n);
+                        expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(1n);
+
+                        // again
+                        await mainInstance.connect(bob).transfer(charlie.address,ethers.parseEther('1'));
+                        await mainInstance.connect(charlie).transfer(bob.address,ethers.parseEther('1'));
+                        expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(2n);
+                        expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(2n);
+
+                        // and again
+                        await mainInstance.connect(bob).transfer(charlie.address,ethers.parseEther('1'));
+                        await mainInstance.connect(charlie).transfer(bob.address,ethers.parseEther('1'));
+                        expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(3n);
+                        expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(3n);
+
+                        // the last one, but charlie send only half of it
+                        await mainInstance.connect(bob).transfer(charlie.address,ethers.parseEther('1'));
+                        await mainInstance.connect(charlie).transfer(bob.address,ethers.parseEther('0.5'));
+                        expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(4n);
+                        expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(4n);
+
+                        // bob should have receivedTransfersCount => 4. after that tokens(which keep save gradual lock-up) can't be transferred until lock-up passed
+                        await expect(mainInstance.connect(bob).transfer(charlie.address,ethers.parseEther('0.5'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
+                        // charlie have receivedTransfersCount => 4 too. and  can't be transferred until lock-up passed
+                        await expect(mainInstance.connect(charlie).transfer(bob.address,ethers.parseEther('0.5'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
+
                     }); 
 
                 }); 
