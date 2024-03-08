@@ -26,12 +26,12 @@ import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
-import "./interfaces/IClaim.sol";
+
 import "./interfaces/ITradedToken.sol";
 
 //import "hardhat/console.sol";
 
-contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard, ITradedToken {
+contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard, ITradedToken {
    // using FixedPoint for *;
     using MinimumsLib for MinimumsLib.UserStruct;
     using SafeERC20 for ERC777;

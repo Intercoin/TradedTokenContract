@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "./interfaces/IClaimManagerUpgradeable.sol";
+import "./interfaces/IClaimUpgradeable.sol";
 
 import "@intercoin/releasemanager/contracts/CostManagerFactoryHelper.sol";
 import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
@@ -117,7 +117,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
      */
     function produce(
         address tradedToken,
-        IClaimManagerUpgradeable.ClaimSettings memory claimSettings
+        IClaimUpgradeable.ClaimSettings memory claimSettings
     ) public returns (address instance) {
 
         instance = claimManagerImplementation.clone();
@@ -128,7 +128,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
 
         emit InstanceCreated(instance, instances.length);
 
-        IClaimManagerUpgradeable(instance).initialize(
+        IClaimUpgradeable(instance).initialize(
             tradedToken,
             claimSettings,
             costManager,
@@ -151,7 +151,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
     function produceDeterministic(
         bytes32 salt,
         address tradedToken,
-        IClaimManagerUpgradeable.ClaimSettings memory claimSettings
+        IClaimUpgradeable.ClaimSettings memory claimSettings
     ) public returns (address instance) {
 
         instance = claimManagerImplementation.cloneDeterministic(salt);
@@ -162,7 +162,7 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
 
         emit InstanceCreated(instance, instances.length);
 
-        IClaimManagerUpgradeable(instance).initialize(
+        IClaimUpgradeable(instance).initialize(
             tradedToken,
             claimSettings,
             costManager,
