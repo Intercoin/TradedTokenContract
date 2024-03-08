@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 
 import "./interfaces/ITradedToken.sol";
-import "./interfaces/IClaimManager.sol";
+import "./interfaces/IClaim.sol";
 
 /**
 * @title DistributionManager 
@@ -27,10 +27,10 @@ contract DistributionManager is Ownable, IERC777Recipient, IERC777Sender, Reentr
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
-    constructor(address traded, address claiming, address manager) {
-        tradedToken = traded;
+    constructor(address claiming, address manager) {
         claimingToken = claiming;
         claimManager = manager;
+        tradedToken = IClaim(claimManager).getTradedToken();
         IERC20(claimingToken).approve(manager, type(uint256).max);
 
         // register interfaces
@@ -43,11 +43,11 @@ contract DistributionManager is Ownable, IERC777Recipient, IERC777Sender, Reentr
     }
     
     function wantToClaim(uint256 amount) public onlyOwner {
-        IClaimManager(claimManager).wantToClaim(amount);
+        IClaim(claimManager).wantToClaim(amount);
     }
 
     function claim(uint256 amount, address account) public onlyOwner {
-        IClaimManager(claimManager).claim(amount, account); // receive refund on unused ClaimingToken
+        IClaim(claimManager).claim(amount, account); // receive refund on unused ClaimingToken
     }
 
     function pauseBuy(bool status) public onlyOwner {

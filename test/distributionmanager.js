@@ -28,11 +28,7 @@ const THOUSAND = BigInt('1000');
 
 const ONE_ETH = ethers.parseEther('1');
 
-
-
 describe("DistributionManager", function () {
-    
-    
     
     describe("simple ERC20/ERC777 operations", function () {
         
@@ -60,8 +56,7 @@ describe("DistributionManager", function () {
                 ]
             );
             
-            distributionManager = await DistributionManagerF.connect(owner).deploy(
-                simpleerc20.target, 
+            const distributionManager = await DistributionManagerF.connect(owner).deploy(
                 nevermindToken.target, 
                 claimManager.target
             );
@@ -110,7 +105,7 @@ describe("DistributionManager", function () {
             const nevermindToken = await ERC20MintableF.deploy("somename","somesymbol");
             const simpleerc777 = await ERC777MintableF.deploy();
 
-            claimManager = await ClaimManagerF.deploy(
+            const claimManager = await ClaimManagerF.deploy(
                 simpleerc777.target,
                 [
                     nevermindToken.target,
@@ -119,8 +114,7 @@ describe("DistributionManager", function () {
                 ]
             );
             
-            distributionManager = await DistributionManagerF.connect(owner).deploy(
-                simpleerc777.target, 
+            const distributionManager = await DistributionManagerF.connect(owner).deploy(
                 nevermindToken.target, 
                 claimManager.target
             );
@@ -212,7 +206,6 @@ describe("DistributionManager", function () {
             );
 
             const distributionManager = await DistributionManagerF.connect(owner).deploy(
-                tradedTokenInstance.target, 
                 externalToken.target, 
                 claimManager.target
             );
