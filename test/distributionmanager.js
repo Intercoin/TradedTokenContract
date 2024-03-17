@@ -1,208 +1,188 @@
-const { ethers, waffle } = require('hardhat');
-const { BigNumber } = require('ethers');
+
 const { expect } = require('chai');
-const chai = require('chai');
-const { time } = require('@openzeppelin/test-helpers');
+const hre = require("hardhat");
+const { time, loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+require("@nomicfoundation/hardhat-chai-matchers");
+// const chai = require('chai');
+// const { time } = require('@openzeppelin/test-helpers');
+const { deploy } = require("./fixtures/deploy.js");
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 const UNISWAP_ROUTER_FACTORY_ADDRESS = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
 const UNISWAP_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
 
-const ZERO = BigNumber.from('0');
-const ONE = BigNumber.from('1');
-const TWO = BigNumber.from('2');
-const THREE = BigNumber.from('3');
-const FOURTH = BigNumber.from('4');
-const FIVE = BigNumber.from('5');
-const SIX = BigNumber.from('6');
-const SEVEN = BigNumber.from('7');
-const EIGHT = BigNumber.from('8');
-const NINE = BigNumber.from('9');
-const TEN = BigNumber.from('10');
-const HUN = BigNumber.from('100');
-const THOUSAND = BigNumber.from('1000');
+const ZERO = BigInt('0');
+const ONE = BigInt('1');
+const TWO = BigInt('2');
+const THREE = BigInt('3');
+const FOURTH = BigInt('4');
+const FIVE = BigInt('5');
+const SIX = BigInt('6');
+const SEVEN = BigInt('7');
+const EIGHT = BigInt('8');
+const NINE = BigInt('9');
+const TEN = BigInt('10');
+const HUN = BigInt('100');
+const THOUSAND = BigInt('1000');
 
-const ONE_ETH = TEN.pow(BigNumber.from('18'));
-
-const FRACTION = BigNumber.from('10000');
-
-chai.use(require('chai-bignumber')());
+const ONE_ETH = ethers.parseEther('1');
 
 describe("DistributionManager", function () {
-    const accounts = waffle.provider.getWallets();
-
-    const owner = accounts[0];                     
-    const alice = accounts[1];
-    const bob = accounts[2];
-    const charlie = accounts[3];
-
-    const lockupIntervalDay = 1; // one day
-    const lockupIntervalAmount = 365; // year in days
-
-    const pricePercentsDrop = 10;// 10% = 0.1   (and multiple fraction)
-    const priceDrop = FRACTION.mul(pricePercentsDrop).div(HUN);// 10% = 0.1   (and multiple fraction)
-    const minClaimPriceNumerator = 1;
-    const minClaimPriceDenominator = 1000;
-    const minClaimPriceGrowNumerator = 1;
-    const minClaimPriceGrowDenominator = 1000;
-    const taxesInfo = [
-        0,//buytax
-        0,//selltax
-        0,
-        0,
-        false,
-        false
-    ];
-    const RateLimitDuration = 0; // no panic
-    const RateLimitValue = 0; // no panic
-
-    const maxBuyTax = FRACTION.mul(15).div(100); // 0.15*fraction
-    const maxSellTax = FRACTION.mul(20).div(100);// 0.20*fraction
-    const holdersMax = HUN;
-
-    const claimFrequency = 60;  // 1 min
-    const externalTokenExchangePriceNumerator = 1;
-    const externalTokenExchangePriceDenominator = 1;
-
     
-    var TaxesLib, SwapSettingsLib, TradedTokenF, ERC777MintableF, ERC20MintableF, DistributionManagerF, ClaimManagerF;
-
-
-    beforeEach("deploying", async() => {
-        TaxesLib = await ethers.getContractFactory("TaxesLib");
-        const library = await TaxesLib.deploy();
-        await library.deployed();
-
-        SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
-        const library2 = await SwapSettingsLib.deploy();
-        await library2.deployed();
-        TradedTokenF = await ethers.getContractFactory("TradedTokenMock",  {
-            libraries: {
-                TaxesLib:library.address,
-                SwapSettingsLib:library2.address
-            }
-        });
-
-        ERC777MintableF = await ethers.getContractFactory("ERC777Mintable");
-        ERC20MintableF = await ethers.getContractFactory("ERC20Mintable");
-        DistributionManagerF = await ethers.getContractFactory("DistributionManager");
-        ClaimManagerF = await ethers.getContractFactory("ClaimManagerMock");
-
-        
-    });
-
     describe("simple ERC20/ERC777 operations", function () {
-        var nevermindToken;
-        beforeEach("deploying", async() => {
-            nevermindToken = await ERC20MintableF.deploy("somename","somesymbol");
-        });
-
+        
         it("distributionManager should receive and transfer any erc20 tokens", async() => {
-            var simpleerc20 = await ERC20MintableF.deploy("someERC20name","someERC20symbol");
 
-            claimManager = await ClaimManagerF.deploy(
-                simpleerc20.address,
+            const res = await loadFixture(deploy);
+            const {
+                owner,
+                alice,
+                externalTokenExchangePriceNumerator,
+                externalTokenExchangePriceDenominator,
+                claimFrequency,
+                ERC20MintableF,
+                ClaimManagerF,
+                DistributionManagerF
+            } = res;
+            const nevermindToken = await ERC20MintableF.deploy("somename","somesymbol");
+            const simpleerc20 = await ERC20MintableF.deploy("someERC20name","someERC20symbol");
+            const claimManager = await ClaimManagerF.deploy(
+                simpleerc20.target,
                 [
-                    nevermindToken.address,
+                    nevermindToken.target,
                     [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
                     claimFrequency
                 ]
             );
             
-            distributionManager = await DistributionManagerF.connect(owner).deploy(
-                simpleerc20.address, 
-                nevermindToken.address, 
-                claimManager.address
+            const distributionManager = await DistributionManagerF.connect(owner).deploy(
+                nevermindToken.target, 
+                claimManager.target
             );
 
             const amountToMint = ONE_ETH;
-            const balanceBefore = await simpleerc20.balanceOf(distributionManager.address);
+            const balanceBefore = await simpleerc20.balanceOf(distributionManager.target);
             const balanceAliceBefore = await simpleerc20.balanceOf(alice.address);
 
-            await simpleerc20.mint(distributionManager.address, amountToMint);
+            await simpleerc20.mint(distributionManager.target, amountToMint);
 
-            const balanceAfter = await simpleerc20.balanceOf(distributionManager.address);
+            const balanceAfter = await simpleerc20.balanceOf(distributionManager.target);
             
             expect(
                 amountToMint
             ).to.be.eq(
-                balanceAfter.sub(balanceBefore)
+                balanceAfter - balanceBefore
             );
 
             await distributionManager.connect(owner).transfer(alice.address, amountToMint);
 
             const balanceAliceAfter = await simpleerc20.balanceOf(alice.address);
-            const balanceAfterSendOut = await simpleerc20.balanceOf(distributionManager.address);
+            const balanceAfterSendOut = await simpleerc20.balanceOf(distributionManager.target);
 
             expect(
                 amountToMint
             ).to.be.eq(
-                balanceAliceAfter.sub(balanceAliceBefore)
+                balanceAliceAfter - balanceAliceBefore
             );
             expect(balanceAfterSendOut).to.be.eq(ZERO);
         });
 
         it("distributionManager should receive and send any erc777 tokens", async() => {
-            var simpleerc777 = await ERC777MintableF.deploy();
+            const res = await loadFixture(deploy);
+            const {
+                owner,
+                alice,
+                externalTokenExchangePriceNumerator,
+                externalTokenExchangePriceDenominator,
+                claimFrequency,
+                ERC20MintableF,
+                ERC777MintableF,
+                ClaimManagerF,
+                DistributionManagerF
+            } = res;
 
-            claimManager = await ClaimManagerF.deploy(
-                simpleerc777.address,
+            const nevermindToken = await ERC20MintableF.deploy("somename","somesymbol");
+            const simpleerc777 = await ERC777MintableF.deploy();
+
+            const claimManager = await ClaimManagerF.deploy(
+                simpleerc777.target,
                 [
-                    nevermindToken.address,
+                    nevermindToken.target,
                     [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
                     claimFrequency
                 ]
             );
             
-            distributionManager = await DistributionManagerF.connect(owner).deploy(
-                simpleerc777.address, 
-                nevermindToken.address, 
-                claimManager.address
+            const distributionManager = await DistributionManagerF.connect(owner).deploy(
+                nevermindToken.target, 
+                claimManager.target
             );
 
             const amountToMint = ONE_ETH;
-            const balanceBefore = await simpleerc777.balanceOf(distributionManager.address);
+            const balanceBefore = await simpleerc777.balanceOf(distributionManager.target);
             const balanceAliceBefore = await simpleerc777.balanceOf(alice.address);
 
-            await simpleerc777.mint(distributionManager.address, amountToMint);
+            await simpleerc777.mint(distributionManager.target, amountToMint);
 
-            const balanceAfter = await simpleerc777.balanceOf(distributionManager.address);
+            const balanceAfter = await simpleerc777.balanceOf(distributionManager.target);
             
             expect(
                 amountToMint
             ).to.be.eq(
-                balanceAfter.sub(balanceBefore)
+                balanceAfter - balanceBefore
             );
 
             await distributionManager.connect(owner).transfer(alice.address, amountToMint);
 
             const balanceAliceAfter = await simpleerc777.balanceOf(alice.address);
-            const balanceAfterSendOut = await simpleerc777.balanceOf(distributionManager.address);
+            const balanceAfterSendOut = await simpleerc777.balanceOf(distributionManager.target);
 
             expect(
                 amountToMint
             ).to.be.eq(
-                balanceAliceAfter.sub(balanceAliceBefore)
+                balanceAliceAfter - balanceAliceBefore
             );
             expect(balanceAfterSendOut).to.be.eq(ZERO);
         });
     });
 
     describe("tests with TradedToken", function () {
-        var distributionManager, claimManager;
-        var erc20token, erc777token, externalToken,tradedTokenInstance;
-
-        beforeEach("deploying", async() => {
-            erc20ReservedToken  = await ERC20MintableF.deploy("ERC20 Reserved Token", "ERC20-RSRV");
-            externalToken       = await ERC20MintableF.deploy("ERC20 External Token", "ERC20-EXT");
-            erc20token          = await ERC20MintableF.deploy("ERC20Token", "ERC20T");
-            erc777token         = await ERC777MintableF.deploy();
         
-            tradedTokenInstance = await TradedTokenF.connect(owner).deploy(
-                "Intercoin Investor Token",
-                "ITR",
-                erc20ReservedToken.address, //” (USDC)
+        async function deploy2() {
+            const res = await loadFixture(deploy);
+            const {
+                owner,
+                tokenName,
+                tokenSymbol,
+                priceDrop,
+                lockupIntervalAmount,
+                minClaimPriceNumerator, minClaimPriceDenominator,
+                minClaimPriceGrowNumerator, minClaimPriceGrowDenominator,
+                taxesInfo,
+                externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator,
+                claimFrequency,
+                StructTaxes,
+                StructBuySellPrice,
+
+                RateLimitDuration, RateLimitValue,
+                liquidityLib,
+                ERC20MintableF,
+                ERC777MintableF,
+                ClaimManagerF,
+                DistributionManagerF,
+                TradedTokenF
+            } = res;
+
+            const erc20ReservedToken  = await ERC20MintableF.deploy("ERC20 Reserved Token", "ERC20-RSRV");
+            const externalToken       = await ERC20MintableF.deploy("ERC20 External Token", "ERC20-EXT");
+            const erc20token          = await ERC20MintableF.deploy("ERC20Token", "ERC20T");
+            const erc777token         = await ERC777MintableF.deploy();
+
+            const tradedTokenInstance = await TradedTokenF.connect(owner).deploy(
+                tokenName,
+                tokenSymbol,
+                erc20ReservedToken.target, //” (USDC)
                 priceDrop,
                 lockupIntervalAmount,
                 [
@@ -211,70 +191,96 @@ describe("DistributionManager", function () {
                 ],
                 taxesInfo,
                 [RateLimitDuration, RateLimitValue],
-                maxBuyTax,
-                maxSellTax,
-                holdersMax
+                StructTaxes,
+                StructBuySellPrice,
+                liquidityLib.target
             );
 
-            claimManager = await ClaimManagerF.deploy(
-                tradedTokenInstance.address,
+            const claimManager = await ClaimManagerF.deploy(
+                tradedTokenInstance.target,
                 [
-                    externalToken.address,
+                    externalToken.target,
                     [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
                     claimFrequency
                 ]
             );
 
-            distributionManager = await DistributionManagerF.connect(owner).deploy(
-                tradedTokenInstance.address, 
-                externalToken.address, 
-                claimManager.address
+            const distributionManager = await DistributionManagerF.connect(owner).deploy(
+                externalToken.target, 
+                claimManager.target
             );
 
-            
-
-        });
+            return {...res, ...{
+                distributionManager, 
+                claimManager,
+                erc20token, 
+                erc777token, 
+                externalToken,
+                tradedTokenInstance, 
+                erc20ReservedToken,
+                liquidityLib,
+                tradedTokenInstance,
+                claimManager,
+                distributionManager
+            }};
+        }
 
         it("distributionManager should receive and send TradedToken", async() => {
-           
+            const res = await loadFixture(deploy2);
+            const {
+                owner,
+                alice,
+                tradedTokenInstance,
+                distributionManager
+            } = res;
+
             const amountToMint = ONE_ETH;
-            const balanceBefore = await tradedTokenInstance.balanceOf(distributionManager.address);
+            const balanceBefore = await tradedTokenInstance.balanceOf(distributionManager.target);
             const balanceAliceBefore = await tradedTokenInstance.balanceOf(alice.address);
 
-            await tradedTokenInstance.mint(distributionManager.address, amountToMint);
+            await tradedTokenInstance.mint(distributionManager.target, amountToMint);
 
-            const balanceAfter = await tradedTokenInstance.balanceOf(distributionManager.address);
+            const balanceAfter = await tradedTokenInstance.balanceOf(distributionManager.target);
             
             expect(
                 amountToMint
             ).to.be.eq(
-                balanceAfter.sub(balanceBefore)
+                balanceAfter - balanceBefore
             );
             //--
-            await tradedTokenInstance.connect(owner).addManager(distributionManager.address);
+            await tradedTokenInstance.connect(owner).addManager(distributionManager.target);
             //--
             await distributionManager.connect(owner).transfer(alice.address, amountToMint);
 
             const balanceAliceAfter = await tradedTokenInstance.balanceOf(alice.address);
-            const balanceAfterSendOut = await tradedTokenInstance.balanceOf(distributionManager.address);
+            const balanceAfterSendOut = await tradedTokenInstance.balanceOf(distributionManager.target);
 
             expect(
                 amountToMint
             ).to.be.eq(
-                balanceAliceAfter.sub(balanceAliceBefore)
+                balanceAliceAfter - balanceAliceBefore
             );
             expect(balanceAfterSendOut).to.be.eq(ZERO);
         });
 
         it("distributionManager should call wantToClaim", async() => {
+            const res = await loadFixture(deploy2);
+            const {
+                owner,
+                claimManager,
+                tradedTokenInstance,
+                externalToken,
+                distributionManager
+            } = res;
+
             const claimAmount = ONE_ETH;
-            var mapBefore = await claimManager.wantToClaimMap(distributionManager.address);
-            
-            await expect(distributionManager.connect(owner).wantToClaim(claimAmount)).to.be.revertedWith("InsufficientAmount");
-            await externalToken.mint(distributionManager.address, claimAmount);
+            var mapBefore = await claimManager.wantToClaimMap(distributionManager.target);
+
+            await expect(distributionManager.connect(owner).wantToClaim(claimAmount)).to.be.revertedWithCustomError(tradedTokenInstance, "InsufficientAmount");
+            await externalToken.mint(distributionManager.target, claimAmount);
             await distributionManager.connect(owner).wantToClaim(claimAmount);
 
-            var mapAfter = await claimManager.wantToClaimMap(distributionManager.address);
+            var mapAfter = await claimManager.wantToClaimMap(distributionManager.target);
 
             expect(mapBefore.amount).to.be.eq(ZERO);
             expect(mapAfter.amount).to.be.eq(claimAmount);
@@ -282,31 +288,48 @@ describe("DistributionManager", function () {
         });
 
         it("distributionManager should call claim", async() => {
+            const res = await loadFixture(deploy2);
+            const {
+                owner,
+                bob,
+                claimFrequency,
+                claimManager,
+                tradedTokenInstance,
+                externalToken,
+                erc20ReservedToken,
+                distributionManager
+            } = res;
+
             const claimAmount = ONE_ETH;
             var bobBalanceBefore = await tradedTokenInstance.balanceOf(bob.address);
             
-            await expect(distributionManager.connect(owner).wantToClaim(claimAmount)).to.be.revertedWith("InsufficientAmount");
-            await externalToken.mint(distributionManager.address, claimAmount);
+            await expect(distributionManager.connect(owner).wantToClaim(claimAmount)).to.be.revertedWithCustomError(tradedTokenInstance, "InsufficientAmount");
+            await externalToken.mint(distributionManager.target, claimAmount);
             await distributionManager.connect(owner).wantToClaim(claimAmount);
 
             // try#1
-            await expect(distributionManager.connect(owner).claim(claimAmount,bob.address)).to.be.revertedWith('ClaimTooFast');
+            await expect(
+                distributionManager.connect(owner).claim(claimAmount,bob.address)
+            ).to.be.revertedWithCustomError(claimManager, 'ClaimTooFast');
             //pass time
             await time.increase(claimFrequency);
 
             // try#2
-            await expect(distributionManager.connect(owner).claim(claimAmount,bob.address)).to.be.revertedWith('EmptyReserves');
+            await expect(
+                distributionManager.connect(owner).claim(claimAmount,bob.address)
+            ).to.be.revertedWithCustomError(tradedTokenInstance, 'EmptyReserves');
             //add reserves and initial liquidity
-            await erc20ReservedToken.connect(owner).mint(tradedTokenInstance.address, ONE_ETH.mul(THOUSAND));
-            await tradedTokenInstance.connect(owner).addInitialLiquidity(ONE_ETH.mul(THOUSAND), ONE_ETH.mul(TEN));
+            await erc20ReservedToken.connect(owner).mint(tradedTokenInstance.target, ONE_ETH * THOUSAND);
+
+            await tradedTokenInstance.connect(owner).addInitialLiquidity(ONE_ETH * TEN, ONE_ETH  * THOUSAND);
 
             // try#3
-            await expect(distributionManager.connect(owner).claim(claimAmount,bob.address)).to.be.revertedWith('OwnerAndManagersOnly');
+            await expect(distributionManager.connect(owner).claim(claimAmount,bob.address)).to.be.revertedWithCustomError(tradedTokenInstance, 'OwnerAndManagersOnly');
             // claimManager contract should be a manager on tradedToken
-            await tradedTokenInstance.connect(owner).addManager(claimManager.address);
+            await tradedTokenInstance.connect(owner).addManager(claimManager.target);
 
             // try#4
-            await expect(distributionManager.connect(owner).claim(claimAmount,bob.address)).to.be.revertedWith('ClaimsDisabled');
+            await expect(distributionManager.connect(owner).claim(claimAmount,bob.address)).to.be.revertedWithCustomError(tradedTokenInstance, 'ClaimsDisabled');
             //-- need to enable claim mode 
             await tradedTokenInstance.connect(owner).enableClaims();
             
@@ -315,7 +338,7 @@ describe("DistributionManager", function () {
             var bobBalanceAfter = await tradedTokenInstance.balanceOf(bob.address);
 
             expect(ZERO).to.be.eq(bobBalanceBefore);
-            expect(claimAmount).to.be.eq(bobBalanceAfter.sub(bobBalanceBefore));
+            expect(claimAmount).to.be.eq(bobBalanceAfter - bobBalanceBefore);
 
         });
 

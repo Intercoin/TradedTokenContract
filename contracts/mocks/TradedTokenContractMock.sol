@@ -16,10 +16,10 @@ contract TradedTokenMock is TradedToken {
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
-        uint16 buyTaxMax_,
-        uint16 sellTaxMax_,
-        uint16 holdersMax_
-    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, panicSellRateLimit_, buyTaxMax_, sellTaxMax_, holdersMax_)
+        TaxStruct memory taxStruct,
+        BuySellStruct memory buySellStruct,
+        address liquidityLib_
+    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, liquidityLib_)
     {
     }
 
@@ -31,6 +31,9 @@ contract TradedTokenMock is TradedToken {
         return address(internalLiquidity);
     }
 
+    function getUniswapRouter() public view returns (address) {
+        return uniswapRouter;
+    }
     function getSqrt(
         uint256 x
     ) 
