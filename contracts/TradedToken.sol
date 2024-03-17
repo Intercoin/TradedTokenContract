@@ -990,12 +990,12 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     function availableToClaim() public view returns(uint256 tradedTokenAmount) {
         (uint112 _reserve0, uint112 _reserve1, ) = _uniswapReserves();
         tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
+        tradedTokenAmount += totalBought * (buyPrice - sellPrice) / FRACTION;
         if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
             tradedTokenAmount -= (_reserve0 + totalCumulativeClaimed);
         } else {
             tradedTokenAmount = 0;
         }
-        tradedTokenAmount += totalBought * (buyPrice - sellPrice) / FRACTION;
     }
 
     /**
