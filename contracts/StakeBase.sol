@@ -133,6 +133,7 @@ abstract contract StakeBase is IStake {
         stakes[from].push(
             Stake(block.timestamp, 0, duration, 0, shares, amount)
         );
+        _claimTokens(); // need to set accumulatedPerShare[block.timestamp]
     }
 
     /**
