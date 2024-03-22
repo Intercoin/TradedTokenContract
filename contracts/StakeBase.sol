@@ -7,6 +7,7 @@ pragma solidity ^0.8.0;
 // import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "./interfaces/ITradedToken.sol";
 import "./interfaces/IStake.sol";
 
 abstract contract StakeBase is IStake {
@@ -61,7 +62,7 @@ abstract contract StakeBase is IStake {
     ) public {
         address sender = _msgSender();
         _transferFrom(stakingToken, sender, amount);
-        _stakeFromAddress(sender);
+        _stakeFromAddress(sender, amount, duration);
     }
 
     /**
@@ -75,16 +76,16 @@ abstract contract StakeBase is IStake {
         uint256 accumulated = 0;
         claim();
         for (i=0; i<stakes[sender].length; ++i) {
-            Stake stake = stakes[sender][i];
-            if (stake.endTime > 0) {
+            Stake storage st = stakes[sender][i];
+            if (st.endTime > 0) {
                 continue; // stake already ended
             }
-            if (stake.startTime + stake.durationMin > block.timestamp) {
+            if (st.startTime + st.durationMin > block.timestamp) {
                 continue; // not yet for this one
             }
-            stake.endTime = block.timestamp;
-            sharesTotal -= stake.shares;
-            amount += stake.amount;
+            st.endTime = block.timestamp;
+            sharesTotal -= st.shares;
+            amount += st.amount;
         }
         _transfer(stakingToken, sender, amount);
     }
@@ -105,16 +106,17 @@ abstract contract StakeBase is IStake {
     ) public {
         uint256 i;
         uint256 rewards = 0;
+        address sender = _msgSender();
         _claimTokens();
         for (i=0; i<stakes[sender].length; ++i) {
-            Stake stake = stakes[sender][i];
-            if (stake.endTime > 0) {
+            Stake storage st = stakes[sender][i];
+            if (st.endTime > 0) {
                 continue; // stake already ended
             }
-            if (stake.startTime + stake.durationMin > block.timestamp) {
+            if (st.startTime + st.durationMin > block.timestamp) {
                 continue; // not yet for this one
             }
-            rewards += _accumulate(stake);
+            rewards += _accumulate(st);
         }
         _transfer(tradedToken, to, rewards);
     }
@@ -153,15 +155,18 @@ abstract contract StakeBase is IStake {
 
     /**
      * @notice returns the accumulated tokens based on shares
-     * @param stake the stake being processed
+     * @param st the stake being processed
      */
     function _accumulate(
-        Stake storage stake
-    ) internal {
-        uint64 lastClaimTime = stake.startTime + stake.lastClaimOffset;
+        Stake storage st
+    ) 
+        internal 
+        returns(uint256)
+    {
+        uint64 lastClaimTime = st.startTime + st.lastClaimOffset;
         uint256 rewardsPerShare = accumulatedPerShare[block.timestamp] - accumulatedPerShare[lastClaimTime];
-        stake.lastClaimOffset = block.timestamp - stake.startTime;
-        return rewardsPerShare * stake.shares;
+        st.lastClaimOffset = block.timestamp - st.startTime;
+        return rewardsPerShare * st.shares;
     }
 
     function _multiplier(
@@ -176,7 +181,7 @@ abstract contract StakeBase is IStake {
         return FRACTION + (subAndGetNoneZero(duration, defaultStakeDuration) / defaultStakeDuration * defaultStakeDuration) * bonusSharesRate;
     }
 
-    function _msgSender() view internal {
+    function _msgSender() view internal returns(address){
         return msg.sender;
     }
 
