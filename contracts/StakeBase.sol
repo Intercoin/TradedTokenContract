@@ -13,6 +13,7 @@ abstract contract StakeBase is IStake {
 
     uint256 private deployTime;
     address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    uint256 private constant FRACTION = 10000;
 
     address public tradedToken;
     address public stakingToken;
@@ -25,6 +26,7 @@ abstract contract StakeBase is IStake {
 
     mapping (uint64 => uint256) public accumulatedPerShare; // mapping time to accumulated
     uint256 private lastAccumulatedPerShare;
+    uint32 defaultStakeDuration;
     
     error EmptyTokenAddress();
     error InputAmountCanNotBeZero();
@@ -37,19 +39,19 @@ abstract contract StakeBase is IStake {
         uint16 defaultStakeDuration_
     ) internal {
         
-        if (tradedToken_ == address(0) || StakingToken == address(0)) {
+        if (tradedToken_ == address(0) || stakingToken_ == address(0)) {
             revert EmptyTokenAddress();
         }
         
         tradedToken = tradedToken_;
-        stakingToken = StakingToken_;
+        stakingToken = stakingToken_;
         bonusSharesRate = bonusSharesRate_;
         defaultStakeDuration = defaultStakeDuration_;
         deployTime = block.timestamp;
     }
 
     /**
-     * @notice stake some amount of StakingToken for a duration of time
+     * @notice stake some amount of stakingToken for a duration of time
      * @param amount amount of claiming token to stake
      * @param duration amount of seconds to stake for
      */
@@ -58,7 +60,7 @@ abstract contract StakeBase is IStake {
         uint32 duration
     ) public {
         address sender = _msgSender();
-        ERC777Upgradeable(StakingToken).transferFrom(sender, amount)
+        ERC777Upgradeable(stakingToken).transferFrom(sender, amount);
         _stakeFromAddress(sender);
     }
 
@@ -162,14 +164,28 @@ abstract contract StakeBase is IStake {
         return rewardsPerShare * stake.shares;
     }
 
-    function _multiplier(duration) {
+    function _multiplier(
+        uint32 duration
+    ) 
+        internal 
+        returns(uint256) 
+    {
         // let’s just hardcode the formula for now, but
         // in the future we should set an array of thresholds and bonuses during init
-        return FRACTION + max(0, duration - defaultStakeDuration) / defaultStakeDuration * defaultStakeDuration) * bonusSharesRate;
+        //return FRACTION + (max(0, duration - defaultStakeDuration) / defaultStakeDuration * defaultStakeDuration) * bonusSharesRate;
+        return FRACTION + (subAndGetNoneZero(duration, defaultStakeDuration) / defaultStakeDuration * defaultStakeDuration) * bonusSharesRate;
     }
 
     function _msgSender() view internal {
         return msg.sender;
+    }
+
+    function subAndGetNoneZero(uint32 x1, uint16 x2) internal returns(uint256) {
+        if (x1 > x2) {
+            return x1 - x2;
+        } else {
+            return 0;
+        }
     }
 
 }
