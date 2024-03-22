@@ -60,7 +60,7 @@ abstract contract StakeBase is IStake {
         uint32 duration
     ) public {
         address sender = _msgSender();
-        ERC777Upgradeable(stakingToken).transferFrom(sender, amount);
+        _transferFrom(stakingToken, sender, amount);
         _stakeFromAddress(sender);
     }
 
@@ -86,7 +86,7 @@ abstract contract StakeBase is IStake {
             sharesTotal -= stake.shares;
             amount += stake.amount;
         }
-        ERC777Upgradeable(StakingToken).transfer(sender, amount);
+        _transfer(stakingToken, sender, amount);
     }
 
     /**
@@ -116,7 +116,7 @@ abstract contract StakeBase is IStake {
             }
             rewards += _accumulate(stake);
         }
-        ERC777Upgradeable(tradedToken).transfer(to, rewards);
+        _transfer(tradedToken, to, rewards);
     }
 
     /**
@@ -188,4 +188,6 @@ abstract contract StakeBase is IStake {
         }
     }
 
+    function _transfer(address token, address to, uint256 amount) internal virtual;
+    function _transferFrom(address token, address sender, uint256 amount) internal virtual;
 }
