@@ -74,8 +74,8 @@ contract StakeClaimManagerUpgradeable is StakeBase, IStakeUpgradeable, IERC777Re
     function initialize(
         address tradedToken_,
         address stakingToken_,
-        uint16 bonusSharesRate_ = 100,
-        uint16 defaultStakeDuration_ = WEEK,
+        uint16 bonusSharesRate_,
+        uint16 defaultStakeDuration_,
         address costManager_,
         address producedBy_
     ) external initializer {

@@ -17,7 +17,7 @@ abstract contract StakeBase is IStake {
     address public tradedToken;
     address public stakingToken;
     uint16 bonusSharesRate;
-    constant WEEK = 60 * 60 * 24 * 7;
+    //constant WEEK = 60 * 60 * 24 * 7;
 
     mapping (uint64 => uint32) public sharesTotal;
     mapping (address => mapping (uint64 => uint32)) public sharesByStaker;
@@ -33,8 +33,8 @@ abstract contract StakeBase is IStake {
     function __StakeBaseInit(
         address tradedToken_,
         address stakingToken_,
-        uint16 bonusSharesRate_ = 100,
-        uint16 defaultStakeDuration_ = WEEK
+        uint16 bonusSharesRate_,
+        uint16 defaultStakeDuration_
     ) internal {
         
         if (tradedToken_ == address(0) || StakingToken == address(0)) {

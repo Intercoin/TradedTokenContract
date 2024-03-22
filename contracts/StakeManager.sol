@@ -16,8 +16,8 @@ contract StakeManager is StakeBase, IERC777Recipient, IERC777Sender, ReentrancyG
     constructor (
         address tradedToken_,
         address stakingToken_,
-        uint16 bonusSharesRate_ = 100,
-        uint16 defaultStakeDuration_ = WEEK
+        uint16 bonusSharesRate_,
+        uint16 defaultStakeDuration_
         
     ) {
         __StakeBaseInit(tradedToken_, stakingToken_, bonusSharesRate_, defaultStakeDuration_);
