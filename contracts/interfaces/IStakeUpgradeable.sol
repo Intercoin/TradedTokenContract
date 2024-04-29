@@ -8,8 +8,8 @@ interface IStakeUpgradeable is IStake {
     function initialize(
         address tradedToken,
         address stakingToken,
-        uint16 bonusSharesRate = 100,
-        uint16 defaultStakeDuration = WEEK,
+        uint16 bonusSharesRate, // = 100,
+        uint16 defaultStakeDuration, // = WEEK,
         address costManager,
         address producedBy
     ) external;

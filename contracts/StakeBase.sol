@@ -7,7 +7,7 @@ pragma solidity ^0.8.0;
 // import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "./interfaces/ITradedToken.sol";
+import "./interfaces/IClaim.sol";
 import "./interfaces/IStake.sol";
 
 abstract contract StakeBase is IStake {
@@ -83,7 +83,7 @@ abstract contract StakeBase is IStake {
             if (st.startTime + st.durationMin > block.timestamp) {
                 continue; // not yet for this one
             }
-            st.endTime = block.timestamp;
+            st.endTime = uint64(block.timestamp);
             sharesTotal -= st.shares;
             amount += st.amount;
         }
@@ -132,7 +132,7 @@ abstract contract StakeBase is IStake {
         uint256 amount, 
         uint32 duration
     ) internal {
-        uint256 shares = amount * _multiplier(duration) / FRACTION;
+        uint32 shares = amount * _multiplier(duration) / FRACTION;
         sharesTotal += shares;
         stakes[from].push(
             Stake(block.timestamp, 0, duration, 0, shares, amount)
@@ -147,8 +147,8 @@ abstract contract StakeBase is IStake {
         if (accumulatedPerShare[block.timestamp]) {
             return; // we've already done it this second
         }
-        uint256 availableToClaim = ITradedToken(tradedToken).availableToClaim();
-        ITradedToken(tradedToken).claim(availableToClaim, address(this));
+        uint256 availableToClaim = IClaim(tradedToken).availableToClaim();
+        IClaim(tradedToken).claim(availableToClaim, address(this));
         lastAccumulatedPerShare += availableToClaim / sharesTotal;
         accumulatedPerShare[block.timestamp] = lastAccumulatedPerShare;
     }
