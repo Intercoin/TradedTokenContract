@@ -6,10 +6,10 @@ interface IStake {
     struct Stake {
         uint64 startTime; // timestamp
         uint64 endTime; // timestamp
-        uint32 durationMin; // seconds since startTime
-        uint32 lastClaimOffset; // seconds since startTime
-        uint32 shares; // number of shares in stake
-        uint32 amount; // amount of StakingToken staked
+        uint64 durationMin; // seconds since startTime
+        uint64 lastClaimOffset; // seconds since startTime
+        uint256 shares; // number of shares in stake
+        uint256 amount; // amount of StakingToken staked
     }
 
     function stake(uint256 amount) external;

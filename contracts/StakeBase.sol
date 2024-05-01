@@ -19,15 +19,14 @@ abstract contract StakeBase is IStake {
     address public tradedToken;
     address public stakingToken;
     uint16 bonusSharesRate;
-    //constant WEEK = 60 * 60 * 24 * 7;
 
-    mapping (uint64 => uint32) public sharesTotal;
-    mapping (address => mapping (uint64 => uint32)) public sharesByStaker;
+    uint256 public sharesTotal;
+    mapping (address => uint256) public sharesByStaker;
     mapping (address => Stake[]) public stakes;
 
     mapping (uint64 => uint256) public accumulatedPerShare; // mapping time to accumulated
     uint256 private lastAccumulatedPerShare;
-    uint32 defaultStakeDuration;
+    uint64 defaultStakeDuration;
     
     error EmptyTokenAddress();
     error InputAmountCanNotBeZero();
@@ -37,7 +36,7 @@ abstract contract StakeBase is IStake {
         address tradedToken_,
         address stakingToken_,
         uint16 bonusSharesRate_,
-        uint16 defaultStakeDuration_
+        uint64 defaultStakeDuration_
     ) internal {
         
         if (tradedToken_ == address(0) || stakingToken_ == address(0)) {
@@ -71,9 +70,9 @@ abstract contract StakeBase is IStake {
      */
     function unstake () public {
         address sender = _msgSender();
-        uint32 amount = 0;
+        uint256 amount = 0;
         uint256 i;
-        uint256 accumulated = 0;
+        //uint256 accumulated = 0;
         claim();
         for (i=0; i<stakes[sender].length; ++i) {
             Stake storage st = stakes[sender][i];
@@ -130,12 +129,19 @@ abstract contract StakeBase is IStake {
     function _stakeFromAddress(
         address from, 
         uint256 amount, 
-        uint32 duration
+        uint64 duration
     ) internal {
-        uint32 shares = amount * _multiplier(duration) / FRACTION;
+        uint256 shares = amount * _multiplier(duration) / FRACTION;
         sharesTotal += shares;
         stakes[from].push(
-            Stake(block.timestamp, 0, duration, 0, shares, amount)
+            Stake(
+                uint64(block.timestamp), 
+                0, 
+                duration, 
+                0, 
+                shares, 
+                amount
+            )
         );
         _claimTokens(); // need to set accumulatedPerShare[block.timestamp]
     }
@@ -144,13 +150,15 @@ abstract contract StakeBase is IStake {
      * @notice claims TradedToken and updates the accumulatedPerShare
      */
     function _claimTokens() internal {
-        if (accumulatedPerShare[block.timestamp]) {
+        if (accumulatedPerShare[uint64(block.timestamp)] != 0) {
             return; // we've already done it this second
         }
         uint256 availableToClaim = IClaim(tradedToken).availableToClaim();
-        IClaim(tradedToken).claim(availableToClaim, address(this));
-        lastAccumulatedPerShare += availableToClaim / sharesTotal;
-        accumulatedPerShare[block.timestamp] = lastAccumulatedPerShare;
+        if (availableToClaim > 0) {
+            IClaim(tradedToken).claim(availableToClaim, address(this));
+            lastAccumulatedPerShare += availableToClaim / sharesTotal;
+        }   
+        accumulatedPerShare[uint64(block.timestamp)] = lastAccumulatedPerShare;     
     }
 
     /**
@@ -164,15 +172,16 @@ abstract contract StakeBase is IStake {
         returns(uint256)
     {
         uint64 lastClaimTime = st.startTime + st.lastClaimOffset;
-        uint256 rewardsPerShare = accumulatedPerShare[block.timestamp] - accumulatedPerShare[lastClaimTime];
-        st.lastClaimOffset = block.timestamp - st.startTime;
+        uint256 rewardsPerShare = accumulatedPerShare[uint64(block.timestamp)] - accumulatedPerShare[lastClaimTime];
+        st.lastClaimOffset = uint64(block.timestamp) - st.startTime;
         return rewardsPerShare * st.shares;
     }
 
     function _multiplier(
-        uint32 duration
+        uint64 duration
     ) 
         internal 
+        view
         returns(uint256) 
     {
         // let’s just hardcode the formula for now, but
@@ -185,7 +194,7 @@ abstract contract StakeBase is IStake {
         return msg.sender;
     }
 
-    function subAndGetNoneZero(uint32 x1, uint16 x2) internal returns(uint256) {
+    function subAndGetNoneZero(uint64 x1, uint64 x2) internal pure returns(uint256) {
         if (x1 > x2) {
             return x1 - x2;
         } else {
