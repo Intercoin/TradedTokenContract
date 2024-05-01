@@ -121,15 +121,11 @@ contract StakeClaimManagerUpgradeable is StakeBase, IStakeUpgradeable, IERC777Re
         bytes calldata operatorData
     ) external {}
 
-    function claim(uint256 stakingTokenAmount, address account) external nonReentrant() {
-        _claim(stakingTokenAmount, account);
-    }
-
-    function _transfer(address token, address to, uint256 amount) internal {
+    function _transfer(address token, address to, uint256 amount) internal override {
         ERC777Upgradeable(token).transfer(to, amount);
     }
-    function _transferFrom(address token, address sender, uint256 amount) internal {
-        ERC777Upgradeable(token).transferFrom(sender, amount);
+    function _transferFrom(address token, address from, address to, uint256 amount) internal override {
+        ERC777Upgradeable(token).transferFrom(from, to, amount);
     }
 }
 

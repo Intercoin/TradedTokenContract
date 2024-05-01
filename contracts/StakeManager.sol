@@ -49,11 +49,11 @@ contract StakeManager is StakeBase, IERC777Recipient, IERC777Sender, ReentrancyG
         bytes calldata operatorData
     ) external {}
 
-    function _transfer(address token, address to, uint256 amount) internal {
+    function _transfer(address token, address to, uint256 amount) internal override {
         ERC777(token).transfer(to, amount);
     }
-    function _transferFrom(address token, address sender, uint256 amount) internal {
-        ERC777(token).transferFrom(sender, amount);
+    function _transferFrom(address token, address from, address to, uint256 amount) internal override {
+        ERC777(token).transferFrom(from, to, amount);
     }
 }
 

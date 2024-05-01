@@ -12,8 +12,8 @@ interface IStake {
         uint256 amount; // amount of StakingToken staked
     }
 
-    function stake(uint256 amount) external;
-    function unstake(uint256 amount) external;
+    function stake(uint256 amount, uint64 duration) external;
+    function unstake() external;
     function rewards(address who) external view returns(uint256 tradedTokenAmount);
     function claim() external;
     function claimToAddress(address to) external;

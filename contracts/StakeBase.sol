@@ -57,10 +57,10 @@ abstract contract StakeBase is IStake {
      */
     function stake(
         uint256 amount, 
-        uint32 duration
-    ) public {
+        uint64 duration
+    ) external {
         address sender = _msgSender();
-        _transferFrom(stakingToken, sender, amount);
+        _transferFrom(stakingToken, sender, address(this), amount);
         _stakeFromAddress(sender, amount, duration);
     }
 
@@ -68,14 +68,29 @@ abstract contract StakeBase is IStake {
      * @notice unstakes all stakes which have ended,
     *   transferring StakingToken and TradedToken to msg.sender
      */
-    function unstake () public {
+    function unstake () external {
         address sender = _msgSender();
-        uint256 amount = 0;
-        uint256 i;
-        //uint256 accumulated = 0;
         claim();
-        for (i=0; i<stakes[sender].length; ++i) {
-            Stake storage st = stakes[sender][i];
+        uint256 amount = _rewards(sender);
+        _transfer(stakingToken, sender, amount);
+    }
+
+    function rewards(address who) external view returns(uint256 tradedTokenAmount) {
+        for (uint256 i = 0; i < stakes[who].length; i++) {
+            Stake storage st = stakes[who][i];
+            if (st.endTime > 0) {
+                continue; // stake already ended
+            }
+            if (st.startTime + st.durationMin > block.timestamp) {
+                continue; // not yet for this one
+            }
+            tradedTokenAmount += st.amount;
+        }
+    }
+
+    function _rewards(address who) internal returns(uint256 amount) {
+        for (uint256 i = 0; i < stakes[who].length; i++) {
+            Stake storage st = stakes[who][i];
             if (st.endTime > 0) {
                 continue; // stake already ended
             }
@@ -86,7 +101,6 @@ abstract contract StakeBase is IStake {
             sharesTotal -= st.shares;
             amount += st.amount;
         }
-        _transfer(stakingToken, sender, amount);
     }
 
     /**
@@ -104,7 +118,7 @@ abstract contract StakeBase is IStake {
         address to
     ) public {
         uint256 i;
-        uint256 rewards = 0;
+        uint256 rewardsToTransfer = 0;
         address sender = _msgSender();
         _claimTokens();
         for (i=0; i<stakes[sender].length; ++i) {
@@ -115,9 +129,9 @@ abstract contract StakeBase is IStake {
             if (st.startTime + st.durationMin > block.timestamp) {
                 continue; // not yet for this one
             }
-            rewards += _accumulate(st);
+            rewardsToTransfer += _accumulate(st);
         }
-        _transfer(tradedToken, to, rewards);
+        _transfer(tradedToken, to, rewardsToTransfer);
     }
 
     /**
@@ -203,5 +217,5 @@ abstract contract StakeBase is IStake {
     }
 
     function _transfer(address token, address to, uint256 amount) internal virtual;
-    function _transferFrom(address token, address sender, uint256 amount) internal virtual;
+    function _transferFrom(address token, address from, address to, uint256 amount) internal virtual;
 }
