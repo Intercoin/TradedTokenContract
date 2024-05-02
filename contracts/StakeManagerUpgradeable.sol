@@ -75,7 +75,7 @@ contract StakeClaimManagerUpgradeable is StakeBase, IStakeUpgradeable, IERC777Re
         address tradedToken_,
         address stakingToken_,
         uint16 bonusSharesRate_,
-        uint16 defaultStakeDuration_,
+        uint64 defaultStakeDuration_,
         address costManager_,
         address producedBy_
     ) external initializer {

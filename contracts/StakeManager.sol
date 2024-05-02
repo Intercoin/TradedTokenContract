@@ -17,7 +17,7 @@ contract StakeManager is StakeBase, IERC777Recipient, IERC777Sender, ReentrancyG
         address tradedToken_,
         address stakingToken_,
         uint16 bonusSharesRate_,
-        uint16 defaultStakeDuration_
+        uint64 defaultStakeDuration_
         
     ) {
         __StakeBaseInit(tradedToken_, stakingToken_, bonusSharesRate_, defaultStakeDuration_);

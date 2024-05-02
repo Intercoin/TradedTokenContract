@@ -9,7 +9,7 @@ interface IStakeUpgradeable is IStake {
         address tradedToken,
         address stakingToken,
         uint16 bonusSharesRate, // = 100,
-        uint16 defaultStakeDuration, // = WEEK,
+        uint64 defaultStakeDuration, // = WEEK,
         address costManager,
         address producedBy
     ) external;

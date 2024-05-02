@@ -118,7 +118,7 @@ contract StakeManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
         address tradedToken,
         address stakingToken,
         uint16 bonusSharesRate,
-        uint16 defaultStakeDuration
+        uint64 defaultStakeDuration
     ) public returns (address instance) {
 
         instance = stakeManagerImplementation.clone();
@@ -155,7 +155,7 @@ contract StakeManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
         address tradedToken,
         address stakingToken,
         uint16 bonusSharesRate,
-        uint16 defaultStakeDuration
+        uint64 defaultStakeDuration
     ) public returns (address instance) {
 
         instance = stakeManagerImplementation.cloneDeterministic(salt);
