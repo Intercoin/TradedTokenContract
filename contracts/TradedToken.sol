@@ -28,6 +28,8 @@ import "./helpers/Liquidity.sol";
 import "./interfaces/IPresale.sol";
 
 import "./interfaces/ITradedToken.sol";
+import "./interfaces/ITokenExchange.sol";
+
 
 //import "hardhat/console.sol";
 

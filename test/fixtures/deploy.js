@@ -72,6 +72,10 @@ async function deploy() {
     var libData = await ethers.getContractFactory("@intercoin/liquidity/contracts/LiquidityLib.sol:LiquidityLib");    
     const liquidityLib = await libData.deploy();
 
+    const StakeManagerF = await ethers.getContractFactory("StakeManager",  {});
+    const TradedTokenImitationF = await ethers.getContractFactory("TradedTokenImitation",  {});
+    
+
     return {
         owner, alice, bob, charlie,
         tokenName,
@@ -104,7 +108,9 @@ async function deploy() {
         ERC777MintableF,
         ERC20MintableF,
         DistributionManagerF,
-        ClaimManagerF
+        ClaimManagerF,
+        StakeManagerF,
+        TradedTokenImitationF
     }
 }
 

@@ -34,7 +34,9 @@ contract StakeManager is StakeBase, IERC777Recipient, IERC777Sender, ReentrancyG
         bytes calldata userData,
         bytes calldata operatorData
     ) external {
-        _stakeFromAddress(from, amount, defaultStakeDuration);
+        if (msg.sender == stakingToken) {
+            _stakeFromAddress(from, amount, defaultStakeDuration);
+        }
     }
 
     /**

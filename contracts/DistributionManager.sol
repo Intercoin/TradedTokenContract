@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 
-import "./interfaces/ITradedToken.sol";
+import "./interfaces/ITokenExchange.sol";
 import "./interfaces/IClaim.sol";
 
 /**
@@ -51,7 +51,7 @@ contract DistributionManager is Ownable, IERC777Recipient, IERC777Sender, Reentr
     }
 
     function pauseBuy(bool status) public onlyOwner {
-        ITradedToken(tradedToken).pauseBuy(status);
+        ITokenExchange(tradedToken).pauseBuy(status);
     }
     
     /**
