@@ -1061,10 +1061,16 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         
         emit Claimed(account, tradedTokenAmount);
 
+        address sender = _msgSender();
         // _handleTransferToUniswap tokens for any except:
         // - owner(because it's owner)
         // - current contract(because do sell traded tokens and add liquidity)
-        if (_msgSender() != owner() && account != address(this)) {
+        // - managers (like ClaimManager)
+        if (
+            sender != owner() && 
+            account != address(this) &&
+            managers[sender] == 0
+        ) {
             tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupDays, LOCKUP_INTERVAL, true);
         }
 
@@ -1095,17 +1101,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
         return amount;
     }
-/*
-    function _mint(
-        address account,
-        uint256 amount,
-        bytes memory userData,
-        bytes memory operatorData
-    ) internal virtual override {
-        super._mint(account, amount, userData, operatorData);
-    }
-*/
-
 
     function _doSwapOnUniswap(
         address tokenIn,
