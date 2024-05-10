@@ -30,7 +30,6 @@ import "./interfaces/IPresale.sol";
 import "./interfaces/ITradedToken.sol";
 import "./interfaces/ITokenExchange.sol";
 
-
 //import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard, ITradedToken {
@@ -1065,7 +1064,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // _handleTransferToUniswap tokens for any except:
         // - owner(because it's owner)
         // - current contract(because do sell traded tokens and add liquidity)
-        // - managers (like ClaimManager)
+        // - managers (like ClaimManager or StakeManager)
         if (
             sender != owner() && 
             account != address(this) &&

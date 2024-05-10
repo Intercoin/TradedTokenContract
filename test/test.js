@@ -1230,21 +1230,34 @@ describe("TradedTokenInstance", function () {
                     it("should locked up tokens when receivedTransfersCount > 4", async() => {
                         const {
                             owner,
+                            alice,
                             bob,
                             charlie,
                             mainInstance
                         } = await loadFixture(deploy3);
 
+                        await mainInstance.connect(owner).increaseHoldersThreshold(ethers.parseEther('1'))
+
                         await mainInstance.connect(owner).enableClaims();
 
-                        const smthFromOwner= 1n;
-                        // send a little
-                        await mainInstance.connect(owner).claim(smthFromOwner, charlie.address);
+                        const smthFromOwner= ethers.parseEther('1');
 
-                        await mainInstance.connect(owner).addManager(bob.address);
-                        await mainInstance.connect(bob).claim(ethers.parseEther('1'), bob.address);
+                        // send a little to Sales contract. Alice will be owner
+                        const SaleMockF = await ethers.getContractFactory("SaleMock");
+                        const SaleMock = await SaleMockF.connect(alice).deploy();
 
-                        await mainInstance.connect(owner).addManager(charlie.address);
+                        await mainInstance.connect(owner).claim(smthFromOwner, SaleMock.target);
+                        await mainInstance.connect(alice).startSale(SaleMock.target, 86400n);
+
+                        // transfer from SaleContract to Bob. now Bob have locked up tokens
+                        await SaleMock.connect(alice).transferTokens(mainInstance.target, bob.address, smthFromOwner);
+
+                        //await mainInstance.connect(owner).addManager(charlie.address);
+                        //await mainInstance.connect(bob).claim(ethers.parseEther('1'), bob.address);
+                        //await mainInstance.connect(charlie).claim(ethers.parseEther('1'), bob.address);
+
+                        // so boths are common users
+                        //
 
                         // start to calculate transfersCount
                         expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(0);
@@ -1274,11 +1287,14 @@ describe("TradedTokenInstance", function () {
                         expect(await mainInstance.receivedTransfersCount(bob.address)).to.be.eq(4n);
                         expect(await mainInstance.receivedTransfersCount(charlie.address)).to.be.eq(4n);
 
-                        // bob should have receivedTransfersCount => 4. after that tokens(which keep save gradual lock-up) can't be transferred until lock-up passed
+                        // bob should have receivedTransfersCount => 4. after that tokens(which keep save gradual lock-up), can't be transferred until lock-up passed
                         await expect(mainInstance.connect(bob).transfer(charlie.address,ethers.parseEther('0.5'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
-                        // charlie have receivedTransfersCount => 4 too. and  can't be transferred until lock-up passed
+                        // charlie have receivedTransfersCount => 4 too. 
                         await expect(mainInstance.connect(charlie).transfer(bob.address,ethers.parseEther('0.5'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
-
+                        // even if charlie will become as a manager. Tokens have already locked up
+                        await mainInstance.connect(owner).addManager(charlie.address);
+                        await expect(mainInstance.connect(charlie).transfer(bob.address,ethers.parseEther('0.5'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
+                        
                     }); 
 
                 }); 
