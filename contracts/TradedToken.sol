@@ -479,6 +479,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         internalLiquidity.addLiquidity();
 
+        // update initial prices
+        uint112 reserve0; 
+        uint112 reserve1;
+        (reserve0, reserve1, blockTimestampLast, priceReservedCumulativeLast) = _uniswapReserves();
+       
+        // // update
+        //priceReservedCumulativeLast = uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0));
+        priceReservedCumulativeLast = (uint224(reserve1) * (2**112))/uint224(reserve0);
+        twapPriceLast = priceReservedCumulativeLast;
+        //blockTimestampLast = _blockTimestampLast;
+
+        // //---------------------
+
         emit AddedInitialLiquidity(amountTradedToken, amountReserveToken);
     }
 
@@ -510,6 +523,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     function _availableToClaim() internal view returns(uint256 tradedTokenAmount, uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast, uint256 _priceReservedCumulativeLast, uint256 twapPriceCurrent) {
         (_reserve0, _reserve1, _blockTimestampLast, _priceReservedCumulativeLast) = _uniswapReserves();
+
         uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
         // amountin reservein reserveout
         uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
@@ -518,14 +532,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             _reserve1
         );
 
-        if (amountOut > 0) {
+        if (amountOut > 0 && _priceReservedCumulativeLast > 0) {
             //-----------------------------------
             // 10000 * (currentPrice - lastPrice) / lastPrice < priceGainMinimum    
             twapPriceCurrent = (_priceReservedCumulativeLast - priceReservedCumulativeLast) / (block.timestamp - _blockTimestampLast);
 
             bool sign = twapPriceCurrent >= twapPriceLast ? true : false;
             uint256 mod = sign ? twapPriceCurrent - twapPriceLast : twapPriceLast - twapPriceCurrent;
-            
+
             int32 priceGain = int32(int256(FRACTION * mod / twapPriceLast)) * (sign ? int32(1) : int32(-1));
             if (priceGain >= emission.priceGainMinimum) {
                 amountOut = 0;
