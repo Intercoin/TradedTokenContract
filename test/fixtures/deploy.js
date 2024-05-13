@@ -75,6 +75,12 @@ async function deploy() {
     const StakeManagerF = await ethers.getContractFactory("StakeManager",  {});
     const TradedTokenImitationF = await ethers.getContractFactory("TradedTokenImitation",  {});
     
+    // emission
+    const emissionAmount = 1; // uint128 amount; // of tokens
+    const emissionFrequency = 86400; // uint32 frequency; // in seconds
+    const emissionPeriod = 86400; // uint32 period; // in seconds
+    const emissionDecrease = 1000; // uint32 decrease; // out of FRACTION 10,000
+    const emissionPriceGainMinimum = 5000; // int32 priceGainMinimum; // out of FRACTION 10,000
 
     return {
         owner, alice, bob, charlie,
@@ -102,6 +108,11 @@ async function deploy() {
         claimFrequency,
         externalTokenExchangePriceNumerator,
         externalTokenExchangePriceDenominator,
+        emissionAmount,
+        emissionFrequency,
+        emissionPeriod,
+        emissionDecrease,
+        emissionPriceGainMinimum,
         TaxesLib,
         liquidityLib,
         TradedTokenF,

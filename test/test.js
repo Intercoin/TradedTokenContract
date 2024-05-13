@@ -27,16 +27,23 @@ describe("TradedTokenInstance", function () {
                 RateLimitDuration, RateLimitValue,
                 StructTaxes,
                 StructBuySellPrice,
+                emissionAmount,
+                emissionFrequency,
+                emissionPeriod,
+                emissionDecrease,
+                emissionPriceGainMinimum,
                 liquidityLib
             } = await loadFixture(deploy);
 
             await expect(
                 TradedTokenF.connect(owner).deploy(
-                    tokenName,
-                    tokenSymbol,
-                    constants.ZERO_ADDRESS, //” (USDC)
-                    priceDrop,
-                    lockupIntervalAmount,
+                    [
+                        tokenName,
+                        tokenSymbol,
+                        constants.ZERO_ADDRESS, //” (USDC)
+                        priceDrop,
+                        lockupIntervalAmount
+                    ],
                     [
                         [minClaimPriceNumerator, minClaimPriceDenominator],
                         [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
@@ -45,10 +52,19 @@ describe("TradedTokenInstance", function () {
                     [RateLimitDuration, RateLimitValue],
                     StructTaxes,
                     StructBuySellPrice,
+                    //emission
+                    [
+                        emissionAmount,
+                        emissionFrequency,
+                        emissionPeriod,
+                        emissionDecrease,
+                        emissionPriceGainMinimum
+                    ],
                     liquidityLib.target
                 )
             ).to.be.revertedWithCustomError(TradedTokenF, "ReserveTokenInvalid");
         });
+
     });
 
 
@@ -69,6 +85,11 @@ describe("TradedTokenInstance", function () {
                 claimFrequency,
                 StructTaxes,
                 StructBuySellPrice,
+                emissionAmount,
+                emissionFrequency,
+                emissionPeriod,
+                emissionDecrease,
+                emissionPriceGainMinimum,
 
                 RateLimitDuration, RateLimitValue,
                 ERC20MintableF,
@@ -83,11 +104,13 @@ describe("TradedTokenInstance", function () {
             const externalToken       = await ERC20MintableF.deploy("ERC20 External Token", "ERC20-EXT");
 
             const mainInstance = await TradedTokenF.connect(owner).deploy(
-                tokenName,
-                tokenSymbol,
-                erc20ReservedToken.target,
-                priceDrop,
-                lockupIntervalAmount,
+                [
+                    tokenName,
+                    tokenSymbol,
+                    erc20ReservedToken.target,
+                    priceDrop,
+                    lockupIntervalAmount
+                ],
                 [
                     [minClaimPriceNumerator, minClaimPriceDenominator],
                     [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
@@ -96,6 +119,13 @@ describe("TradedTokenInstance", function () {
                 [RateLimitDuration, RateLimitValue],
                 StructTaxes,
                 StructBuySellPrice,
+                [
+                    emissionAmount,
+                        emissionFrequency,
+                        emissionPeriod,
+                        emissionDecrease,
+                        emissionPriceGainMinimum
+                ],
                 liquidityLib.target
             );
 

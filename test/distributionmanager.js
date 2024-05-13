@@ -164,6 +164,11 @@ describe("DistributionManager", function () {
                 claimFrequency,
                 StructTaxes,
                 StructBuySellPrice,
+                emissionAmount,
+                emissionFrequency,
+                emissionPeriod,
+                emissionDecrease,
+                emissionPriceGainMinimum,
 
                 RateLimitDuration, RateLimitValue,
                 liquidityLib,
@@ -180,11 +185,13 @@ describe("DistributionManager", function () {
             const erc777token         = await ERC777MintableF.deploy();
 
             const tradedTokenInstance = await TradedTokenF.connect(owner).deploy(
-                tokenName,
-                tokenSymbol,
-                erc20ReservedToken.target, //” (USDC)
-                priceDrop,
-                lockupIntervalAmount,
+                [
+                    tokenName,
+                    tokenSymbol,
+                    erc20ReservedToken.target, //” (USDC)
+                    priceDrop,
+                    lockupIntervalAmount
+                ],
                 [
                     [minClaimPriceNumerator, minClaimPriceDenominator],
                     [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
@@ -193,6 +200,13 @@ describe("DistributionManager", function () {
                 [RateLimitDuration, RateLimitValue],
                 StructTaxes,
                 StructBuySellPrice,
+                [
+                    emissionAmount,
+                    emissionFrequency,
+                    emissionPeriod,
+                    emissionDecrease,
+                    emissionPriceGainMinimum
+                ],
                 liquidityLib.target
             );
 
