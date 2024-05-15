@@ -149,5 +149,29 @@ contract TradedTokenMock is TradedToken {
         panicSellRateLimit.fraction = _panicSellRateLimit.fraction;
     }
 
+    function setEmissionAmount(uint128 amount) public {
+        emission.amount = amount;
+    }
+
+    function setEmissionFrequency(uint32 frequency) public {
+        emission.frequency = frequency;
+    }
+
+    function setEmissionPeriod(uint32 period) public {
+        emission.period = period;
+    }
+
+    function setEmissionDecrease(uint32 decrease) public {
+        emission.decrease = decrease;
+    }
+
+    function setEmissionPriceGainMinimum(int32 priceGainMinimum) public {
+        emission.priceGainMinimum = priceGainMinimum;
+    }
+    function getBlockTimestampLast() public view returns(uint32) {
+        return blockTimestampLast;
+    }
+    
+
     
 }

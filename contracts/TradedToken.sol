@@ -30,7 +30,7 @@ import "./interfaces/IPresale.sol";
 import "./interfaces/ITradedToken.sol";
 import "./interfaces/ITokenExchange.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard, ITradedToken {
    // using FixedPoint for *;
@@ -188,6 +188,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint32 internal blockTimestampLast;
     uint256 internal priceReservedCumulativeLast;
     uint256 internal twapPriceLast;
+    uint256 internal amountClaimedInLastPeriod;
+    uint32 internal frequencyInLastPeriod;
  
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
     event AddedManager(address account, address sender);
@@ -517,44 +519,108 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     function availableToClaim() public view returns(uint256 tradedTokenAmount) {
-        (tradedTokenAmount,,,,,) = _availableToClaim();
+        bool priceMayBecomeLowerThanMinClaimPrice;
+        (tradedTokenAmount,,priceMayBecomeLowerThanMinClaimPrice,,,,,,,) = _availableToClaim(0);
+        if (priceMayBecomeLowerThanMinClaimPrice) {
+            tradedTokenAmount = 0;
+        }
 
     }
 
-    function _availableToClaim() internal view returns(uint256 tradedTokenAmount, uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast, uint256 _priceReservedCumulativeLast, uint256 twapPriceCurrent) {
-        (_reserve0, _reserve1, _blockTimestampLast, _priceReservedCumulativeLast) = _uniswapReserves();
-
-        uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
-        // amountin reservein reserveout
-        uint256 amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
-            currentIterationTotalCumulativeClaimed,
-            _reserve0,
-            _reserve1
-        );
-
+    /**
+    if amountIn == 0 we will try as max as possible
+    */
+    function _availableToClaim(
+        uint256 amountIn
+    ) 
+        internal 
+        view 
+        returns(
+            uint256 availableToClaim_, 
+            uint256 amountOut,
+            bool priceMayBecomeLowerThanMinClaimPrice,
+            uint112 reserve0_, 
+            uint112 reserve1_, 
+            uint32 _blockTimestampLast, 
+            uint256 _priceReservedCumulativeLast, 
+            uint256 twapPriceCurrent,
+            uint256 currentAmountClaimed,
+            uint32 currentFrequencyClaimed
+        ) 
+    {
+        (reserve0_, reserve1_, _blockTimestampLast, _priceReservedCumulativeLast) = _uniswapReserves();
+        
+        // how much claimed in emission.period
+        if (block.timestamp/emission.period*emission.period < _blockTimestampLast) {
+            currentAmountClaimed = amountClaimedInLastPeriod;
+            currentFrequencyClaimed = frequencyInLastPeriod;
+        } else {
+            currentAmountClaimed = 0;
+            currentFrequencyClaimed = 0;
+        }
+        
+        // we  can exceed emission.amount's cap and frequency
+        availableToClaim_ = (currentAmountClaimed >= emission.amount) ? 0 : emission.amount - currentAmountClaimed;
+        if (availableToClaim_ > 0 && currentFrequencyClaimed >= emission.frequency) {
+            availableToClaim_ = 0;
+        }
+console.log("availableToClaim_ = ", availableToClaim_);
+        if (amountIn != 0) {
+            //amountIn != 0
+            if (amountIn > availableToClaim_) {
+                availableToClaim_ = 0;
+            } else {
+                availableToClaim_ = amountIn;
+            }
+        }
+console.log("availableToClaim_ = ", availableToClaim_);
+        uint256 currentIterationTotalCumulativeClaimed;
+        if (availableToClaim_ > 0) {
+            currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + availableToClaim_;
+            // amountin reservein reserveout
+            amountOut = IUniswapV2Router02(uniswapRouter).getAmountOut(
+                currentIterationTotalCumulativeClaimed,
+                reserve0_,
+                reserve1_
+            );
+        }
+console.log("amountOut = ", amountOut);
         if (amountOut > 0 && _priceReservedCumulativeLast > 0) {
             //-----------------------------------
             // 10000 * (currentPrice - lastPrice) / lastPrice < priceGainMinimum    
-            twapPriceCurrent = (_priceReservedCumulativeLast - priceReservedCumulativeLast) / (block.timestamp - _blockTimestampLast);
+            twapPriceCurrent = (_priceReservedCumulativeLast - priceReservedCumulativeLast) / (_blockTimestampLast - blockTimestampLast);
 
             bool sign = twapPriceCurrent >= twapPriceLast ? true : false;
             uint256 mod = sign ? twapPriceCurrent - twapPriceLast : twapPriceLast - twapPriceCurrent;
 
             int32 priceGain = int32(int256(FRACTION * mod / twapPriceLast)) * (sign ? int32(1) : int32(-1));
-            if (priceGain >= emission.priceGainMinimum) {
-                amountOut = 0;
+            if (priceGain < emission.priceGainMinimum) {
+                availableToClaim_ = 0;
             }
-          
-
-        // blockTimestampLast
-        // priceReservedCumulativeLast
         }
 
+        if (
+            //amountOut < tradedTokenAmount ||
+            amountOut == 0 ||
+            emission.amount < availableToClaim_ ||
+            blockTimestampLast >= block.timestamp + emission.period
+        ) {
+            availableToClaim_ == 0;
+        }
 
-        tradedTokenAmount = amountOut;
+        //variables to update
+        if (availableToClaim_ > 0) {
+            currentAmountClaimed  += availableToClaim_;
+            currentFrequencyClaimed += 1;
+        }
 
+        if (
+            FixedPoint.fraction(reserve1_ - amountOut, reserve0_ + currentIterationTotalCumulativeClaimed)._x <=
+            FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
+        ) {
+            priceMayBecomeLowerThanMinClaimPrice = true;
+        }
         
-
 
         // (uint112 _reserve0, uint112 _reserve1,, ) = _uniswapReserves();
         // tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
@@ -564,6 +630,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // } else {
         //     tradedTokenAmount = 0;
         // }
+        
     }
 
     /**
@@ -1088,6 +1155,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
     }
 
+    //function _validateEmission
     function _validateClaim(uint256 tradedTokenAmount) internal {
 
         if (claimsEnabledTime == 0) {
@@ -1098,41 +1166,36 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert InputAmountCanNotBeZero();
         }
 
-        (
+        (   
+            uint256 availableToClaim_,
             uint256 amountOut, 
+            bool priceMayBecomeLowerThanMinClaimPrice,
             uint112 _reserve0, 
             uint112 _reserve1, 
             uint32 blockTimestampCurrent, 
             uint256 priceReservedCumulativeCurrent, 
-            uint256 twapPriceCurrent
-        ) = _availableToClaim();
-        
+            uint256 twapPriceCurrent,
+            uint256 currentAmountClaimed,
+            uint32 currentFrequencyClaimed
+        ) = _availableToClaim(tradedTokenAmount);
+
+        //revert if (amountOut == 0 || amountOut < tradedTokenAmount) {
         if (
-            amountOut < tradedTokenAmount ||
-            emission.amount < amountOut ||
-            blockTimestampLast >= block.timestamp + emission.period
+            amountOut == 0 ||
+            availableToClaim_ < tradedTokenAmount
         ) {
             revert ClaimValidationError();
         }
-
-        // struct Emission{
-        //     uint128 amount; // of tokens
-        //     uint32 frequency; // in seconds
-        //     uint32 period; // in seconds
-        //     uint32 decrease; // out of FRACTION 10,000
-        //     int32 priceGainMinimum; // out of FRACTION 10,000
-        // }
   
-        // update
+        // update twap price and emission things
         twapPriceLast = twapPriceCurrent;
         blockTimestampLast = blockTimestampCurrent;
         priceReservedCumulativeLast = priceReservedCumulativeCurrent;
+        amountClaimedInLastPeriod = currentAmountClaimed;
+        frequencyInLastPeriod = currentFrequencyClaimed;
 
-        uint256 currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + tradedTokenAmount;
-        if (
-            FixedPoint.fraction(_reserve1 - amountOut, _reserve0 + currentIterationTotalCumulativeClaimed)._x <=
-            FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
-        ) {
+        
+        if (priceMayBecomeLowerThanMinClaimPrice) {
             revert PriceMayBecomeLowerThanMinClaimPrice();
         }
     }
@@ -1308,9 +1371,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         uint112 traded;
         uint112 reserved;
-        uint32 blockTimestampLast;
+        uint32 blockTimestampLast_;
 
-        (traded, reserved, blockTimestampLast,) = _uniswapReserves();
+        (traded, reserved, blockTimestampLast_,) = _uniswapReserves();
         FixedPoint.uq112x112 memory priceAverageData = _tradedAveragePrice();
 
         uint256 tradedNew = FixedPoint.decode(

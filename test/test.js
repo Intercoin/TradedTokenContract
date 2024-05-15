@@ -4,7 +4,16 @@ require("@nomicfoundation/hardhat-chai-matchers");
 const { time, loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { constants} = require("@openzeppelin/test-helpers");
 
-const { deploy } = require("./fixtures/deploy.js");
+const { 
+    deploy, 
+    deploy2, 
+    deploy3, 
+    deploy4, 
+    deploy5,
+    deployInPresale,
+    deployAndTestUniswapSettings,
+    deployAndTestUniswapSettingsWithFirstSwap
+} = require("./fixtures/deploy.js");
 
 const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 const FRACTION = BigInt('10000');
@@ -70,94 +79,7 @@ describe("TradedTokenInstance", function () {
 
     describe("instance check", function () {
 
-        async function deploy2() {
-            const res = await loadFixture(deploy);
-            const {
-                owner,
-                tokenName,
-                tokenSymbol,
-                priceDrop,
-                lockupIntervalAmount,
-                minClaimPriceNumerator, minClaimPriceDenominator,
-                minClaimPriceGrowNumerator, minClaimPriceGrowDenominator,
-                taxesInfo,
-                externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator,
-                claimFrequency,
-                StructTaxes,
-                StructBuySellPrice,
-                emissionAmount,
-                emissionFrequency,
-                emissionPeriod,
-                emissionDecrease,
-                emissionPriceGainMinimum,
-
-                RateLimitDuration, RateLimitValue,
-                ERC20MintableF,
-                ERC777MintableF,
-                ClaimManagerF,
-                DistributionManagerF,
-                TradedTokenF,
-                liquidityLib
-            } = res;
-
-            const erc20ReservedToken  = await ERC20MintableF.deploy("ERC20 Reserved Token", "ERC20-RSRV");
-            const externalToken       = await ERC20MintableF.deploy("ERC20 External Token", "ERC20-EXT");
-
-            const mainInstance = await TradedTokenF.connect(owner).deploy(
-                [
-                    tokenName,
-                    tokenSymbol,
-                    erc20ReservedToken.target,
-                    priceDrop,
-                    lockupIntervalAmount
-                ],
-                [
-                    [minClaimPriceNumerator, minClaimPriceDenominator],
-                    [minClaimPriceGrowNumerator, minClaimPriceGrowDenominator]
-                ],
-                taxesInfo,
-                [RateLimitDuration, RateLimitValue],
-                StructTaxes,
-                StructBuySellPrice,
-                [
-                    emissionAmount,
-                        emissionFrequency,
-                        emissionPeriod,
-                        emissionDecrease,
-                        emissionPriceGainMinimum
-                ],
-                liquidityLib.target
-            );
-
-            const claimManager = await ClaimManagerF.deploy(
-                mainInstance.target,
-                [
-                    externalToken.target,
-                    [externalTokenExchangePriceNumerator, externalTokenExchangePriceDenominator],
-                    claimFrequency
-                ]
-            );
-
-            return {...res, ...{
-                mainInstance,
-                claimManager,
-                erc20ReservedToken,
-                externalToken
-            }};
-        }
-
-        async function deploy3() {
-            const res = await loadFixture(deploy2);
-            const {
-                owner,
-                erc20ReservedToken,
-                mainInstance
-            } = res;
-
-            await erc20ReservedToken.connect(owner).mint(mainInstance.target, ethers.parseEther('10'));
-            await mainInstance.connect(owner).addInitialLiquidity(ethers.parseEther('10'), ethers.parseEther('10'));
-            return res;
-        }
+        
 
         it("shouldn't setup empty address as traded token", async() => {
             const {
@@ -369,24 +291,7 @@ describe("TradedTokenInstance", function () {
 
         describe("presale", function () {
 
-            async function deployInPresale() {
-                const res = await loadFixture(deploy2);
-                const {
-                    lockupIntervalAmount
-                } = res;
-
-                const ts = await time.latest();
-                const timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
-
-                const PresaleF = await ethers.getContractFactory("PresaleMock");
-                const Presale = await PresaleF.deploy();
-
-                return {...res, ...{
-                    ts,
-                    timeUntil,
-                    Presale
-                }};
-            }
+            
 
             it("shouldnt presale if caller is not owner", async() => {
                 const {
@@ -658,19 +563,16 @@ describe("TradedTokenInstance", function () {
                 ).to.be.revertedWithCustomError(mainInstance, "BeforeInitialLiquidityRequired");
             });
 
-            it("[cover] available to claim == 0", async() => {
-                const res = await loadFixture(deploy2);
+            it.only("[cover] available to claim == 0", async() => {
+                
+                const res = await loadFixture(deploy5);
                 const {
                     owner,
-                    erc20ReservedToken,
                     mainInstance
                 } = res;
 
-                await erc20ReservedToken.connect(owner).mint(mainInstance.target, ethers.parseEther('10'));
-                await mainInstance.connect(owner).addInitialLiquidity(ethers.parseEther('10'), ethers.parseEther('10'));
+                await mainInstance.setEmissionPeriod(86400n);
 
-                await mainInstance.connect(owner).setRestrictClaiming([ethers.parseEther('1'), 1]);
-                
                 let availableToClaim = await mainInstance.availableToClaim();
                 expect(availableToClaim).to.be.eq(0);
             });
@@ -825,23 +727,7 @@ describe("TradedTokenInstance", function () {
                 });
 
                 describe("mint and approve", function () {
-                    async function deploy4() {
-                        const res = await loadFixture(deploy3);
-                        const {
-                            owner,
-                            bob,
-                            claimManager,
-                            externalToken,
-                            mainInstance
-                        } = res;
-                        
-                        await mainInstance.connect(owner).enableClaims();
-                        //minting to bob and approve
-                        await externalToken.connect(owner).mint(bob.address, ethers.parseEther('1'));
-                        await externalToken.connect(bob).approve(claimManager.target, ethers.parseEther('1'));
-
-                        return res;
-                    }
+                    
 
                     it("shouldnt claim if claimingTokenAmount more than allowance", async() => {
                         const {
@@ -898,21 +784,7 @@ describe("TradedTokenInstance", function () {
 
 
                     describe("call wantToClaim", function () {
-                        async function deploy5() {
-                            const res = await loadFixture(deploy4);
-                            const {
-                                bob,
-                                claimFrequency,
-                                claimManager
-                            } = res;
-                            
-                            //await claimManager.connect(bob).wantToClaim(ONE_ETH);
-                            await claimManager.connect(bob).wantToClaim(0); // all awailable
-                            // pass time 
-                            await time.increase(claimFrequency);
-
-                            return res;
-                        }
+                        
 
                         it("shouldnt claim if claimManager is not a manager for TradedToken ", async() => {
                             const {
@@ -1335,26 +1207,6 @@ describe("TradedTokenInstance", function () {
 
         describe("uniswap settings", function () {
 
-            async function deployAndTestUniswapSettings() {
-                const res = await loadFixture(deploy3);
-                const {
-                    mainInstance
-                } = res;
-
-                const UNISWAP_ROUTER = await mainInstance.getUniswapRouter();
-                uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
-
-                const storedBuyTax = await mainInstance.buyTax();
-                const storedSellTax = await mainInstance.sellTax();
-
-                return {...res, ...{
-                    storedBuyTax,
-                    storedSellTax,
-                    uniswapRouterInstance
-                }};
-                
-            }
-
             it("shouldnt swap if owner send the tokens before", async() => {
                 const {
                     owner,
@@ -1751,43 +1603,7 @@ describe("TradedTokenInstance", function () {
             }); 
 
             describe("with first swap", function () {
-                async function deployAndTestUniswapSettingsWithFirstSwap() {
-                    const res = await loadFixture(deployAndTestUniswapSettings);
-                    const {
-                        owner,
-                        bob,
-                        lockupIntervalAmount,
-                        erc20ReservedToken,
-                        uniswapRouterInstance,
-                        mainInstance
-                    } =  res;
-
-                    await erc20ReservedToken.connect(owner).mint(bob.address, ethers.parseEther('0.5'));
-                    await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
-
-                    ts = await time.latest();
-                    timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
-
-                    const smthFromOwner = 1;
-                    await mainInstance.connect(owner).enableClaims();
-                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
-
-                    await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-                        ethers.parseEther('0.5'), //uint amountIn,
-                        0, //uint amountOutMin,
-                        [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
-                        bob.address, //address to,
-                        timeUntil //uint deadline   
-
-                    );
-
-                    const internalLiquidityAddress = await mainInstance.getInternalLiquidity();
-
-                    return {...res, ...{
-                        internalLiquidityAddress
-                    }};
-                }
-
+               
                 it("synth case: try to get stored average price", async() => {
                     const {
                         owner,

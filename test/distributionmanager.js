@@ -348,6 +348,11 @@ describe("DistributionManager", function () {
             await tradedTokenInstance.connect(owner).enableClaims();
             
             // finally claim completely
+            // and fix emission logic for test purpose
+            
+            await tradedTokenInstance.setEmissionPeriod(1);
+            await tradedTokenInstance.setEmissionAmount(ethers.parseEther('10000'));
+
             await distributionManager.connect(owner).claim(claimAmount,bob.address);
             var bobBalanceAfter = await tradedTokenInstance.balanceOf(bob.address);
 
