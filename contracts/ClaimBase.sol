@@ -8,7 +8,7 @@ pragma solidity ^0.8.0;
 // import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./interfaces/IClaim.sol";
-
+import "hardhat/console.sol";
 abstract contract ClaimBase is IClaim {
 
     uint256 private timeDeploy;
@@ -23,7 +23,7 @@ abstract contract ClaimBase is IClaim {
      */
     uint16 public claimFrequency;
 
-    uint256 public wantToClaimTotal; // value that accomulated all users `wantToClaim requests`
+    uint256 public wantToClaimTotal; // value that accumulated all users `wantToClaim requests`
     
     mapping(address => ClaimStruct) public wantToClaimMap;
     
@@ -80,8 +80,11 @@ abstract contract ClaimBase is IClaim {
         view 
         returns(uint256) 
     {
-        uint256 a = IClaim(tradedToken).availableToClaim(); 
+        uint256 a = IClaim(tradedToken).availableToClaim();
         uint256 w = wantToClaimMap[account].amount; 
+        // console.log("a                  = ",a);
+        // console.log("w                  = ",w);
+        // console.log("wantToClaimTotal   = ",wantToClaimTotal);
         return wantToClaimTotal <= a ? w : w * a / wantToClaimTotal; 
         
     }
@@ -97,30 +100,36 @@ abstract contract ClaimBase is IClaim {
      * @param account address to claim for
      */
     function _claim(uint256 claimingTokenAmount, address account) internal {
+// console.log("[claimmanager] #0");
         if (claimingTokenAmount == 0) { 
             revert InputAmountCanNotBeZero();
         }
-        
+        // console.log("[claimmanager] #1");
         if (claimingTokenAmount > claimingTokenAllowance(msg.sender, address(this))) {
             revert InsufficientAmount();
         }
-        
+        // console.log("[claimmanager] #2");
         if (lastActionTime(msg.sender) + claimFrequency > block.timestamp) {
             revert ClaimTooFast(lastActionTime(msg.sender) + claimFrequency);
         }
-        
+        // console.log("[claimmanager] #3");
         //ERC777(claimingToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
         claimingTokenTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
-
+// console.log("[claimmanager] #4");
         uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
             claimingTokenExchangePrice.denominator;
-
+// console.log("[claimmanager] #5");
         uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(msg.sender);
-
+// console.log("[claimmanager] #6");
+// console.log("[claimmanager] #6 claimingTokenAmount          = ", claimingTokenAmount);
+// console.log("[claimmanager] #6 claimingTokenExchangePrice.numerator          = ", claimingTokenExchangePrice.numerator);
+// console.log("[claimmanager] #6 claimingTokenExchangePrice.denominator          = ", claimingTokenExchangePrice.denominator);
+// console.log("[claimmanager] #6 scalingMaxTradedTokenAmount  = ", scalingMaxTradedTokenAmount);
+// console.log("[claimmanager] #6 tradedTokenAmount            = ", tradedTokenAmount);
         if (scalingMaxTradedTokenAmount < tradedTokenAmount) {
             revert InsufficientAmountToClaim(tradedTokenAmount, scalingMaxTradedTokenAmount);
         }
-
+// console.log("[claimmanager] #7");
         //_claim(tradedTokenAmount, account);
         IClaim(tradedToken).claim(tradedTokenAmount, account);
 

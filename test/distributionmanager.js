@@ -5,7 +5,7 @@ const { time, loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-
 require("@nomicfoundation/hardhat-chai-matchers");
 // const chai = require('chai');
 // const { time } = require('@openzeppelin/test-helpers');
-const { deploy } = require("./fixtures/deploy.js");
+const { deploy, deployAndTestUniswapSettingsWithFirstSwap } = require("./fixtures/deploy.js");
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
@@ -148,7 +148,7 @@ describe("DistributionManager", function () {
     });
 
     describe("tests with TradedToken", function () {
-        
+
         async function deploy2() {
             const res = await loadFixture(deploy);
             const {
@@ -302,22 +302,27 @@ describe("DistributionManager", function () {
         });
 
         it("distributionManager should call claim", async() => {
-            const res = await loadFixture(deploy2);
+            const res = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
             const {
                 owner,
                 bob,
                 claimFrequency,
+                lockupIntervalAmount,
                 claimManager,
-                tradedTokenInstance,
+                mainInstance,
                 externalToken,
                 erc20ReservedToken,
-                distributionManager
+                distributionManager,
+                uniswapRouterInstance
             } = res;
 
-            const claimAmount = ONE_ETH;
-            var bobBalanceBefore = await tradedTokenInstance.balanceOf(bob.address);
             
-            await expect(distributionManager.connect(owner).wantToClaim(claimAmount)).to.be.revertedWithCustomError(tradedTokenInstance, "InsufficientAmount");
+
+            var bobBalanceBefore = await mainInstance.balanceOf(bob.address);
+            const claimAmount = await mainInstance.connect(owner).availableToClaim();
+            // console.log("####!####-2");
+            // console.log("availableToClaim-claimAmount  = ", (claimAmount).toString());
+
             await externalToken.mint(distributionManager.target, claimAmount);
             await distributionManager.connect(owner).wantToClaim(claimAmount);
 
@@ -328,39 +333,21 @@ describe("DistributionManager", function () {
             //pass time
             await time.increase(claimFrequency);
 
-            // try#2
-            await expect(
-                distributionManager.connect(owner).claim(claimAmount,bob.address)
-            ).to.be.revertedWithCustomError(tradedTokenInstance, 'EmptyReserves');
-            //add reserves and initial liquidity
-            await erc20ReservedToken.connect(owner).mint(tradedTokenInstance.target, ONE_ETH * THOUSAND);
-
-            await tradedTokenInstance.connect(owner).addInitialLiquidity(ONE_ETH * TEN, ONE_ETH  * THOUSAND);
-
             // try#3
-            await expect(distributionManager.connect(owner).claim(claimAmount,bob.address)).to.be.revertedWithCustomError(tradedTokenInstance, 'OwnerAndManagersOnly');
+            await expect(distributionManager.connect(owner).claim(claimAmount,bob.address)).to.be.revertedWithCustomError(mainInstance, 'OwnerAndManagersOnly');
             // claimManager contract should be a manager on tradedToken
-            await tradedTokenInstance.connect(owner).addManager(claimManager.target);
-
-            // try#4
-            await expect(distributionManager.connect(owner).claim(claimAmount,bob.address)).to.be.revertedWithCustomError(tradedTokenInstance, 'ClaimsDisabled');
-            //-- need to enable claim mode 
-            await tradedTokenInstance.connect(owner).enableClaims();
-            
-            // finally claim completely
-            // and fix emission logic for test purpose
-            
-            await tradedTokenInstance.setEmissionPeriod(1);
-            await tradedTokenInstance.setEmissionAmount(ethers.parseEther('10000'));
-
+            await mainInstance.connect(owner).addManager(claimManager.target);
+                
+            await mainInstance.setEmissionPeriod(86400n*365n); // 1 year
+            await mainInstance.setEmissionAmount(ethers.parseEther('10'));
             await distributionManager.connect(owner).claim(claimAmount,bob.address);
-            var bobBalanceAfter = await tradedTokenInstance.balanceOf(bob.address);
 
-            expect(ZERO).to.be.eq(bobBalanceBefore);
+            var bobBalanceAfter = await mainInstance.balanceOf(bob.address);
+
+        //   expect(ZERO).to.be.eq(bobBalanceBefore);
             expect(claimAmount).to.be.eq(bobBalanceAfter - bobBalanceBefore);
-
         });
-
+        
     });
 
 

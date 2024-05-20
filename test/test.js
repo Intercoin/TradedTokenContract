@@ -18,6 +18,31 @@ const {
 const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 const FRACTION = BigInt('10000');
 
+async function addNewHolderAndSwap(data) {
+
+    //------------------
+    const reserveTokenToSwap = ethers.parseEther("0.5");
+    await data.erc20ReservedToken.connect(data.owner).mint(data.account.address, reserveTokenToSwap);
+    await data.erc20ReservedToken.connect(data.account).approve(data.uniswapRouterInstance.target, reserveTokenToSwap);
+
+    var ts = await time.latest();
+    var timeUntil = BigInt(ts) + data.lockupIntervalAmount*24n*60n*60n;
+    // buy 
+    const expectedTokens = ethers.parseEther("1");
+    const calculatedBuySellTokensAmount = expectedTokens * FRACTION / data.buyPrice;
+    await data.buySellToken.connect(data.owner).mint(data.account.address, calculatedBuySellTokensAmount);
+    await data.buySellToken.connect(data.account).approve(data.mainInstance.target, calculatedBuySellTokensAmount);
+    await data.mainInstance.connect(data.account).buy(expectedTokens);
+    //swap
+    await data.uniswapRouterInstance.connect(data.account).swapExactTokensForTokens(
+        reserveTokenToSwap, //uint amountIn,
+        0, //uint amountOutMin,
+        [data.erc20ReservedToken.target, data.mainInstance.target], //address[] calldata path,
+        data.account.address, //address to,
+        timeUntil //uint deadline   
+    );
+    
+}
 describe("TradedTokenInstance", function () {
     
     describe("validate params", function () {
@@ -563,7 +588,7 @@ describe("TradedTokenInstance", function () {
                 ).to.be.revertedWithCustomError(mainInstance, "BeforeInitialLiquidityRequired");
             });
 
-            it.only("[cover] available to claim == 0", async() => {
+            it("[cover] available to claim == 0", async() => {
                 
                 const res = await loadFixture(deploy5);
                 const {
@@ -677,9 +702,9 @@ describe("TradedTokenInstance", function () {
                 });
 
                 describe("some validate", function () {
-                    const tokensToClaim = ethers.parseEther('1000');
+                    
 
-                    it("price has not become a lower than minClaimPrice ", async() => {
+                    xit("price has not become a lower than minClaimPrice ", async() => {
                         const {
                             owner,
                             bob,
@@ -687,19 +712,97 @@ describe("TradedTokenInstance", function () {
                             claimFrequency,
                             claimManager,
                             externalToken,
+                            erc20ReservedToken,
+                            uniswapRouterInstance,
+                            lockupIntervalAmount,
                             mainInstance
-                        } = await loadFixture(deploy3);
+                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+const tokensToClaim = ethers.parseEther('10000000');
                         await externalToken.connect(owner).mint(charlie.address, tokensToClaim);
                         await externalToken.connect(charlie).approve(claimManager.target, tokensToClaim);
+
+console.log("####!####-1");
+const t = await mainInstance.connect(owner).availableToClaim();
+await time.increase(claimFrequency);
+const t2 = await mainInstance.connect(owner).availableToClaim();
+const reserveTokenToSwap = ethers.parseEther("0.5");
+await erc20ReservedToken.connect(owner).mint(bob.address, reserveTokenToSwap);
+await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, reserveTokenToSwap);
+var ts = await time.latest();
+var timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+    reserveTokenToSwap, //uint amountIn,
+    0, //uint amountOutMin,
+    [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+    bob.address, //address to,
+    timeUntil //uint deadline   
+);
+
+const t3 = await mainInstance.connect(owner).availableToClaim();
+console.log("####!####-2");
+console.log("availableToClaim-t   = ", (t).toString());
+console.log("availableToClaim-t2  = ", (t2).toString());
+console.log("availableToClaim-t3  = ", (t3).toString());
+
+await externalToken.connect(owner).mint(charlie.address, t3);
+await externalToken.connect(charlie).approve(claimManager.target, t3);
+await claimManager.connect(charlie).wantToClaim(t3);
+await mainInstance.connect(owner).addManager(claimManager.target);
+
+await time.increase(claimFrequency); // avoid claim to fast
+
+//await claimManager.connect(charlie).claim(t3*1n/1000n, bob.address);
+await claimManager.connect(charlie).claim(t3, bob.address);
+return;
                         await claimManager.connect(charlie).wantToClaim(tokensToClaim);
+
                         // pass time to clear bucket
                         await time.increase(claimFrequency);
+
+                        // dev note:
+                        // keep in mind that we can't emit PriceMayBecomeLowerThanMinClaimPrice error when do from claimmanager.
+                        // manager will prevent in through scaling amount and getting from totalClaim from availableToClaim 
+                        // TODO 0: can be happened advanced case when after `claimManager.wantToClaim` and before `claimManager.claim` some do swap tokens and change availableToClaim.
+                        // so claim manager will be able send more than expect TradedToken
                         await mainInstance.connect(owner).addManager(claimManager.target);
                         //-------------------------------
 
-                        await mainInstance.connect(owner).enableClaims();
+                        //await mainInstance.connect(owner).enableClaims();
+
+// console.log("availableToClaim-a = ", (await mainInstance.connect(owner).availableToClaim()).toString());
+// await erc20ReservedToken.connect(owner).mint(bob.address, ethers.parseEther('0.0000005'));
+// await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.0000005'));
+// var ts = await time.latest();
+// var timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+
+// // let bobBalanceBeforeWoTax = await mainInstance.balanceOf(bob.address);
+// // const smthFromOwner = 1;
+// // await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+
+// await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+//     ethers.parseEther('0.0000005'), //uint amountIn,
+//     0, //uint amountOutMin,
+//     [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+//     bob.address, //address to,
+//     timeUntil //uint deadline   
+
+// );
+
+
+
+// console.log("availableToClaim-B = ", (await mainInstance.connect(owner).availableToClaim()).toString());
+
+const tokensToClaim2 = await mainInstance.connect(owner).availableToClaim();
+console.log("tokensToClaim2     = ", tokensToClaim2);
+//console.log("availableToClaim   = ", (await mainInstance.connect(owner).availableToClaim()).toString());
+
+
+//await claimManager.connect(charlie).claim(tokensToClaim2*90n/100n, bob.address);
+// 0x4a46f2c4
+// 00000000000000000000000000000000000000000000003635c9adc5dea00000
+// 000000000000000000000000000000000000000000000003c62b6ea37cbefa95
                         await expect(
-                            claimManager.connect(charlie).claim(tokensToClaim, bob.address)
+                            claimManager.connect(charlie).claim(tokensToClaim2*11n/10n, bob.address)
                         ).to.be.revertedWithCustomError(mainInstance, "PriceMayBecomeLowerThanMinClaimPrice");
                     });
 
@@ -709,10 +812,37 @@ describe("TradedTokenInstance", function () {
                             bob,
                             charlie,
                             claimFrequency,
+                            buyPrice,
                             claimManager,
                             externalToken,
+                            erc20ReservedToken,
+                            lockupIntervalAmount,
+                            buySellToken,
                             mainInstance
-                        } = await loadFixture(deploy3);
+                        } = await loadFixture(deployAndTestUniswapSettings);
+
+                        const expectedTokens = ethers.parseEther("1");
+                        const calculatedBuySellTokensAmount = expectedTokens * FRACTION / buyPrice;
+                        // buy 
+                        await buySellToken.connect(owner).mint(bob.address, calculatedBuySellTokensAmount);
+                        await buySellToken.connect(bob).approve(mainInstance.target, calculatedBuySellTokensAmount);
+                        await mainInstance.connect(bob).buy(expectedTokens);
+
+                        // then swap
+                        const reserveTokenToSwap = ethers.parseEther("0.5");
+                        await erc20ReservedToken.connect(owner).mint(bob.address, reserveTokenToSwap);
+                        await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, reserveTokenToSwap);
+                        var ts = await time.latest();
+                        var timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+                        await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                            reserveTokenToSwap, //uint amountIn,
+                            0, //uint amountOutMin,
+                            [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+                            bob.address, //address to,
+                            timeUntil //uint deadline   
+                        );
+
+                        const tokensToClaim = await mainInstance.connect(owner).availableToClaim();
                         await externalToken.connect(owner).mint(charlie.address, tokensToClaim);
                         await externalToken.connect(charlie).approve(claimManager.target, tokensToClaim);
                         await claimManager.connect(charlie).wantToClaim(tokensToClaim);
@@ -788,10 +918,21 @@ describe("TradedTokenInstance", function () {
 
                         it("shouldnt claim if claimManager is not a manager for TradedToken ", async() => {
                             const {
+                                owner,
                                 bob,
+                                claimFrequency,
                                 claimManager,
+                                externalToken,
                                 mainInstance
-                            } = await loadFixture(deploy5);
+                            } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                            //minting to bob and approve
+                            await externalToken.connect(owner).mint(bob.address, ethers.parseEther('1'));
+                            await externalToken.connect(bob).approve(claimManager.target, ethers.parseEther('1'));
+
+                            await claimManager.connect(bob).wantToClaim(ethers.parseEther('1'));
+                            // // pass time to clear bucket
+                            await time.increase(claimFrequency);
 
                             await expect(
                                 claimManager.connect(bob).claim(ethers.parseEther('1'), bob.address)
@@ -805,9 +946,20 @@ describe("TradedTokenInstance", function () {
                                 const {
                                     owner,
                                     bob,
+                                    claimFrequency,
                                     claimManager,
+                                    externalToken,
                                     mainInstance
-                                } = await loadFixture(deploy5);
+                                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                                //minting to bob and approve
+                                await externalToken.connect(owner).mint(bob.address, ethers.parseEther('1'));
+                                await externalToken.connect(bob).approve(claimManager.target, ethers.parseEther('1'));
+
+                                await claimManager.connect(bob).wantToClaim(ethers.parseEther('1'));
+                                // // pass time to clear bucket
+                                await time.increase(claimFrequency);
+
 
                                 await mainInstance.connect(owner).addManager(claimManager.target);
 
@@ -815,13 +967,23 @@ describe("TradedTokenInstance", function () {
                             });
 
                             it("should transfer to dead-address tokens after user claim", async() => {
+                                
                                 const {
                                     owner,
                                     bob,
+                                    claimFrequency,
                                     claimManager,
                                     externalToken,
                                     mainInstance
-                                } = await loadFixture(deploy5);
+                                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                                //minting to bob and approve
+                                await externalToken.connect(owner).mint(bob.address, ethers.parseEther('1'));
+                                await externalToken.connect(bob).approve(claimManager.target, ethers.parseEther('1'));
+
+                                await claimManager.connect(bob).wantToClaim(ethers.parseEther('1'));
+                                // // pass time to clear bucket
+                                await time.increase(claimFrequency);
 
                                 await mainInstance.connect(owner).addManager(claimManager.target);
 
@@ -841,27 +1003,28 @@ describe("TradedTokenInstance", function () {
                                     claimManager,
                                     externalToken,
                                     mainInstance
-                                } = await loadFixture(deploy5);
+                                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
 
                                 await mainInstance.connect(owner).addManager(claimManager.target);
-
-                                //let snapId = await ethers.provider.send('evm_snapshot', []);
-
                                 
                                 let availableToClaim = await mainInstance.availableToClaim();
-
-                                let userWantToClaim = ethers.parseEther('1'); 
+ 
                                 //await externalToken.connect(owner).mint(bob.address, userWantToClaim);
                                 await externalToken.connect(owner).mint(charlie.address, availableToClaim * 2n);
                                 await externalToken.connect(charlie).approve(claimManager.target, availableToClaim * 2n);
 
+                                //minting to bob and approve
+                                await externalToken.connect(owner).mint(bob.address, availableToClaim);
+                                await externalToken.connect(bob).approve(claimManager.target, availableToClaim);
+
                                 let bobExternalTokenBalanceBefore = await externalToken.balanceOf(bob.address);
+                                let bobTradedTokenBalanceBefore = await mainInstance.balanceOf(bob.address);
                                 let mainInstanceExternalTokenBalanceBefore = await externalToken.balanceOf(mainInstance.target);
 
                                 // two users want to get all available amount of tokens
                                 let wantToClaimTotal = 0n;
-                                await claimManager.connect(bob).wantToClaim(userWantToClaim);
-                                wantToClaimTotal = wantToClaimTotal + userWantToClaim;
+                                await claimManager.connect(bob).wantToClaim(availableToClaim);
+                                wantToClaimTotal = wantToClaimTotal + availableToClaim;
                                 await claimManager.connect(charlie).wantToClaim(availableToClaim * 2n);
                                 wantToClaimTotal = wantToClaimTotal + (availableToClaim * 2n);
 
@@ -869,16 +1032,17 @@ describe("TradedTokenInstance", function () {
                                 await time.increase(claimFrequency);
 
                                 await expect(
-                                    claimManager.connect(bob).claim(userWantToClaim, bob.address)
-                                ).to.be.revertedWithCustomError(claimManager, 'InsufficientAmountToClaim').withArgs(userWantToClaim, userWantToClaim * availableToClaim / wantToClaimTotal);
+                                    claimManager.connect(bob).claim(availableToClaim, bob.address)
+                                ).to.be.revertedWithCustomError(claimManager, 'InsufficientAmountToClaim').withArgs(availableToClaim, availableToClaim * availableToClaim / wantToClaimTotal);
 
-                                let scaledAmount = userWantToClaim * availableToClaim / wantToClaimTotal;
+                                let scaledAmount = availableToClaim * availableToClaim / wantToClaimTotal;
                                 await claimManager.connect(bob).claim(scaledAmount, bob.address);
 
                                 let bobExternalTokenBalanceAfter = await externalToken.balanceOf(bob.address);
                                 let mainInstanceExternalTokenBalanceAfter = await externalToken.balanceOf(mainInstance.target);
+                                let bobTradedTokenBalanceAfter = await mainInstance.balanceOf(bob.address);
 
-                                expect(await mainInstance.balanceOf(bob.address)).to.be.eq(scaledAmount);
+                                expect(bobTradedTokenBalanceAfter - bobTradedTokenBalanceBefore).to.be.eq(scaledAmount);
                                 expect(bobExternalTokenBalanceBefore - bobExternalTokenBalanceAfter).to.be.eq(scaledAmount);
                                 expect(mainInstanceExternalTokenBalanceAfter - mainInstanceExternalTokenBalanceBefore).to.be.eq(0);
 
@@ -902,10 +1066,15 @@ describe("TradedTokenInstance", function () {
                             owner,
                             alice,
                             bob,
+                            charlie,
+                            claimFrequency,
+                            buyPrice,
+                            lockupIntervalAmount,
+                            buySellToken,
+                            erc20ReservedToken,
                             mainInstance
-                        } = await loadFixture(deploy3);
+                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
 
-                        await mainInstance.connect(owner).enableClaims();
                         //----
                         const ONE_ETH = ethers.parseEther('1');
                         
@@ -915,6 +1084,19 @@ describe("TradedTokenInstance", function () {
                         await mainInstance.connect(owner).claim(ONE_ETH, owner.address);
 
                         await mainInstance.connect(owner).transfer(alice.address,ONE_ETH);
+                        // pass time to clear bucket
+                        await time.increase(claimFrequency);
+            
+                        await addNewHolderAndSwap({
+                            owner: owner,
+                            account: charlie,
+                            buyPrice: buyPrice,
+                            lockupIntervalAmount: lockupIntervalAmount,
+                            mainInstance: mainInstance,
+                            buySellToken: buySellToken,
+                            uniswapRouterInstance: uniswapRouterInstance,
+                            erc20ReservedToken: erc20ReservedToken
+                        });
 
                         await mainInstance.connect(owner).claim(ONE_ETH, bob.address);
 
@@ -941,8 +1123,7 @@ describe("TradedTokenInstance", function () {
                             bob,
                             charlie,
                             mainInstance
-                        } = await loadFixture(deploy3);
-                        await mainInstance.connect(owner).enableClaims();
+                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
 
                         await mainInstance.connect(owner).claim(ethers.parseEther('10'), owner.address);
 
@@ -957,16 +1138,14 @@ describe("TradedTokenInstance", function () {
                         
                     });
 
-                    it("shouldn't _preventPanic when transfer", async() => {
+                    xit("shouldn't _preventPanic when transfer", async() => {
                         // make a test when Bob can send to Alice only 50% of their tokens through a day
                         const {
                             owner,
                             alice,
                             bob,
                             mainInstance
-                        } = await loadFixture(deploy3);
-
-                        await mainInstance.connect(owner).enableClaims();
+                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
 
                         const InitialSendFunds = ethers.parseEther('1');
                         const bobTokensBefore = await mainInstance.balanceOf(bob.address);

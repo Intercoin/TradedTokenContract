@@ -31,7 +31,6 @@ async function deploy() {
     const maxSellTax = FRACTION*20n/100n;// 0.20*fraction
     const holdersMax = 100n;
 
-    const buySellToken = constants.ZERO_ADDRESS;
     const buyPrice = FRACTION*10n/100n; // 0.1 bnb for token
     const sellPrice = FRACTION*5n/100n; // 0.05 bnb for token
 
@@ -41,11 +40,6 @@ async function deploy() {
         holdersMax
     ];
     
-    const StructBuySellPrice = [
-        buySellToken,
-        buyPrice,
-        sellPrice
-    ];
 
     const claimFrequency = 60n;  // 1 min
     const externalTokenExchangePriceNumerator = 1n;
@@ -77,11 +71,18 @@ async function deploy() {
     const TradedTokenImitationF = await ethers.getContractFactory("TradedTokenImitation",  {});
     
     // emission. we will setup fake values. old tests must be passed
-    const emissionAmount = ethers.parseEther('100000'); // uint128 amount; // of tokens
+    const emissionAmount = ethers.parseEther('10'); // uint128 amount; // of tokens
     const emissionFrequency = 1; // uint32 frequency; // in seconds
-    const emissionPeriod = 1; // uint32 period; // in seconds
-    const emissionDecrease = 1000; // uint32 decrease; // out of FRACTION 10,000
-    const emissionPriceGainMinimum = 5000; // int32 priceGainMinimum; // out of FRACTION 10,000
+    const emissionPeriod = 86400n*365n; // 1 year // uint32 period; // in seconds
+    const emissionDecrease = 1000; // 1% // uint32 decrease; // out of FRACTION 10,000
+    const emissionPriceGainMinimum = -8000; // int32 priceGainMinimum; // out of FRACTION 10,000
+
+    const buySellToken = await ERC20MintableF.deploy("ERC20 BuySell Token", "ERC20-BS");
+    const StructBuySellPrice = [
+        buySellToken.target,
+        buyPrice,
+        sellPrice
+    ];
 
     return {
         owner, alice, bob, charlie,
@@ -114,6 +115,7 @@ async function deploy() {
         emissionPeriod,
         emissionDecrease,
         emissionPriceGainMinimum,
+        FRACTION,
         TaxesLib,
         liquidityLib,
         TradedTokenF,
@@ -194,9 +196,15 @@ async function deploy2() {
         ]
     );
 
+    const distributionManager = await DistributionManagerF.connect(owner).deploy(
+        externalToken.target, 
+        claimManager.target
+    );
+
     return {...res, ...{
         mainInstance,
         claimManager,
+        distributionManager,
         erc20ReservedToken,
         externalToken
     }};
@@ -213,6 +221,7 @@ async function deploy3() {
 
     await erc20ReservedToken.connect(owner).mint(mainInstance.target, ethers.parseEther('10'));
     await mainInstance.connect(owner).addInitialLiquidity(ethers.parseEther('10'), ethers.parseEther('10'));
+
     return res;
 }
 
@@ -243,7 +252,7 @@ async function deploy5() {
     } = res;
     
     //await claimManager.connect(bob).wantToClaim(ONE_ETH);
-    await claimManager.connect(bob).wantToClaim(0); // all awailable
+    await claimManager.connect(bob).wantToClaim(0); // all available
     // pass time 
     await time.increase(claimFrequency);
 
@@ -294,30 +303,75 @@ async function deployAndTestUniswapSettings() {
         owner,
         bob,
         lockupIntervalAmount,
+        buyPrice,
+        FRACTION,
+        buySellToken,
         erc20ReservedToken,
         uniswapRouterInstance,
         mainInstance
     } =  res;
 
-    await erc20ReservedToken.connect(owner).mint(bob.address, ethers.parseEther('0.5'));
-    await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
+    
 
-    ts = await time.latest();
-    timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+    
+    // after deploy and added initial liquidity:
+    // - we can't [swap] before [claim] because user is not a holder and cant call swap(see `holdersCheckBeforeTransfer`). So we try to claim smth and then swap
+    // - BUT we can't [claim] too because it wasn't set twapPrice before
+    // So calling stack will be the following
+    // - buy tokens through [buy], then [swap] and then [claim] if nececcary
 
-    const smthFromOwner = 1;
-    await mainInstance.connect(owner).enableClaims();
-    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+    const expectedTokens = ethers.parseEther("1");
+    const calculatedBuySellTokensAmount = expectedTokens * FRACTION / buyPrice;
+    // buy 
+    await buySellToken.connect(owner).mint(bob.address, calculatedBuySellTokensAmount);
+    await buySellToken.connect(bob).approve(mainInstance.target, calculatedBuySellTokensAmount);
+    await mainInstance.connect(bob).buy(expectedTokens);
 
+    // then swap
+    const reserveTokenToSwap = ethers.parseEther("0.5");
+    await erc20ReservedToken.connect(owner).mint(bob.address, reserveTokenToSwap);
+    await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, reserveTokenToSwap);
+    var ts = await time.latest();
+    var timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-        ethers.parseEther('0.5'), //uint amountIn,
+        reserveTokenToSwap, //uint amountIn,
         0, //uint amountOutMin,
         [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
         bob.address, //address to,
         timeUntil //uint deadline   
-
     );
 
+// console.log("[deployAndTestUniswapSettingsWithFirstSwap]claim(smthFromOwner, bob.address);");
+// console.log("FIRST CLAIM STARTED");
+    const smthFromOwner = ethers.parseEther("0.0001");;
+    await mainInstance.connect(owner).enableClaims();
+    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+// console.log("FIRST CLAIM COMPLETED");
+
+
+    await erc20ReservedToken.connect(owner).mint(bob.address, reserveTokenToSwap);
+    await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, reserveTokenToSwap);
+
+    var ts = await time.latest();
+    var timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+    await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+        reserveTokenToSwap, //uint amountIn,
+        0, //uint amountOutMin,
+        [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+        bob.address, //address to,
+        timeUntil //uint deadline   
+    );
+
+// console.log("[deployAndTestUniswapSettingsWithFirstSwap]await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(");
+//     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+//         ethers.parseEther('0.5'), //uint amountIn,
+//         0, //uint amountOutMin,
+//         [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+//         bob.address, //address to,
+//         timeUntil //uint deadline   
+
+//     );
+// console.log("[deployAndTestUniswapSettingsWithFirstSwap] - end");
     const internalLiquidityAddress = await mainInstance.getInternalLiquidity();
 
     return {...res, ...{
