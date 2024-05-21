@@ -654,18 +654,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             
         }
 // console.log("[sol]_availableToClaim::availableToClaim_ =",availableToClaim_);        
-// console.log("amountOut = ", amountOut);
-// console.log("currentIterationTotalCumulativeClaimed = ", currentIterationTotalCumulativeClaimed);
-// console.log("priceMayBecomeLowerThanMinClaimPrice ? true");
+// console.log("[sol]_availableToClaim::amountOut = ", amountOut);
+// console.log("[sol]_availableToClaim::currentIterationTotalCumulativeClaimed = ", currentIterationTotalCumulativeClaimed);
+
 // console.log(FixedPoint.fraction(reserve1_ - amountOut, reserve0_ + currentIterationTotalCumulativeClaimed)._x);
 // console.log(FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x);
+
         if (
             FixedPoint.fraction(reserve1_ - amountOut, reserve0_ + currentIterationTotalCumulativeClaimed)._x <=
             FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
         ) {
             priceMayBecomeLowerThanMinClaimPrice = true;
         }
-        
+// console.log("[sol]_availableToClaim::priceMayBecomeLowerThanMinClaimPrice ? true -", (priceMayBecomeLowerThanMinClaimPrice ? "true" : "false" ));        
 // console.log("[sol]_availableToClaim::priceMayBecomeLowerThanMinClaimPrice=",(priceMayBecomeLowerThanMinClaimPrice ? "true" : "false"));        
         // (uint112 _reserve0, uint112 _reserve1,, ) = _uniswapReserves();
         // tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
@@ -1145,6 +1146,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             //     revert InsufficientAmount();
             // }
             bool isLocked = (balance - locked < amount);
+
             // if ((receivedTransfersCount[from] >= MAX_TRANSFER_COUNT) && isLocked) {
             //     revert InsufficientAmount();
             // }
@@ -1228,7 +1230,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             uint256 twapPriceCurrent,
             uint256 currentAmountClaimed
         ) = _availableToClaim(tradedTokenAmount);
-//console.log("#1");
+// console.log("#1");
        
 //console.log("#2 - update twap price and emission things");
 //console.log("#2 twapPriceCurrent = ",twapPriceCurrent);
@@ -1239,7 +1241,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         priceReservedCumulativeLast = priceReservedCumulativeCurrent;
         amountClaimedInLastPeriod = currentAmountClaimed + tradedTokenAmount;
 
-//console.log("#3");
+// console.log("#3");
         if (priceMayBecomeLowerThanMinClaimPrice) {
             revert PriceMayBecomeLowerThanMinClaimPrice();
         }

@@ -104,32 +104,34 @@ abstract contract ClaimBase is IClaim {
         if (claimingTokenAmount == 0) { 
             revert InputAmountCanNotBeZero();
         }
-        // console.log("[claimmanager] #1");
+// console.log("[claimmanager] #1");
+// console.log("[claimmanager] claimingTokenAmount     =",claimingTokenAmount);
+// console.log("[claimmanager] claimingTokenAllowance  =",claimingTokenAllowance(msg.sender, address(this)));
         if (claimingTokenAmount > claimingTokenAllowance(msg.sender, address(this))) {
             revert InsufficientAmount();
         }
-        // console.log("[claimmanager] #2");
+//console.log("[claimmanager] #2");
         if (lastActionTime(msg.sender) + claimFrequency > block.timestamp) {
             revert ClaimTooFast(lastActionTime(msg.sender) + claimFrequency);
         }
-        // console.log("[claimmanager] #3");
+//console.log("[claimmanager] #3");
         //ERC777(claimingToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
         claimingTokenTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
-// console.log("[claimmanager] #4");
+//console.log("[claimmanager] #4");
         uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
             claimingTokenExchangePrice.denominator;
-// console.log("[claimmanager] #5");
+//console.log("[claimmanager] #5");
         uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(msg.sender);
-// console.log("[claimmanager] #6");
+//console.log("[claimmanager] #6");
 // console.log("[claimmanager] #6 claimingTokenAmount          = ", claimingTokenAmount);
 // console.log("[claimmanager] #6 claimingTokenExchangePrice.numerator          = ", claimingTokenExchangePrice.numerator);
 // console.log("[claimmanager] #6 claimingTokenExchangePrice.denominator          = ", claimingTokenExchangePrice.denominator);
-// console.log("[claimmanager] #6 scalingMaxTradedTokenAmount  = ", scalingMaxTradedTokenAmount);
-// console.log("[claimmanager] #6 tradedTokenAmount            = ", tradedTokenAmount);
+//console.log("[claimmanager] #6 scalingMaxTradedTokenAmount  = ", scalingMaxTradedTokenAmount);
+//console.log("[claimmanager] #6 tradedTokenAmount            = ", tradedTokenAmount);
         if (scalingMaxTradedTokenAmount < tradedTokenAmount) {
             revert InsufficientAmountToClaim(tradedTokenAmount, scalingMaxTradedTokenAmount);
         }
-// console.log("[claimmanager] #7");
+//console.log("[claimmanager] #7");
         //_claim(tradedTokenAmount, account);
         IClaim(tradedToken).claim(tradedTokenAmount, account);
 

@@ -4,7 +4,7 @@ const { time, loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-
 async function deploy() {
     const FRACTION = 10000n;
     const [
-        owner, alice, bob, charlie
+        owner, alice, bob, charlie, david, eve,
     ] = await ethers.getSigners();
 
     const lockupIntervalDay = 1n; // one day
@@ -85,7 +85,7 @@ async function deploy() {
     ];
 
     return {
-        owner, alice, bob, charlie,
+        owner, alice, bob, charlie, david, eve,
         tokenName,
         tokenSymbol,
         lockupIntervalDay,

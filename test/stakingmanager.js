@@ -58,8 +58,7 @@ describe("StakingManager", function () {
             staked: await SimpleERC20.connect(acc).balanceOf(acc.address)
         }
     }
-    describe("availableToClaim - constant on each operation", function () {
-        xit("shouldnt stake if TradedToken::availableToClaim will return 0", async() => {});
+    describe("availableToClaim tests", function () {
 
         it("should stake", async() => {
             const res = await loadFixture(deployStakingManager);
