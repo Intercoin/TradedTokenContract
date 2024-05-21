@@ -8,8 +8,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./ClaimBase.sol";
 
-//import "hardhat/console.sol";
-
 contract ClaimManager is ClaimBase, IERC777Recipient, IERC777Sender, ReentrancyGuard {
     using SafeERC20 for ERC777;
 
@@ -18,7 +16,6 @@ contract ClaimManager is ClaimBase, IERC777Recipient, IERC777Sender, ReentrancyG
         ClaimSettings memory claimSettings
         
     ) {
-
         __ClaimBaseInit(tradedToken_, claimSettings);
     }
 
@@ -46,8 +43,6 @@ contract ClaimManager is ClaimBase, IERC777Recipient, IERC777Sender, ReentrancyG
         bytes calldata operatorData
     ) external {}
 
-    
-    
     function claim(uint256 claimingTokenAmount, address account) external nonReentrant() {
         _claim(claimingTokenAmount, account);
     }
@@ -56,7 +51,6 @@ contract ClaimManager is ClaimBase, IERC777Recipient, IERC777Sender, ReentrancyG
         _wantToClaim(amount);
     }
     
-
     function claimingTokenAllowance(address from, address to) internal override view returns(uint256) {
         return ERC777(claimingToken).allowance(from, to);
     }

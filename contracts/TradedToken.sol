@@ -30,7 +30,7 @@ import "./interfaces/IPresale.sol";
 import "./interfaces/ITradedToken.sol";
 import "./interfaces/ITokenExchange.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, ReentrancyGuard, ITradedToken {
    // using FixedPoint for *;
@@ -299,9 +299,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         taxesInfo.init(taxesInfoInit);
 
         emission = emission_;
-// int256 t = int256(emission.priceGainMinimum);
-// console.log("constructor priceGainMinimum = ");
-// console.logInt(t);
 
         //validations
         if (sellPrice > buyPrice) {
@@ -553,10 +550,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             uint256 currentAmountClaimed
         ) 
     {
-//console.log("_availableToClaim - b ");
         (reserve0_, reserve1_, _blockTimestampLast, _priceReservedCumulativeLast) = _uniswapReserves();
-        
-//availableToClaim += amount * intervalsSinceLastClaim();
 
         // how much claimed in emission.frequency
         if (block.timestamp/emission.frequency*emission.frequency < _blockTimestampLast) {
@@ -571,13 +565,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         for (uint256 i=0; i<periodCount; ++i) {
             capWithDecreasePeriod = capWithDecreasePeriod * (FRACTION-emission.decrease) / FRACTION;
         }
-//console.log("[sol]_availableToClaim::capWithDecreasePeriod =",capWithDecreasePeriod);      
         // we  can exceed emission.amount's cap and frequency
         availableToClaim_ = (currentAmountClaimed >= capWithDecreasePeriod) ? 0 : capWithDecreasePeriod - currentAmountClaimed;
         // if (availableToClaim_ > 0 && currentFrequencyClaimed >= emission.frequency) {
         //     availableToClaim_ = 0;
         // }
-//console.log("[sol]_availableToClaim::availableToClaim_ =",availableToClaim_);
         if (amountIn != 0) {
             //amountIn != 0
             if (amountIn > availableToClaim_) {
@@ -586,7 +578,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 availableToClaim_ = amountIn;
             }
         }
-//console.log("[sol]_availableToClaim::availableToClaim_ =",availableToClaim_);
+
         uint256 currentIterationTotalCumulativeClaimed;
         if (availableToClaim_ > 0) {
             currentIterationTotalCumulativeClaimed = totalCumulativeClaimed + availableToClaim_;
@@ -601,13 +593,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 availableToClaim_ = 0;
             }
         }
-//console.log("[sol]_availableToClaim::availableToClaim_ =",availableToClaim_);
-// console.log("[sol][_availableToClaim]amountOut   = ",amountOut);
-// console.log("[sol][_availableToClaim]_priceReservedCumulativeLast   = ",_priceReservedCumulativeLast);
-// console.log("[sol][_availableToClaim]priceReservedCumulativeLast   = ",priceReservedCumulativeLast);
-// console.log("[sol][_availableToClaim]twapPriceLast   = ",twapPriceLast);
-// console.log("[sol][_availableToClaim]blockTimestampLast  = ",blockTimestampLast);
-// console.log("[sol][_availableToClaim]_blockTimestampLast = ",_blockTimestampLast);
+
         //exceptional case
         if (_priceReservedCumulativeLast == 0) {
             _priceReservedCumulativeLast = priceReservedCumulativeLast;
@@ -617,28 +603,22 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (_blockTimestampLast == blockTimestampLast) {
             availableToClaim_ = 0;
         }
-//console.log("[sol]_availableToClaim::availableToClaim_ =",availableToClaim_);        
+
         if (availableToClaim_ > 0 && _priceReservedCumulativeLast > 0) {
             //-----------------------------------
             // 10000 * (currentPrice - lastPrice) / lastPrice < priceGainMinimum    
             twapPriceCurrent = (_priceReservedCumulativeLast - priceReservedCumulativeLast) / (_blockTimestampLast - blockTimestampLast);
-// console.log("[sol][_availableToClaim]twapPriceCurrent   = ",twapPriceCurrent);
-// console.log("[sol][_availableToClaim]twapPriceLast      = ",twapPriceLast);
+
             bool sign = twapPriceCurrent >= twapPriceLast ? true : false;
             uint256 mod = sign ? twapPriceCurrent - twapPriceLast : twapPriceLast - twapPriceCurrent;
 
             int32 priceGain = int32(int256(FRACTION * mod / twapPriceLast)) * (sign ? int32(1) : int32(-1));
-// console.log("[sol]_availableToClaim::priceGain");
-// console.logInt(priceGain);
-// console.log("[sol]_availableToClaim::emission.priceGainMinimum");
-// console.logInt(emission.priceGainMinimum);
-         
+
             if (priceGain < emission.priceGainMinimum) {
                 availableToClaim_ = 0;
             }
         }
-// console.log("[sol]_availableToClaim::availableToClaim_[price gain] =",availableToClaim_);
-// console.log("[sol]_availableToClaim::availableToClaim_ =",availableToClaim_);
+
         if (
             //amountOut < tradedTokenAmount ||
             amountOut == 0 ||
@@ -653,12 +633,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             currentAmountClaimed  += availableToClaim_;
             
         }
-// console.log("[sol]_availableToClaim::availableToClaim_ =",availableToClaim_);        
-// console.log("[sol]_availableToClaim::amountOut = ", amountOut);
-// console.log("[sol]_availableToClaim::currentIterationTotalCumulativeClaimed = ", currentIterationTotalCumulativeClaimed);
-
-// console.log(FixedPoint.fraction(reserve1_ - amountOut, reserve0_ + currentIterationTotalCumulativeClaimed)._x);
-// console.log(FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x);
 
         if (
             FixedPoint.fraction(reserve1_ - amountOut, reserve0_ + currentIterationTotalCumulativeClaimed)._x <=
@@ -666,18 +640,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         ) {
             priceMayBecomeLowerThanMinClaimPrice = true;
         }
-// console.log("[sol]_availableToClaim::priceMayBecomeLowerThanMinClaimPrice ? true -", (priceMayBecomeLowerThanMinClaimPrice ? "true" : "false" ));        
-// console.log("[sol]_availableToClaim::priceMayBecomeLowerThanMinClaimPrice=",(priceMayBecomeLowerThanMinClaimPrice ? "true" : "false"));        
-        // (uint112 _reserve0, uint112 _reserve1,, ) = _uniswapReserves();
-        // tradedTokenAmount = (uint256(2**64) * _reserve1 * minClaimPrice.denominator / minClaimPrice.numerator )/(2**64);
-        // tradedTokenAmount += totalBought * (buyPrice - sellPrice) / FRACTION;
-        // if (tradedTokenAmount > _reserve0 + totalCumulativeClaimed) {
-        //     tradedTokenAmount -= (_reserve0 + totalCumulativeClaimed);
-        // } else {
-        //     tradedTokenAmount = 0;
-        // }
-    //   console.log("_availableToClaim - e ");  
-// console.log("[sol]_availableToClaim::availableToClaim_ [end]=",availableToClaim_);        
     }
 
     /**
@@ -1205,7 +1167,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     //function _validateEmission
     function _validateClaim(uint256 tradedTokenAmount, address account) internal {
-//console.log("_validateClaim -b");
 
         if (account == address(0)) {
             revert EmptyAccountAddress();
@@ -1214,11 +1175,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (claimsEnabledTime == 0) {
             revert ClaimsDisabled();
         }
-//console.log("#-1");
+
         if (tradedTokenAmount == 0) {
             revert InputAmountCanNotBeZero();
         }
-//console.log("#0");
+
         (   
             uint256 availableToClaim_,
             uint256 amountOut, 
@@ -1230,34 +1191,23 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             uint256 twapPriceCurrent,
             uint256 currentAmountClaimed
         ) = _availableToClaim(tradedTokenAmount);
-// console.log("#1");
-       
-//console.log("#2 - update twap price and emission things");
-//console.log("#2 twapPriceCurrent = ",twapPriceCurrent);
-//console.log("#2 priceReservedCumulativeCurrent = ",priceReservedCumulativeCurrent);
+
         // update twap price and emission things
         twapPriceLast = twapPriceCurrent;
         blockTimestampLast = blockTimestampCurrent;
         priceReservedCumulativeLast = priceReservedCumulativeCurrent;
         amountClaimedInLastPeriod = currentAmountClaimed + tradedTokenAmount;
 
-// console.log("#3");
         if (priceMayBecomeLowerThanMinClaimPrice) {
             revert PriceMayBecomeLowerThanMinClaimPrice();
         }
-//console.log("#4");
- //revert if (amountOut == 0 || amountOut < tradedTokenAmount) {
-//console.log("#4 amountOut           = ",amountOut);
-//console.log("#4 availableToClaim_   = ",availableToClaim_);
-//console.log("#4 tradedTokenAmount   = ",tradedTokenAmount);
+
         if (
             amountOut == 0 ||
             availableToClaim_ < tradedTokenAmount
         ) {
             revert ClaimValidationError();
         }
-//        console.log("#5");
-//        console.log("_validateClaim -e");
     }
     
     /**

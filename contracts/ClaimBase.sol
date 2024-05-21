@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
-// import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
-// import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
-// import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
 import "./interfaces/IClaim.sol";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 abstract contract ClaimBase is IClaim {
 
     uint256 private timeDeploy;
@@ -100,38 +94,30 @@ abstract contract ClaimBase is IClaim {
      * @param account address to claim for
      */
     function _claim(uint256 claimingTokenAmount, address account) internal {
-// console.log("[claimmanager] #0");
         if (claimingTokenAmount == 0) { 
             revert InputAmountCanNotBeZero();
         }
-// console.log("[claimmanager] #1");
-// console.log("[claimmanager] claimingTokenAmount     =",claimingTokenAmount);
-// console.log("[claimmanager] claimingTokenAllowance  =",claimingTokenAllowance(msg.sender, address(this)));
+
         if (claimingTokenAmount > claimingTokenAllowance(msg.sender, address(this))) {
             revert InsufficientAmount();
         }
-//console.log("[claimmanager] #2");
+
         if (lastActionTime(msg.sender) + claimFrequency > block.timestamp) {
             revert ClaimTooFast(lastActionTime(msg.sender) + claimFrequency);
         }
-//console.log("[claimmanager] #3");
+
         //ERC777(claimingToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
         claimingTokenTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
-//console.log("[claimmanager] #4");
+
         uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
             claimingTokenExchangePrice.denominator;
-//console.log("[claimmanager] #5");
+
         uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(msg.sender);
-//console.log("[claimmanager] #6");
-// console.log("[claimmanager] #6 claimingTokenAmount          = ", claimingTokenAmount);
-// console.log("[claimmanager] #6 claimingTokenExchangePrice.numerator          = ", claimingTokenExchangePrice.numerator);
-// console.log("[claimmanager] #6 claimingTokenExchangePrice.denominator          = ", claimingTokenExchangePrice.denominator);
-//console.log("[claimmanager] #6 scalingMaxTradedTokenAmount  = ", scalingMaxTradedTokenAmount);
-//console.log("[claimmanager] #6 tradedTokenAmount            = ", tradedTokenAmount);
+
         if (scalingMaxTradedTokenAmount < tradedTokenAmount) {
             revert InsufficientAmountToClaim(tradedTokenAmount, scalingMaxTradedTokenAmount);
         }
-//console.log("[claimmanager] #7");
+
         //_claim(tradedTokenAmount, account);
         IClaim(tradedToken).claim(tradedTokenAmount, account);
 
@@ -141,12 +127,9 @@ abstract contract ClaimBase is IClaim {
         // or just empty all wantToClaimMap
         wantToClaimTotal -= wantToClaimMap[account].amount;
         delete wantToClaimMap[account].amount;
-        
-        
     }
 
-
- /**
+    /**
     * If there is a claimingToken, then they have to pass an amount that is <= claimingToken.balanceOf(caller). 
     * If they pass zero here, it will actually look up and use their entire balance.
     */

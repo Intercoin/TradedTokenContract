@@ -333,10 +333,6 @@ describe("TradedTokenInstance", function () {
                     mainInstance
                 } = await loadFixture(deployInPresale);
 
-                // // make snapshot before time manipulations
-                // const snapId = await ethers.provider.send('evm_snapshot', []);
-                // //console.log("make snapshot");
-
                 await Presale.setEndTime(timeUntil);
 
                 const tokenBefore = await mainInstance.balanceOf(Presale.target);
@@ -367,9 +363,6 @@ describe("TradedTokenInstance", function () {
                 const tokenAfter4 = await mainInstance.balanceOf(Presale.target);
                 expect(tokenAfter4).to.be.eq(0);
 
-                // // restore snapshot
-                // await ethers.provider.send('evm_revert', [snapId]);
-                // //console.log("revert to snapshot");
             });
 
             it("should presale", async() => {
@@ -1117,7 +1110,6 @@ describe("TradedTokenInstance", function () {
                         expect(bobTokensAfterTransfer).to.be.eq(0);
                         expect(bobTokensAfterClaim + smthFromOwner).to.be.eq(aliceTokensAfterTransfer);
                         
-
                         // try to send all that left
                         let tx = await mainInstance.connect(bob).transfer(alice.address, bobTokensAfterTransfer);
                         
@@ -1134,54 +1126,6 @@ describe("TradedTokenInstance", function () {
                         let eventExists = (typeof(event) !== 'undefined') ? true : false;
 
                         expect(eventExists).to.be.eq(false);
-                        //expect(eventExists).to.be.eq(true);
-
-                        ////////////////////////
-                        
-                        // if (eventExists) {
-                        //     // address: '0x2d13826359803522cCe7a4Cfa2c1b582303DD0B4',
-                        //     // topics: [
-                        //     //     '0xda8c6cfc61f9766da27a11e69038df366444016f44f525a2907f393407bfc6c3',
-                        //     //     '0x00000000000000000000000090f79bf6eb2c4f870365e785982e1f101e93b906',
-                        //     //     '0x0000000000000000000000009b7889734ac75060202410362212d365e9ee1ef5'
-                        //     // ],
-                        //     expect(event.address).to.be.eq(mainInstance.address);
-                        //     expect(ethers.utils.getAddress( event.topics[1].replace('000000000000000000000000','') )).to.be.eq(bob.address);
-                        //     expect(ethers.utils.getAddress( event.topics[2].replace('000000000000000000000000','') )).to.be.eq(alice.address);
-
-                        //     // we will adjust value in panic situation from amount to 5
-                        //     // so transaction didn't revert but emitted event "PanicSellRateExceeded"
-
-                        //     expect(bobTokensAfterTransfer.sub(5)).to.be.eq(bobTokensAfterTransfer2);
-                        //     expect(aliceTokensAfterTransfer.add(5)).to.be.eq(aliceTokensAfterTransfer2);
-                        // }
-
-                        // // pass time to clear bucket
-                        // await network.provider.send("evm_increaseTime", [DurationForAlice+50]);
-                        // await network.provider.send("evm_mine");
-
-                        // const bobTokensBeforeTransferAndTimePassed = await mainInstance.balanceOf(bob.address);
-                        // const aliceTokensBeforeTransferAndTimePassed = await mainInstance.balanceOf(alice.address);
-
-                        // await mainInstance.connect(bob).transfer(alice.address, bobTokensBeforeTransferAndTimePassed);
-
-                        // const bobTokensAfterTransferAndTimePassed = await mainInstance.balanceOf(bob.address);
-                        // const aliceTokensAfterTransferAndTimePassed = await mainInstance.balanceOf(alice.address);
-                        
-                        // //----------------------
-
-                        // // console.log("bobTokensBeforeTransferAndTimePassed   = ", bobTokensBeforeTransferAndTimePassed.toString());
-                        // // console.log("bobTokensAfterTransferAndTimePassed    = ", bobTokensAfterTransferAndTimePassed.toString());
-                        // // console.log(" -------------------------------- ");
-                        // // console.log("aliceTokensBeforeTransferAndTimePassed = ", aliceTokensBeforeTransferAndTimePassed.toString());
-                        // // console.log("aliceTokensAfterTransferAndTimePassed  = ", aliceTokensAfterTransferAndTimePassed.toString());
-                        
-                        // expect(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION).add(ONE)).to.be.eq(bobTokensAfterTransferAndTimePassed);
-                        // expect(aliceTokensBeforeTransferAndTimePassed.add(bobTokensBeforeTransferAndTimePassed.sub(ONE).sub(bobTokensBeforeTransferAndTimePassed.mul(RateForAlice).div(FRACTION)))).to.be.eq(aliceTokensAfterTransferAndTimePassed);
-                        /////////////////
-
-
-                            
                     }); 
 
                     it("shouldnt locked up tokens if owner claim to himself", async() => {
@@ -1504,7 +1448,6 @@ describe("TradedTokenInstance", function () {
                 let charlieBalanceReservedAfterPanic = await erc20ReservedToken.balanceOf(charlie.address);
                 let rc = await tx.wait(); // 0ms, as tx is already confirmed
                 // let event = rc.events.find(event => event.event === 'PanicSellRateExceeded');
-                // console.log(rc.events);
 
                 // here fast and stupid way to find event PanicSellRateExceeded that cann't decoded if happens in external contract
                 let arr2compare = [
