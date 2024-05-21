@@ -67,7 +67,7 @@ async function deploy() {
     var libData = await ethers.getContractFactory("@intercoin/liquidity/contracts/LiquidityLib.sol:LiquidityLib");    
     const liquidityLib = await libData.deploy();
 
-    const StakeManagerF = await ethers.getContractFactory("StakeManager",  {});
+    const StakeManagerF = await ethers.getContractFactory("StakeManagerMock",  {});
     const TradedTokenImitationF = await ethers.getContractFactory("TradedTokenImitation",  {});
     
     // emission. we will setup fake values. old tests must be passed
@@ -379,12 +379,43 @@ async function deployAndTestUniswapSettings() {
     }};
 }
 
+    async function deployStakingManager() {
+        const res = await loadFixture(deploy);
+
+        const {
+            ERC20MintableF,
+            StakeManagerF,
+            TradedTokenImitationF
+        } = res;
+
+        const SimpleERC20 = await ERC20MintableF.deploy("someERC20name","someERC20symbol");
+        const TradedTokenImitation = await TradedTokenImitationF.deploy();
+        const bonusSharesRate = 100;
+        const defaultStakeDuration = 86400;
+
+        const StakeManager = await StakeManagerF.deploy(
+            TradedTokenImitation.target, //address tradedToken_,
+            SimpleERC20.target, //address stakingToken_,
+            bonusSharesRate,                //uint16 bonusSharesRate_,
+            defaultStakeDuration,              //uint64 defaultStakeDuration_
+        );
+
+        return {...res, ...{
+            SimpleERC20,
+            TradedTokenImitation,
+            StakeManager,
+            bonusSharesRate,
+            defaultStakeDuration
+        }};
+    }
+
 module.exports = {
   deploy,
   deploy2,
   deploy3,
   deploy4,
   deploy5,
+  deployStakingManager,
   deployInPresale,
   deployAndTestUniswapSettings,
   deployAndTestUniswapSettingsWithFirstSwap
