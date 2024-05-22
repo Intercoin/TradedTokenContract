@@ -80,7 +80,7 @@ contract StakeClaimManagerUpgradeable is StakeBase, IStakeUpgradeable, IERC777Re
         address producedBy_
     ) external initializer {
 
-        __CostManagerHelper_init(msg.sender);
+        __CostManagerHelper_init(_msgSender());
         _setCostManager(costManager_);
         __ReentrancyGuard_init();
 
@@ -94,7 +94,6 @@ contract StakeClaimManagerUpgradeable is StakeBase, IStakeUpgradeable, IERC777Re
 
     }
     
-
     /**
      * @notice part of IERC777Recipient
      */

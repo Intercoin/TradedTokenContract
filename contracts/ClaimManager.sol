@@ -8,6 +8,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./ClaimBase.sol";
 
+/**
+* @title ClaimManager 
+* will use as a manager for TradedToken to claim tokens. Chain will be like this ClaimManager -> TradedToken
+*/
 contract ClaimManager is ClaimBase, IERC777Recipient, IERC777Sender, ReentrancyGuard {
     using SafeERC20 for ERC777;
 

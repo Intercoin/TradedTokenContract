@@ -408,7 +408,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         onlyOwner
     {
         for (uint256 i = 0; i < managers_.length; i++) {
-            if (managers_[i] == address(0)) {revert EmptyManagerAddress();            }
+            if (managers_[i] == address(0)) {revert EmptyManagerAddress();}
             delete managers[managers_[i]];
             emit RemovedManager(managers_[i], _msgSender());
         }

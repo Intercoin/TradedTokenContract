@@ -297,7 +297,7 @@ async function deployAndTestUniswapSettings() {
     }};
 }         
 
- async function deployAndTestUniswapSettingsWithFirstSwap() {
+async function deployAndTestUniswapSettingsWithFirstSwap() {
     const res = await loadFixture(deployAndTestUniswapSettings);
     const {
         owner,
@@ -311,9 +311,6 @@ async function deployAndTestUniswapSettings() {
         mainInstance
     } =  res;
 
-    
-
-    
     // after deploy and added initial liquidity:
     // - we can't [swap] before [claim] because user is not a holder and cant call swap(see `holdersCheckBeforeTransfer`). So we try to claim smth and then swap
     // - BUT we can't [claim] too because it wasn't set twapPrice before
@@ -341,13 +338,9 @@ async function deployAndTestUniswapSettings() {
         timeUntil //uint deadline   
     );
 
-// console.log("[deployAndTestUniswapSettingsWithFirstSwap]claim(smthFromOwner, bob.address);");
-// console.log("FIRST CLAIM STARTED");
     const smthFromOwner = ethers.parseEther("0.0001");;
     await mainInstance.connect(owner).enableClaims();
     await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
-// console.log("FIRST CLAIM COMPLETED");
-
 
     await erc20ReservedToken.connect(owner).mint(bob.address, reserveTokenToSwap);
     await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, reserveTokenToSwap);
@@ -362,16 +355,6 @@ async function deployAndTestUniswapSettings() {
         timeUntil //uint deadline   
     );
 
-// console.log("[deployAndTestUniswapSettingsWithFirstSwap]await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(");
-//     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-//         ethers.parseEther('0.5'), //uint amountIn,
-//         0, //uint amountOutMin,
-//         [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
-//         bob.address, //address to,
-//         timeUntil //uint deadline   
-
-//     );
-// console.log("[deployAndTestUniswapSettingsWithFirstSwap] - end");
     const internalLiquidityAddress = await mainInstance.getInternalLiquidity();
 
     return {...res, ...{
@@ -379,35 +362,35 @@ async function deployAndTestUniswapSettings() {
     }};
 }
 
-    async function deployStakingManager() {
-        const res = await loadFixture(deploy);
+async function deployStakingManager() {
+    const res = await loadFixture(deploy);
 
-        const {
-            ERC20MintableF,
-            StakeManagerF,
-            TradedTokenImitationF
-        } = res;
+    const {
+        ERC20MintableF,
+        StakeManagerF,
+        TradedTokenImitationF
+    } = res;
 
-        const SimpleERC20 = await ERC20MintableF.deploy("someERC20name","someERC20symbol");
-        const TradedTokenImitation = await TradedTokenImitationF.deploy();
-        const bonusSharesRate = 100;
-        const defaultStakeDuration = 86400;
+    const SimpleERC20 = await ERC20MintableF.deploy("someERC20name","someERC20symbol");
+    const TradedTokenImitation = await TradedTokenImitationF.deploy();
+    const bonusSharesRate = 100n;
+    const defaultStakeDuration = 86400n;
 
-        const StakeManager = await StakeManagerF.deploy(
-            TradedTokenImitation.target, //address tradedToken_,
-            SimpleERC20.target, //address stakingToken_,
-            bonusSharesRate,                //uint16 bonusSharesRate_,
-            defaultStakeDuration,              //uint64 defaultStakeDuration_
-        );
+    const StakeManager = await StakeManagerF.deploy(
+        TradedTokenImitation.target, //address tradedToken_,
+        SimpleERC20.target, //address stakingToken_,
+        bonusSharesRate,                //uint16 bonusSharesRate_,
+        defaultStakeDuration,              //uint64 defaultStakeDuration_
+    );
 
-        return {...res, ...{
-            SimpleERC20,
-            TradedTokenImitation,
-            StakeManager,
-            bonusSharesRate,
-            defaultStakeDuration
-        }};
-    }
+    return {...res, ...{
+        SimpleERC20,
+        TradedTokenImitation,
+        StakeManager,
+        bonusSharesRate,
+        defaultStakeDuration
+    }};
+}
 
 module.exports = {
   deploy,
