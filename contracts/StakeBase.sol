@@ -1,26 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
-// import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
-// import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
-// import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
 import "./interfaces/IClaim.sol";
 import "./interfaces/IStake.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
+
 abstract contract StakeBase is IStake {
 
     IERC1820Registry internal constant _ERC1820_REGISTRY = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
-    uint256 private deployTime;
-    address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
-    uint256 private constant FRACTION = 10000;
-    uint256 private constant MULTIPLIER = 1e18;
+    uint256 internal deployTime;
+    address internal constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    uint256 internal constant FRACTION = 10000;
+    uint256 internal constant MULTIPLIER = 1e18;
 
 
     address public tradedToken;
@@ -33,7 +28,7 @@ abstract contract StakeBase is IStake {
 
     // all accomulated values was multiplied by MULTIPLIER
     mapping (uint64 => uint256) public accumulatedPerShare; // mapping time to accumulated. 
-    uint256 private lastAccumulatedPerShare;
+    uint256 internal lastAccumulatedPerShare;
     uint64 defaultStakeDuration;
     
     error EmptyTokenAddress();
@@ -60,9 +55,7 @@ abstract contract StakeBase is IStake {
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
-        
     }
-
 
     /**
      * @notice stake some amount of stakingToken for a duration of time
@@ -86,7 +79,6 @@ abstract contract StakeBase is IStake {
         address sender = _msgSender();
         claim();
         uint256 amount = _rewards(sender);
- //console.log("unstake::amount =", amount);
         _transfer(stakingToken, sender, amount);
     }
 
@@ -100,6 +92,30 @@ abstract contract StakeBase is IStake {
                 continue; // not yet for this one
             }
             tradedTokenAmount += st.amount;
+        }
+    }
+
+    /**
+     * @notice claim any accumulated rewards, but don't change stakes
+     */
+    function claim() public {
+        claimToAddress(_msgSender());
+    }
+
+    /**
+     * @notice claim any accumulated rewards, but don't change stakes
+     * @param to address to send the TradedToken to
+     */
+    function claimToAddress(
+        address to
+    ) public {
+        
+        _claimTokens();
+
+        uint256 rewardsToTransfer = calculateRewards(_msgSender());
+        
+        if (rewardsToTransfer > 0) {
+            _transfer(tradedToken, to, rewardsToTransfer);
         }
     }
 
@@ -120,29 +136,15 @@ abstract contract StakeBase is IStake {
             sharesByStaker[who] -= st.shares;
             amount += st.amount;
         }
-
-        
     }
 
-    /**
-     * @notice claim any accumulated rewards, but don't change stakes
-     */
-    function claim() public {
-        claimToAddress(_msgSender());
-    }
-
-    /**
-     * @notice claim any accumulated rewards, but don't change stakes
-     * @param to address to send the TradedToken to
-     */
-    function claimToAddress(
-        address to
-    ) public {
-        uint256 i;
-        uint256 rewardsToTransfer = 0;
-        address sender = _msgSender();
-        _claimTokens();
-        for (i=0; i<stakes[sender].length; ++i) {
+    function calculateRewards(
+        address sender
+    ) 
+        internal 
+        returns(uint256 rewardsToTransfer)
+    {
+        for (uint256 i = 0; i < stakes[sender].length; ++i) {
             Stake storage st = stakes[sender][i];
             if (st.endTime > 0) {
                 continue; // stake already ended
@@ -150,12 +152,8 @@ abstract contract StakeBase is IStake {
             if (st.startTime + st.durationMin > block.timestamp) {
                 continue; // not yet for this one
             }
-            uint256 accumulated = _accumulate(st);
-// console.log("i=",i,"; accum=",accumulated);
-            rewardsToTransfer += accumulated;
+            rewardsToTransfer += _accumulate(st);
         }
-// console.log("claimToAddress::rewardsToTransfer = ", rewardsToTransfer);
-        _transfer(tradedToken, to, rewardsToTransfer);
     }
 
     /**
@@ -169,7 +167,9 @@ abstract contract StakeBase is IStake {
         uint256 amount, 
         uint64 duration
     ) internal {
+
         uint256 shares = amount * _multiplier(duration) / FRACTION;
+
         sharesTotal += shares;
         sharesByStaker[from] += shares;
         stakes[from].push(
@@ -192,17 +192,14 @@ abstract contract StakeBase is IStake {
         if (accumulatedPerShare[uint64(block.timestamp)] != 0) {
             return; // we've already done it this second
         }
-// console.log("availableToClaim()");
+
         uint256 availableToClaim = IClaim(tradedToken).availableToClaim();
-        // console.log("_claimTokens::availableToClaim = ", availableToClaim);
-        // console.log("_claimTokens::sharesTotal      = ", sharesTotal);
         if (availableToClaim > 0) {
             IClaim(tradedToken).claim(availableToClaim, address(this));
             lastAccumulatedPerShare += MULTIPLIER * availableToClaim / sharesTotal;
             
         }   
         accumulatedPerShare[uint64(block.timestamp)] = lastAccumulatedPerShare;     
-        // console.log("_claimTokens::accumulatedPerShare[uint64(block.timestamp)]  = ", accumulatedPerShare[uint64(block.timestamp)]);
     }
 
     /**
@@ -216,17 +213,9 @@ abstract contract StakeBase is IStake {
         returns(uint256)
     {
         uint64 lastClaimTime = st.startTime + st.lastClaimOffset;
-                                // console.log("_accumulate::lastClaimTime = ", lastClaimTime);    
-                                // console.log("_accumulate::accumulatedPerShare[uint64(block.timestamp)]  = ", accumulatedPerShare[uint64(block.timestamp)]);
-                                // console.log("_accumulate::accumulatedPerShare[lastClaimTime]            = ", accumulatedPerShare[lastClaimTime]);
         uint256 rewardsPerShare = accumulatedPerShare[uint64(block.timestamp)] - accumulatedPerShare[lastClaimTime];
-                                // console.log("_accumulate::rewardsPerShare = ", rewardsPerShare);
-
-                                // console.log("_accumulate::uint64(block.timestamp)   = ", uint64(block.timestamp));
-                                // console.log("_accumulate::st.startTime              = ", st.startTime);
         st.lastClaimOffset = uint64(block.timestamp) - st.startTime;
-                                // console.log("_accumulate::st.lastClaimOffset = ", st.lastClaimOffset);
-        //console.log("_accumulate::st.shares = ", st.shares);
+            
         return rewardsPerShare * st.shares / MULTIPLIER;
     }
 

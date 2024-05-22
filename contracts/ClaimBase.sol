@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
-// import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
-// import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
-// import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
 import "./interfaces/IClaim.sol";
-
+//import "hardhat/console.sol";
 abstract contract ClaimBase is IClaim {
 
     uint256 private timeDeploy;
@@ -23,7 +17,7 @@ abstract contract ClaimBase is IClaim {
      */
     uint16 public claimFrequency;
 
-    uint256 public wantToClaimTotal; // value that accomulated all users `wantToClaim requests`
+    uint256 public wantToClaimTotal; // value that accumulated all users `wantToClaim requests`
     
     mapping(address => ClaimStruct) public wantToClaimMap;
     
@@ -80,8 +74,11 @@ abstract contract ClaimBase is IClaim {
         view 
         returns(uint256) 
     {
-        uint256 a = IClaim(tradedToken).availableToClaim(); 
+        uint256 a = IClaim(tradedToken).availableToClaim();
         uint256 w = wantToClaimMap[account].amount; 
+        // console.log("a                  = ",a);
+        // console.log("w                  = ",w);
+        // console.log("wantToClaimTotal   = ",wantToClaimTotal);
         return wantToClaimTotal <= a ? w : w * a / wantToClaimTotal; 
         
     }
@@ -100,15 +97,15 @@ abstract contract ClaimBase is IClaim {
         if (claimingTokenAmount == 0) { 
             revert InputAmountCanNotBeZero();
         }
-        
+
         if (claimingTokenAmount > claimingTokenAllowance(msg.sender, address(this))) {
             revert InsufficientAmount();
         }
-        
+
         if (lastActionTime(msg.sender) + claimFrequency > block.timestamp) {
             revert ClaimTooFast(lastActionTime(msg.sender) + claimFrequency);
         }
-        
+
         //ERC777(claimingToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
         claimingTokenTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
 
@@ -130,12 +127,9 @@ abstract contract ClaimBase is IClaim {
         // or just empty all wantToClaimMap
         wantToClaimTotal -= wantToClaimMap[account].amount;
         delete wantToClaimMap[account].amount;
-        
-        
     }
 
-
- /**
+    /**
     * If there is a claimingToken, then they have to pass an amount that is <= claimingToken.balanceOf(caller). 
     * If they pass zero here, it will actually look up and use their entire balance.
     */

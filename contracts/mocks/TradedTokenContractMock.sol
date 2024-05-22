@@ -8,18 +8,15 @@ contract TradedTokenMock is TradedToken {
     using FixedPoint for *;
  
     constructor(
-        string memory tokenName_,
-        string memory tokenSymbol_,
-        address reserveToken_, //” (USDC)
-        uint256 priceDrop_,
-        uint64 lockupIntervalAmount,
+        CommonSettings memory commonSettings,
         ClaimSettings memory claimSettings,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
         TaxStruct memory taxStruct,
         BuySellStruct memory buySellStruct,
+        Emission memory emission_,
         address liquidityLib_
-    ) TradedToken(tokenName_, tokenSymbol_, reserveToken_, priceDrop_, lockupIntervalAmount,  claimSettings, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, liquidityLib_)
+    ) TradedToken(commonSettings,  claimSettings, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, emission_, liquidityLib_)
     {
     }
 
@@ -81,7 +78,7 @@ contract TradedTokenMock is TradedToken {
             uint64 timestampLast, uint price0CumulativeLast, uint224 price0Average
         )
     {
-        (r0, r1, blockTimestamp) = _uniswapReserves();
+        (r0, r1, blockTimestamp,) = _uniswapReserves();
         price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
         price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
 
@@ -151,6 +148,30 @@ contract TradedTokenMock is TradedToken {
         panicSellRateLimit.duration = _panicSellRateLimit.duration;
         panicSellRateLimit.fraction = _panicSellRateLimit.fraction;
     }
+
+    function setEmissionAmount(uint128 amount) public {
+        emission.amount = amount;
+    }
+
+    function setEmissionFrequency(uint32 frequency) public {
+        emission.frequency = frequency;
+    }
+
+    function setEmissionPeriod(uint32 period) public {
+        emission.period = period;
+    }
+
+    function setEmissionDecrease(uint32 decrease) public {
+        emission.decrease = decrease;
+    }
+
+    function setEmissionPriceGainMinimum(int32 priceGainMinimum) public {
+        emission.priceGainMinimum = priceGainMinimum;
+    }
+    function getBlockTimestampLast() public view returns(uint32) {
+        return blockTimestampLast;
+    }
+    
 
     
 }

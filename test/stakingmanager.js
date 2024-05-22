@@ -3,177 +3,266 @@ const { expect } = require('chai');
 const hre = require("hardhat");
 const { time, loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 require("@nomicfoundation/hardhat-chai-matchers");
-// const chai = require('chai');
-// const { time } = require('@openzeppelin/test-helpers');
-const { deploy } = require("./fixtures/deploy.js");
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
-const UNISWAP_ROUTER_FACTORY_ADDRESS = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
-const UNISWAP_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
-
-const ONE_ETH = ethers.parseEther('1');
+const { deployStakingManager } = require("./fixtures/deploy.js");
 
 describe("StakingManager", function () {
-    async function deployStakingManager() {
-        const res = await loadFixture(deploy);
-
-        const {
-            ERC20MintableF,
-            StakeManagerF,
-            TradedTokenImitationF
-        } = res;
-
-        const SimpleERC20 = await ERC20MintableF.deploy("someERC20name","someERC20symbol");
-        const TradedToken = await TradedTokenImitationF.deploy();
-        const bonusSharesRate = 100;
-        const defaultStakeDuration = 86400;
-
-        const StakeManager = await StakeManagerF.deploy(
-            TradedToken.target, //address tradedToken_,
-            SimpleERC20.target, //address stakingToken_,
-            bonusSharesRate,                //uint16 bonusSharesRate_,
-            defaultStakeDuration,              //uint64 defaultStakeDuration_
-        );
-
-        return {...res, ...{
-            SimpleERC20,
-            TradedToken,
-            StakeManager,
-            bonusSharesRate,
-            defaultStakeDuration
-        }};
-    }
-
+    
     async function getBalances(res, acc) {
         const {
             StakeManager,
-            TradedToken,
+            TradedTokenImitation,
             SimpleERC20
         } = res;
 
         return {
             shares: await StakeManager.connect(acc).sharesByStaker(acc.address),
-            traded: await TradedToken.connect(acc).balanceOf(acc.address),
+            traded: await TradedTokenImitation.connect(acc).balanceOf(acc.address),
             staked: await SimpleERC20.connect(acc).balanceOf(acc.address)
         }
     }
-    describe("availableToClaim - constant on each operation", function () {
-        xit("shouldnt stake if TradedToken::availableToClaim will return 0", async() => {});
+    describe("availableToClaim tests", function () {
+        describe("without bonuses", function () {
+            it("should stake", async() => {
+                const res = await loadFixture(deployStakingManager);
+                const {
+                    alice,
+                    defaultStakeDuration,
+                    SimpleERC20,
+                    TradedTokenImitation,
+                    StakeManager
+                } = res;
+                
+                const amountToStake = ethers.parseEther('1');
+                const availableToClaim = ethers.parseEther('1');
+                const userStakeDuration = defaultStakeDuration;
+                await SimpleERC20.mint(alice, amountToStake);
 
-        it("should stake", async() => {
-            const res = await loadFixture(deployStakingManager);
-            const {
-                alice,
-                SimpleERC20,
-                TradedToken,
-                StakeManager
-            } = res;
-            
-            const amountToStake = ethers.parseEther('1');
-            const availableToClaim = ethers.parseEther('1');
-            const userStakeDuration = 86400;
-            await SimpleERC20.mint(alice, amountToStake);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
 
-            await TradedToken.setAvailableToClaim(availableToClaim);
+                const aliceBalancesBefore = await getBalances(res, alice);
 
-            const aliceBalancesBefore = await getBalances(res, alice);
+                await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
+                await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
 
-            await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
-            await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
+                const aliceBalancesAfter = await getBalances(res, alice);
 
-            const aliceBalancesAfter = await getBalances(res, alice);
+                expect(aliceBalancesBefore.shares).to.eq(0n);
+                expect(aliceBalancesAfter.shares).to.eq(amountToStake);
 
-            expect(aliceBalancesBefore.shares).to.eq(0n);
-            expect(aliceBalancesAfter.shares).to.eq(amountToStake);
+                expect(aliceBalancesBefore.staked).to.eq(amountToStake);
+                expect(aliceBalancesAfter.staked).to.eq(0n);
+            });
 
-            expect(aliceBalancesBefore.staked).to.eq(amountToStake);
-            expect(aliceBalancesAfter.staked).to.eq(0n);
+            it("should unstake", async() => {
+                const res = await loadFixture(deployStakingManager);
+                const {
+                    alice,
+                    defaultStakeDuration,
+                    SimpleERC20,
+                    TradedTokenImitation,
+                    StakeManager
+                } = res;
+                
+                const amountToStake = ethers.parseEther('1');
+                const availableToClaim = ethers.parseEther('1');
+                const userStakeDuration = defaultStakeDuration;
+                await SimpleERC20.mint(alice, amountToStake);
+
+                //await TradedTokenImitation.setAvailableToClaim(0n);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
+
+                await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
+                await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
+
+                await time.increase(userStakeDuration);
+
+                //await TradedTokenImitation.setAvailableToClaim(0n);
+                //await TradedTokenImitation.setAvailableToClaim(amountToStake);
+                const aliceBalancesBefore = await getBalances(res, alice);
+                
+                await StakeManager.connect(alice).unstake();
+
+                const aliceBalancesAfter = await getBalances(res, alice);
+
+                expect(aliceBalancesBefore.shares).to.eq(amountToStake);
+                expect(aliceBalancesAfter.shares).to.eq(0n);
+
+                expect(aliceBalancesBefore.traded).to.eq(0n);
+                expect(aliceBalancesAfter.traded).to.eq(availableToClaim);
+
+                expect(aliceBalancesBefore.staked).to.eq(0n);
+                expect(aliceBalancesAfter.staked).to.eq(amountToStake);
+                
+            });
+
+            it("should claim(only rewards)", async() => {
+                const res = await loadFixture(deployStakingManager);
+                const {
+                    alice,
+                    defaultStakeDuration,
+                    SimpleERC20,
+                    TradedTokenImitation,
+                    StakeManager
+                } = res;
+                
+                const amountToStake = ethers.parseEther('1');
+                const availableToClaim = ethers.parseEther('1');
+                const userStakeDuration = defaultStakeDuration;
+                await SimpleERC20.mint(alice, amountToStake);
+
+                //await TradedTokenImitation.setAvailableToClaim(0n);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
+
+                await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
+                await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
+
+                await time.increase(userStakeDuration);
+
+                //await TradedTokenImitation.setAvailableToClaim(0n);
+                //await TradedTokenImitation.setAvailableToClaim(amountToStake);
+                const aliceBalancesBefore = await getBalances(res, alice);
+                
+                await StakeManager.connect(alice).claim();
+
+                const aliceBalancesAfter = await getBalances(res, alice);
+
+                expect(aliceBalancesBefore.shares).to.eq(amountToStake);
+                expect(aliceBalancesAfter.shares).to.eq(amountToStake);
+
+                expect(aliceBalancesBefore.traded).to.eq(0n);
+                expect(aliceBalancesAfter.traded).to.eq(availableToClaim);
+
+                expect(aliceBalancesBefore.staked).to.eq(0n);
+                expect(aliceBalancesAfter.staked).to.eq(0n);
+            });
         });
 
-        it("should unstake", async() => {
-            const res = await loadFixture(deployStakingManager);
-            const {
-                alice,
-                SimpleERC20,
-                TradedToken,
-                StakeManager
-            } = res;
+        describe("with bonusRate = x3", function () {
+            const getShares = function(data) {
+                //return FRACTION + (subAndGetNoneZero(duration, defaultStakeDuration) / defaultStakeDuration * defaultStakeDuration) * bonusSharesRate;
+                const _multiplier = data.FRACTION + (((data.duration - data.defaultStakeDuration) / data.defaultStakeDuration) * data.defaultStakeDuration) * data.bonusSharesRate;    
+                return data.amount * _multiplier / data.FRACTION;
+            }
             
-            const amountToStake = ethers.parseEther('1');
-            const availableToClaim = ethers.parseEther('1');
-            const userStakeDuration = 86400;
-            await SimpleERC20.mint(alice, amountToStake);
+            async function deployStakingManagerWithBonus(bonusMultiplier) {
+                const res = await loadFixture(deployStakingManager);
 
-            //await TradedToken.setAvailableToClaim(0n);
-            await TradedToken.setAvailableToClaim(availableToClaim);
+                const {
+                    alice,
+                    bonusSharesRate,
+                    StakeManager,
+                } = res;
+                const bonusSharesRateIncreased = bonusSharesRate * bonusMultiplier;
+                await StakeManager.connect(alice).setBonusSharesRate(bonusSharesRateIncreased);
 
-            await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
-            await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
+                //return res;
+                return {...res, ...{
+                    bonusSharesRateIncreased
+                }};
+            }
 
-            await time.increase(userStakeDuration);
+            it("should unstake", async() => {
+                const bonusMultiplier = 3n;
+                const res = await deployStakingManagerWithBonus(bonusMultiplier);
+                
+                const {
+                    alice,
+                    defaultStakeDuration,
+                    bonusSharesRateIncreased,
+                    FRACTION,
+                    SimpleERC20,
+                    TradedTokenImitation,
+                    StakeManager
+                } = res;
 
-            //await TradedToken.setAvailableToClaim(0n);
-            //await TradedToken.setAvailableToClaim(amountToStake);
-            const aliceBalancesBefore = await getBalances(res, alice);
-            
-            await StakeManager.connect(alice).unstake();
+                const amountToStake = ethers.parseEther('1');
+                const availableToClaim = ethers.parseEther('1');
+                const userStakeDuration = defaultStakeDuration*2n;
+                await SimpleERC20.mint(alice, amountToStake);
 
-            const aliceBalancesAfter = await getBalances(res, alice);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
 
-            expect(aliceBalancesBefore.shares).to.eq(amountToStake);
-            expect(aliceBalancesAfter.shares).to.eq(0n);
+                await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
+                await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
 
-            expect(aliceBalancesBefore.traded).to.eq(0n);
-            expect(aliceBalancesAfter.traded).to.eq(availableToClaim);
+                await time.increase(userStakeDuration);
 
-            expect(aliceBalancesBefore.staked).to.eq(0n);
-            expect(aliceBalancesAfter.staked).to.eq(amountToStake);
-            
-        });
+                const aliceBalancesBefore = await getBalances(res, alice);
 
-        it("should claim(only rewards)", async() => {
-            const res = await loadFixture(deployStakingManager);
-            const {
-                alice,
-                SimpleERC20,
-                TradedToken,
-                StakeManager
-            } = res;
-            
-            const amountToStake = ethers.parseEther('1');
-            const availableToClaim = ethers.parseEther('1');
-            const userStakeDuration = 86400;
-            await SimpleERC20.mint(alice, amountToStake);
+                const expectedShares = await StakeManager.connect(alice).calculateRewardsMock(alice.address, availableToClaim);
+                await StakeManager.connect(alice).unstake();
 
-            //await TradedToken.setAvailableToClaim(0n);
-            await TradedToken.setAvailableToClaim(availableToClaim);
+                const aliceBalancesAfter = await getBalances(res, alice);
+                
+                const data = {
+                    FRACTION: FRACTION,
+                    duration: userStakeDuration,
+                    defaultStakeDuration: defaultStakeDuration,
+                    bonusSharesRate: bonusSharesRateIncreased,
+                    amount: amountToStake
+                };
+                const expectedTokens = getShares(data);
 
-            await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
-            await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
+                expect(aliceBalancesBefore.shares).to.eq(expectedTokens);
+                expect(aliceBalancesAfter.shares).to.eq(0n);
 
-            await time.increase(userStakeDuration);
+                expect(aliceBalancesBefore.traded).to.eq(0n);
+                expect(aliceBalancesAfter.traded).to.eq(expectedShares);
 
-            //await TradedToken.setAvailableToClaim(0n);
-            //await TradedToken.setAvailableToClaim(amountToStake);
-            const aliceBalancesBefore = await getBalances(res, alice);
-            
-            await StakeManager.connect(alice).claim();
+                expect(aliceBalancesBefore.staked).to.eq(0n);
+                expect(aliceBalancesAfter.staked).to.eq(amountToStake);
+            });
 
-            const aliceBalancesAfter = await getBalances(res, alice);
+            it("should claim(only rewards)", async() => {
+                const bonusMultiplier = 3n;
+                const res = await deployStakingManagerWithBonus(bonusMultiplier);
+                const {
+                    alice,
+                    defaultStakeDuration,
+                    bonusSharesRateIncreased,
+                    FRACTION,
+                    SimpleERC20,
+                    TradedTokenImitation,
+                    StakeManager
+                } = res;
 
-            expect(aliceBalancesBefore.shares).to.eq(amountToStake);
-            expect(aliceBalancesAfter.shares).to.eq(amountToStake);
+                const amountToStake = ethers.parseEther('1');
+                const availableToClaim = ethers.parseEther('1');
+                const userStakeDuration = defaultStakeDuration*2n;
+                await SimpleERC20.mint(alice, amountToStake);
 
-            expect(aliceBalancesBefore.traded).to.eq(0n);
-            expect(aliceBalancesAfter.traded).to.eq(availableToClaim);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
 
-            expect(aliceBalancesBefore.staked).to.eq(0n);
-            expect(aliceBalancesAfter.staked).to.eq(0n);
-        });
+                await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
+                await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
 
-        xit("check bonusRate", async() => {
-            
+                await time.increase(userStakeDuration);
+
+                const aliceBalancesBefore = await getBalances(res, alice);
+                
+                const expectedShares = await StakeManager.connect(alice).calculateRewardsMock(alice.address, availableToClaim);
+                await StakeManager.connect(alice).claim();
+
+                const aliceBalancesAfter = await getBalances(res, alice);
+
+                const data = {
+                    FRACTION: FRACTION,
+                    duration: userStakeDuration,
+                    defaultStakeDuration: defaultStakeDuration,
+                    bonusSharesRate: bonusSharesRateIncreased,
+                    amount: amountToStake
+                };
+                const expectedTokens = getShares(data);
+
+                expect(aliceBalancesBefore.shares).to.eq(expectedTokens);
+                expect(aliceBalancesAfter.shares).to.eq(expectedTokens);
+
+                expect(aliceBalancesBefore.traded).to.eq(0n);
+                expect(aliceBalancesAfter.traded).to.eq(expectedShares);
+
+                expect(aliceBalancesBefore.staked).to.eq(0n);
+                expect(aliceBalancesAfter.staked).to.eq(0n);
+            });
         });
 
         describe("with several users", function () {
@@ -183,7 +272,7 @@ describe("StakingManager", function () {
                     alice,
                     bob,
                     SimpleERC20,
-                    TradedToken,
+                    TradedTokenImitation,
                     StakeManager
                 } = res;
 
@@ -193,7 +282,7 @@ describe("StakingManager", function () {
                 await SimpleERC20.mint(alice, amountToStake);
                 await SimpleERC20.mint(bob, amountToStake);
 
-                await TradedToken.setAvailableToClaim(availableToClaim);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
 
                 const aliceBalancesBefore = await getBalances(res, alice);
                 const bobBalancesBefore = await getBalances(res, bob);
@@ -226,7 +315,7 @@ describe("StakingManager", function () {
                     alice,
                     bob,
                     SimpleERC20,
-                    TradedToken,
+                    TradedTokenImitation,
                     StakeManager
                 } = res;
 
@@ -236,7 +325,7 @@ describe("StakingManager", function () {
                 await SimpleERC20.mint(alice, amountToStake);
                 await SimpleERC20.mint(bob, amountToStake);
 
-                await TradedToken.setAvailableToClaim(availableToClaim);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
 
                 await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
                 await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
@@ -290,7 +379,7 @@ describe("StakingManager", function () {
                     alice,
                     bob,
                     SimpleERC20,
-                    TradedToken,
+                    TradedTokenImitation,
                     StakeManager
                 } = res;
 
@@ -300,7 +389,7 @@ describe("StakingManager", function () {
                 await SimpleERC20.mint(alice, amountToStake);
                 await SimpleERC20.mint(bob, amountToStake);
 
-                await TradedToken.setAvailableToClaim(availableToClaim);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
 
                 await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
                 await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
@@ -358,7 +447,7 @@ describe("StakingManager", function () {
                 const {
                     alice,
                     SimpleERC20,
-                    TradedToken,
+                    TradedTokenImitation,
                     StakeManager
                 } = res;
 
@@ -368,7 +457,7 @@ describe("StakingManager", function () {
                 const userStakeDuration = 86400;
                 await SimpleERC20.mint(alice, amountToStakeTotal);
 
-                await TradedToken.setAvailableToClaim(availableToClaim);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
 
                 await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStakeTotal);
 
@@ -419,7 +508,7 @@ describe("StakingManager", function () {
                     alice,
                     bob,
                     SimpleERC20,
-                    TradedToken,
+                    TradedTokenImitation,
                     StakeManager
                 } = res;
 
@@ -429,7 +518,7 @@ describe("StakingManager", function () {
                 await SimpleERC20.mint(alice, amountToStake);
                 await SimpleERC20.mint(bob, amountToStake);
 
-                await TradedToken.setAvailableToClaim(availableToClaim);
+                await TradedTokenImitation.setAvailableToClaim(availableToClaim);
 
                 await SimpleERC20.connect(alice).approve(StakeManager.target, amountToStake);
                 await StakeManager.connect(alice).stake(amountToStake, userStakeDuration);
@@ -442,7 +531,7 @@ describe("StakingManager", function () {
                 const aliceBalancesBefore = await getBalances(res, alice);
                 const bobBalancesBefore = await getBalances(res, bob);
 
-                await TradedToken.setAvailableToClaim(0n);
+                await TradedTokenImitation.setAvailableToClaim(0n);
                 await StakeManager.connect(alice).unstake();
                 const aliceBalancesAfter = await getBalances(res, alice);
                                 
@@ -487,13 +576,5 @@ describe("StakingManager", function () {
             });
         });
     });
-    // xit("", async() => {});
-    // xit("", async() => {});
-    // xit("", async() => {});
-    // xit("", async() => {});
-    // xit("", async() => {});
-    // xit("", async() => {});
-    // xit("", async() => {});
-    // xit("", async() => {});
-    // xit("", async() => {});
+    
 });
