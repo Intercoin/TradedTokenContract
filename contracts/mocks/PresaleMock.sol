@@ -13,9 +13,16 @@ contract PresaleMock is IERC777Recipient, IPresale {
 
     uint64 endTimeTs;
 
+    address private _owner;
     constructor() {
+        _owner = msg.sender;
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
+
+    function owner() external view returns(address) {
+        return _owner;
+    }
+
     function setEndTime(uint64 i) public {
         endTimeTs = i;
     }

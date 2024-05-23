@@ -172,6 +172,9 @@ contract TradedTokenMock is TradedToken {
         return blockTimestampLast;
     }
     
+    function setReceivedTransfersCount(address addr, uint64 amount) public {
+        receivedTransfersCount[addr] = amount;
+    }
 
     
 }

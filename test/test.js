@@ -1181,7 +1181,7 @@ describe("TradedTokenInstance", function () {
                         
                     }); 
 
-                    it("should locked up tokens", async() => {
+                    it("shouldnt locked up tokens if not exceed max_transfer_count", async() => {
                         
                         const {
                             owner,
@@ -1233,6 +1233,58 @@ describe("TradedTokenInstance", function () {
                         //await expect(mainInstance.connect(bob).transfer(charlie.address, ethers.parseEther('1'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
                         await expect(mainInstance.connect(bob).transfer(charlie.address, ethers.parseEther('1'))).not.to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
                         
+                    }); 
+
+                    it("should locked up tokens", async() => {
+                        const {
+                            owner,
+                            alice,
+                            charlie,
+                            david,
+                            eve,
+                            buyPrice,
+                            lockupIntervalAmount,
+                            claimFrequency,
+                            buySellToken,
+                            uniswapRouterInstance,
+                            erc20ReservedToken,
+                            mainInstance
+                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
+
+                        await mainInstance.connect(owner).increaseHoldersThreshold(ethers.parseEther('1'))
+
+                        const smthFromOwner= ethers.parseEther('1');
+
+                        // send a little to Sales contract. Alice will be owner
+                        const SaleMockF = await ethers.getContractFactory("SaleMock");
+                        const SaleMock = await SaleMockF.connect(alice).deploy();
+
+                        // pass time to clear bucket
+                        await time.increase(claimFrequency);
+                        await addNewHolderAndSwap({
+                            owner: owner,
+                            account: charlie,
+                            buyPrice: buyPrice,
+                            lockupIntervalAmount: lockupIntervalAmount,
+                            mainInstance: mainInstance,
+                            buySellToken: buySellToken,
+                            uniswapRouterInstance: uniswapRouterInstance,
+                            erc20ReservedToken: erc20ReservedToken
+                        });
+
+                        await mainInstance.connect(owner).claim(smthFromOwner, SaleMock.target);
+                        await mainInstance.connect(alice).startSale(SaleMock.target, 10n*86400n);
+
+                        
+                        // transfer from SaleContract to David. now David have locked up tokens
+                        await SaleMock.connect(alice).transferTokens(mainInstance.target, david.address, smthFromOwner);
+
+                        // exceed maximum transferCount. now transfer revert it tokens locked up
+                        await mainInstance.connect(owner).setReceivedTransfersCount(david.address, 10n);
+                        await expect(
+                            mainInstance.connect(david).transfer(eve.address,ethers.parseEther('0.8'))
+                        ).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
+
                     }); 
 
                     it("should locked up tokens when receivedTransfersCount > 4", async() => {

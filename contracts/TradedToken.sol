@@ -1165,7 +1165,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         holdersCheckBeforeTransfer(from, to, amount);
         if (sales[from] != 0) {
-            tokensLocked[to]._minimumsAdd(amount, sales[from], LOCKUP_INTERVAL, true);
+            if (Ownable(from).owner() != to) {
+                tokensLocked[to]._minimumsAdd(amount, sales[from], LOCKUP_INTERVAL, true);
+            }
         } 
         if (
             // if minted
@@ -1185,6 +1187,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             // if ((receivedTransfersCount[from] >= MAX_TRANSFER_COUNT) && isLocked) {
             //     revert InsufficientAmount();
             // }
+
             if (isLocked) {
                 //tokensLocked[from].minimumsTransfer(tokensLocked[to], false, amount);
                 if ((receivedTransfersCount[from] < MAX_TRANSFER_COUNT) && (balance >= amount)) {
