@@ -1,5 +1,6 @@
 require('dotenv').config();
 require("@nomicfoundation/hardhat-toolbox");
+require("hardhat-contract-sizer");
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
 const goerliURL = `https://eth-goerli.alchemyapi.io/v2/${process.env.ALCHEMY_GOERLI}`
