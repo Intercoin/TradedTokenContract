@@ -12,7 +12,8 @@ const {
     deploy5,
     deployInPresale,
     deployAndTestUniswapSettings,
-    deployAndTestUniswapSettingsWithFirstSwap
+    deployAndTestUniswapSettingsWithFirstSwap,
+    deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted
 } = require("./fixtures/deploy.js");
 
 const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
@@ -980,7 +981,7 @@ describe("TradedTokenInstance", function () {
                             buySellToken,
                             erc20ReservedToken,
                             mainInstance
-                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
 
                         //----
                         const ONE_ETH = ethers.parseEther('1');
@@ -1059,7 +1060,7 @@ describe("TradedTokenInstance", function () {
                             uniswapRouterInstance,
                             erc20ReservedToken,
                             mainInstance
-                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
 
                         const InitialSendFunds = ethers.parseEther('1');
                         const bobTokensBefore = await mainInstance.balanceOf(bob.address);
@@ -1142,7 +1143,7 @@ describe("TradedTokenInstance", function () {
                             uniswapRouterInstance,
                             erc20ReservedToken,
                             mainInstance
-                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
 
                         const ONE_ETH = ethers.parseEther('1');
 
@@ -1248,7 +1249,7 @@ describe("TradedTokenInstance", function () {
                             uniswapRouterInstance,
                             erc20ReservedToken,
                             mainInstance
-                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
 
                         await mainInstance.connect(owner).increaseHoldersThreshold(ethers.parseEther('1'))
 
@@ -1407,7 +1408,7 @@ describe("TradedTokenInstance", function () {
                     lockupIntervalAmount,
                     erc20ReservedToken,
                     mainInstance
-                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
 
                 const uniswapV2Pair = await mainInstance.uniswapV2Pair();
 
@@ -1795,7 +1796,7 @@ describe("TradedTokenInstance", function () {
                         uniswapRouterInstance,
                         erc20ReservedToken,
                         mainInstance
-                    } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+                    } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
 
                     // pass time to clear bucket
                     await time.increase(claimFrequency);
@@ -1901,6 +1902,207 @@ describe("TradedTokenInstance", function () {
 
         });
 
+        describe("whitelist", function () {
+            it("new governor should setup only owner or current governor", async() => {
+                const {
+                    owner,
+                    alice,
+                    bob,
+                    charlie,
+                    mainInstance
+                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                await expect( 
+                    mainInstance.connect(alice).setGovernor(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'OwnerOrGovernorOnly');
+
+                await mainInstance.connect(owner).setGovernor(alice.address);
+
+                await expect( 
+                    mainInstance.connect(charlie).setGovernor(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'OwnerOrGovernorOnly');
+
+                await mainInstance.connect(alice).setGovernor(bob.address);
+
+                await expect( 
+                    mainInstance.connect(alice).setGovernor(alice.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'OwnerOrGovernorOnly');
+
+            });
+
+            it("only governor can manage communities or exchanges list", async() => {
+
+                const {
+                    owner,
+                    alice,
+                    bob,
+                    charlie,
+                    mainInstance
+                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                await mainInstance.connect(owner).setGovernor(alice.address);
+
+                //not owner
+                await expect( 
+                    mainInstance.connect(owner).communitiesAdd(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(owner).communitiesRemove(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(owner).exchangesAdd(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(owner).exchangesRemove(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+
+                // not any users
+                await expect( 
+                    mainInstance.connect(charlie).communitiesAdd(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(charlie).communitiesRemove(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(charlie).exchangesAdd(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(charlie).exchangesRemove(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+
+                // only current governor
+                await mainInstance.connect(alice).communitiesAdd(bob.address);
+                await mainInstance.connect(alice).communitiesRemove(bob.address);
+                await mainInstance.connect(alice).exchangesAdd(bob.address);
+                await mainInstance.connect(alice).exchangesRemove(bob.address);
+                
+            });
+            it("shouldnt sell tokens if seller outside whitelist", async() => {
+                  
+                const {
+                    owner,
+                    bob,
+                    charlie,
+                    buyPrice,
+                    lockupIntervalAmount,
+                    claimFrequency,
+                    buySellToken,
+                    uniswapRouterInstance,
+                    erc20ReservedToken,
+                    mainInstance
+                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                // pass time to clear bucket
+                await time.increase(claimFrequency);
+                await addNewHolderAndSwap({
+                    owner: owner,
+                    account: charlie,
+                    buyPrice: buyPrice,
+                    lockupIntervalAmount: lockupIntervalAmount,
+                    mainInstance: mainInstance,
+                    buySellToken: buySellToken,
+                    uniswapRouterInstance: uniswapRouterInstance,
+                    erc20ReservedToken: erc20ReservedToken
+                });
+
+                let ts, timeUntil;
+                
+                await erc20ReservedToken.connect(owner).mint(bob.address, ethers.parseEther('0.5'));
+                await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+                await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                    ethers.parseEther('0.5'), //uint amountIn,
+                    0, //uint amountOutMin,
+                    [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+                    bob.address, //address to,
+                    timeUntil //uint deadline   
+
+                );
+
+                let balanceTradedTokens = await mainInstance.balanceOf(bob.address);
+
+                await mainInstance.connect(bob).approve(uniswapRouterInstance.target, balanceTradedTokens);
+
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+                await expect(
+                    uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                        balanceTradedTokens, //uint amountIn,
+                        0, //uint amountOutMin,
+                        [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+                    )
+                ).to.be.revertedWith('TransferHelper: TRANSFER_FROM_FAILED');
+
+                //after adding bob into the communities list tx will pass
+                await mainInstance.connect(owner).setGovernor(owner.address);
+                await mainInstance.connect(owner).communitiesAdd(bob.address);
+
+                await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                    balanceTradedTokens, //uint amountIn,
+                    0, //uint amountOutMin,
+                    [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
+                    bob.address, //address to,
+                    timeUntil //uint deadline   
+                )
+
+            }); 
+            it("should buy tokens if seller outside whitelist", async() => {
+                  
+                const {
+                    owner,
+                    bob,
+                    charlie,
+                    buyPrice,
+                    storedBuyTax,
+                    lockupIntervalAmount,
+                    claimFrequency,
+                    buySellToken,
+                    uniswapRouterInstance,
+                    erc20ReservedToken,
+                    mainInstance
+                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                // pass time to clear bucket
+                await time.increase(claimFrequency);
+                await addNewHolderAndSwap({
+                    owner: owner,
+                    account: charlie,
+                    buyPrice: buyPrice,
+                    lockupIntervalAmount: lockupIntervalAmount,
+                    mainInstance: mainInstance,
+                    buySellToken: buySellToken,
+                    uniswapRouterInstance: uniswapRouterInstance,
+                    erc20ReservedToken: erc20ReservedToken
+                });
+
+                let ts, timeUntil;
+                
+                // make swapExactTokensForTokens  without tax to obtain tradedToken
+                // make snapshot
+                // make swapExactTokensForTokens  without tax
+                // got amount that user obtain
+                // restore snapshot
+                // setup buy tax and the same swapExactTokensForTokens as previous
+                // obtained amount should be less by buytax
+                //---------------------------
+                await erc20ReservedToken.connect(owner).mint(bob.address, ethers.parseEther('0.5'));
+                await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+
+                await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                    ethers.parseEther('0.5'), //uint amountIn,
+                    0, //uint amountOutMin,
+                    [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+                    bob.address, //address to,
+                    timeUntil //uint deadline   
+
+                );
+            }); 
+        }); 
     });
     
 });

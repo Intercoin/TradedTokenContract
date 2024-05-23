@@ -330,6 +330,7 @@ async function deployAndTestUniswapSettingsWithFirstSwap() {
     await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, reserveTokenToSwap);
     var ts = await time.latest();
     var timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+
     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
         reserveTokenToSwap, //uint amountIn,
         0, //uint amountOutMin,
@@ -359,6 +360,29 @@ async function deployAndTestUniswapSettingsWithFirstSwap() {
 
     return {...res, ...{
         internalLiquidityAddress
+    }};
+}
+
+async function deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted() {
+    const res = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+    const {
+        owner,
+        alice,
+        bob,
+        charlie,
+        eve,
+        david,
+        mainInstance
+    } =  res;
+
+    await mainInstance.connect(owner).setGovernor(owner.address);
+    await mainInstance.connect(owner).communitiesAdd(alice.address);
+    await mainInstance.connect(owner).communitiesAdd(bob.address);
+    await mainInstance.connect(owner).communitiesAdd(charlie.address);
+    await mainInstance.connect(owner).communitiesAdd(eve.address);
+    await mainInstance.connect(owner).communitiesAdd(david.address);
+
+    return {...res, ...{
     }};
 }
 
@@ -401,5 +425,6 @@ module.exports = {
   deployStakingManager,
   deployInPresale,
   deployAndTestUniswapSettings,
-  deployAndTestUniswapSettingsWithFirstSwap
+  deployAndTestUniswapSettingsWithFirstSwap,
+  deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted
 }

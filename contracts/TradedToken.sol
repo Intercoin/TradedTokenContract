@@ -187,6 +187,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => uint64) public sales;
     mapping(address => uint64) public receivedTransfersCount;
 
+    mapping(address => bool) public communities;
+    mapping(address => bool) public exchanges;
+    address internal governor;
+
+
     Emission internal emission;
     uint32 internal blockTimestampLast;
     uint256 internal priceReservedCumulativeLast;
@@ -223,8 +228,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error TaxesTooHigh();
     error PriceDropTooBig();
     error OwnerAndManagersOnly();
+    error OwnerOrGovernorOnly();
+    error GovernorOnly();
     error ManagersOnly();
     error OwnersOnly();
+    error NotInTheWhiteList();
     error CantCreatePair(address tradedToken, address reserveToken);
     error EmptyReserves();
     error ClaimValidationError();
@@ -348,7 +356,18 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapRouter);
 
-        
+        fillExchangesAndCommunities();
+    }
+
+    function fillExchangesAndCommunities()  internal {
+        communities[address(0)] = true; // minting
+        communities[address(this)] = true;
+        communities[owner()] = true;
+        communities[address(internalLiquidity)] = true;
+
+        //exchanges
+        exchanges[address(uniswapV2Pair)] = true;
+        //exchanges[address(uniswapRouterFactory)] = true;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -392,6 +411,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     {
         if (manager == address(0)) {revert EmptyManagerAddress();}
         managers[manager] = _currentBlockTimestamp();
+        _manageCommunities(manager, true);
 
         emit AddedManager(manager, _msgSender());
     }
@@ -410,6 +430,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         for (uint256 i = 0; i < managers_.length; i++) {
             if (managers_[i] == address(0)) {revert EmptyManagerAddress();}
             delete managers[managers_[i]];
+            _manageCommunities(managers_[i], false);
+
             emit RemovedManager(managers_[i], _msgSender());
         }
     }
@@ -748,6 +770,30 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         _update();
     }
 
+    function communitiesAdd(address addr) external {
+        onlyGovernor();
+        _manageCommunities(addr, true);
+    }
+
+    function communitiesRemove(address addr) external {
+        onlyGovernor();
+        _manageCommunities(addr, false);
+    }
+
+    function exchangesAdd(address addr) external {
+        onlyGovernor();
+        _manageExchanges(addr, true);
+    }
+    function exchangesRemove(address addr) external {
+        onlyGovernor();
+        _manageExchanges(addr, false);
+    }
+
+    function setGovernor(address addr) external {
+        onlyOwnerAndGovernor();
+        governor = addr;
+    }
+
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -901,6 +947,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (block.timestamp < endTime - 3600 * 2) {
             _mint(contract_, amount, "", "");
             presales[contract_] = sales[contract_] = presaleLockupDays;
+            _manageExchanges(contract_, true);
             emit Presale(contract_, amount);
         }
     }
@@ -925,6 +972,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 			revert AlreadyCalled();
 		}
 		sales[contract_] = saleLockupDays;
+        _manageExchanges(contract_, true);
 		emit Sale(contract_, saleLockupDays);
 	}
 
@@ -1063,6 +1111,18 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert ManagersOnly();
         }
     }
+    // only owner or governor
+    function onlyOwnerAndGovernor() internal view {
+        if (owner() != _msgSender() && governor != _msgSender()) {
+            revert OwnerOrGovernorOnly();
+        }
+    }
+    // only governor
+    function onlyGovernor() internal view {
+        if (governor != _msgSender()) {
+            revert GovernorOnly();
+        }
+    }
     // can only add liquidity once
     function addLiquidityOnlyOnce() internal {
         if (addedInitialLiquidityRun) {
@@ -1089,6 +1149,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address to,
         uint256 amount
     ) internal virtual override {
+        //communities can receive from anyone, and send to anyone (subject to optional maxHolders threshold)
+        //exchanges can only send, not receive unless it is from a community
+        //3 regular accounts can send to communities (this was already described in 1)
+        if (
+            communities[from] == true || 
+            communities[to] == true || 
+            exchanges[from] == true
+        ) {
+
+        }else {
+            revert NotInTheWhiteList();
+        }
+
 
         holdersCheckBeforeTransfer(from, to, amount);
         if (sales[from] != 0) {
@@ -1238,29 +1311,34 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     function _handleTransferToUniswap(address holder, address recipient, uint256 amount) private returns(uint256) {
-        if (recipient.isContract()) {
-            try IUniswapV2Pair(recipient).factory() returns (address f) {
-    
-                if (f != uniswapRouterFactory) {
-                    return amount;
-                }
-                if(!addedInitialLiquidityRun) {
-                    // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
-                    revert InitialLiquidityRequired();
-                }
-                if(holder != address(internalLiquidity)) {
-                    // prevent panic when user will sell to uniswap
-                    amount = _preventPanic(holder, recipient, amount);
-                    // burn taxes from remainder
-                    amount = _burnTaxes(holder, amount, sellTax());
-                }
-            } catch Error(string memory _err) {
-                // do nothing
-            } catch (bytes memory _err) {
-                // do nothing
+        if (isUniswapV2Pair(recipient)) {
+            if(!addedInitialLiquidityRun) {
+                // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
+                revert InitialLiquidityRequired();
+            }
+            if(holder != address(internalLiquidity)) {
+                // prevent panic when user will sell to uniswap
+                amount = _preventPanic(holder, recipient, amount);
+                // burn taxes from remainder
+                amount = _burnTaxes(holder, amount, sellTax());
             }
         }
         return amount;
+    }
+
+    function isUniswapV2Pair(address addr) private returns(bool) {
+        if (addr.isContract()) {
+            try IUniswapV2Pair(addr).factory() returns (address f) {
+                if (f == uniswapRouterFactory) {
+                    return true;
+                }
+            } catch Error(string memory/* _err*/) {
+                // do nothing
+            } catch (bytes memory/* _err*/) {
+                // do nothing
+            }
+        }
+        return false;
     }
 
     function _doSwapOnUniswap(
@@ -1287,6 +1365,15 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         );
 
         amountOut = outputAmounts[1];
+    }
+
+    
+    function _manageCommunities(address addr, bool state) internal {
+        communities[addr] = state;
+    }
+
+    function _manageExchanges(address addr, bool state) internal {
+        exchanges[addr] = state;
     }
 
     function _tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
