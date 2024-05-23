@@ -10,3 +10,4 @@ TODO.txt
 /coverage
 coverage.json
 /montecarlo/data
+compiler_config.json
