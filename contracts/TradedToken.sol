@@ -42,17 +42,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     ILiquidityLib public immutable liquidityLib;
 
-    struct PriceNumDen {
-        uint256 numerator;
-        uint256 denominator;
-    }
-
-    
-    struct ClaimSettings {
-        PriceNumDen minClaimPrice;
-        PriceNumDen minClaimPriceGrow;
-    }
-
     TaxesLib.TaxesInfo public taxesInfo;
     
     struct Bucket {
@@ -105,9 +94,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     address public immutable reserveToken;
 
 
-    PriceNumDen minClaimPrice;
-    uint64 internal lastMinClaimPriceUpdatedTime;
-    PriceNumDen minClaimPriceGrow;
+    
+    // uint64 internal lastMinClaimPriceUpdatedTime;
+    // PriceNumDen minClaimPrice;
+    // PriceNumDen minClaimPriceGrow;
+    IStructs.ClaimSettings internal claimSettings;
+
 
     /**
      * 
@@ -125,7 +117,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     bool internal buyPaused;
     bool private addedInitialLiquidityRun;
 
-    uint64 internal constant MIN_CLAIM_PRICE_UPDATED_TIME = 1 days;
+    
     
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant LOCKUP_INTERVAL = 1 days; //24 * 60 * 60; // day in seconds
@@ -170,7 +162,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     address internal governor;
 
 
-    IStructs.Emission internal emission;
+    //IStructs.Emission internal emission;
     // uint32 internal blockTimestampLast;
     // uint256 internal priceReservedCumulativeLast;
     // uint256 internal twapPriceLast;
@@ -230,9 +222,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      *      reserveToken_ reserve token address
      *      priceDrop_ price drop while add liquidity
      *      lockupDays_ interval amount in days (see minimum lib)
-     * @param claimSettings struct of claim settings
-     * @param claimSettings.minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
-     * @param claimSettings.minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
+     * @param claimSettings_ struct of claim settings
+     *      minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
+     *      minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
      * @param panicSellRateLimit_ (fraction, duration) if fraction != 0, can sell at most this fraction of balance per interval with this duration
      * @param taxStruct imploded variables to avoid stuck too deep error
      *      buyTaxMax - buyTaxMax
@@ -245,7 +237,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     constructor(
         CommonSettings memory commonSettings,
-        ClaimSettings memory claimSettings,
+        IStructs.ClaimSettings memory claimSettings_,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
         TaxStruct memory taxStruct,
@@ -264,24 +256,25 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         
         
         // setup swap addresses
-        //liquidityLib = ILiquidityLib(liquidityLib_);
+        liquidityLib = ILiquidityLib(liquidityLib_);
         (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
         
         lockupDays = commonSettings.lockupDays;
         
-        minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
-        minClaimPriceGrow.denominator = claimSettings.minClaimPriceGrow.denominator;
-        minClaimPrice.numerator = claimSettings.minClaimPrice.numerator;
-        minClaimPrice.denominator = claimSettings.minClaimPrice.denominator;
+        claimSettings = claimSettings_;
+        // minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
+        // minClaimPriceGrow.denominator = claimSettings.minClaimPriceGrow.denominator;
+        // minClaimPrice.numerator = claimSettings.minClaimPrice.numerator;
+        // minClaimPrice.denominator = claimSettings.minClaimPrice.denominator;
 
         panicSellRateLimit.duration = panicSellRateLimit_.duration;
         panicSellRateLimit.fraction = panicSellRateLimit_.fraction;
 
-        lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
+        
 
         taxesInfo.init(taxesInfoInit);
 
-        emission = emission_;
+        //emission = emission_;
 
 
         //validations
@@ -330,7 +323,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         token01 = (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken);
 
-        internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapV2Pair, token01, commonSettings.priceDrop, liquidityLib_, emission_);
+        internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapV2Pair, token01, commonSettings.priceDrop, liquidityLib_, emission_, claimSettings_);
 
         fillExchangesAndCommunities();
     }
@@ -534,29 +527,32 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      *  This price can't increase faster than minClaimPriceGrow per day.
      * 
      */
-    function restrictClaiming(PriceNumDen memory newMinimumPrice) external {
+    function restrictClaiming(IStructs.PriceNumDen memory newMinimumPrice) external {
         onlyManagers();
-        if (newMinimumPrice.denominator == 0) {
-            revert ZeroDenominator();
-        }
 
-        FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
-        FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
-        FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
-        if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
-            revert ShouldBeMoreThanMinClaimPrice();
-        }
-        if (
-            newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
-            lastMinClaimPriceUpdatedTime <= block.timestamp + MIN_CLAIM_PRICE_UPDATED_TIME
-        ) {
-            revert MinClaimPriceGrowTooFast();
-        }
+        internalLiquidity.restrictClaiming(newMinimumPrice);
 
-        lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
+        // if (newMinimumPrice.denominator == 0) {
+        //     revert ZeroDenominator();
+        // }
+
+        // FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
+        // FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
+        // FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
+        // if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
+        //     revert ShouldBeMoreThanMinClaimPrice();
+        // }
+        // if (
+        //     newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
+        //     lastMinClaimPriceUpdatedTime <= block.timestamp + MIN_CLAIM_PRICE_UPDATED_TIME
+        // ) {
+        //     revert MinClaimPriceGrowTooFast();
+        // }
+
+        // lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
             
-        minClaimPrice.numerator = newMinimumPrice.numerator;
-        minClaimPrice.denominator = newMinimumPrice.denominator;
+        // minClaimPrice.numerator = newMinimumPrice.numerator;
+        // minClaimPrice.denominator = newMinimumPrice.denominator;
     }
 
     /**
@@ -1118,9 +1114,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         return false;
     }
 
-    
-
-    
     function _manageCommunities(address addr, bool state) internal {
         communities[addr] = state;
     }

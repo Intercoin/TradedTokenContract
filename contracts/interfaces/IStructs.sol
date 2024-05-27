@@ -13,5 +13,15 @@ interface IStructs {
         uint32 decrease; // out of FRACTION 10,000
         int32 priceGainMinimum; // out of FRACTION 10,000
     }
+
+    struct PriceNumDen {
+        uint256 numerator;
+        uint256 denominator;
+    }
+
+    struct ClaimSettings {
+        PriceNumDen minClaimPrice;
+        PriceNumDen minClaimPriceGrow;
+    }
 }
 

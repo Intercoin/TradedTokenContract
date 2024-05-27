@@ -2,14 +2,14 @@
 pragma solidity ^0.8.15;
 
 import "../TradedToken.sol";
-
+import "./helpers/LiquidityMock.sol";
 contract TradedTokenMock is TradedToken {
 
     using FixedPoint for *;
  
     constructor(
         CommonSettings memory commonSettings,
-        ClaimSettings memory claimSettings,
+        IStructs.ClaimSettings memory claimSettings_,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
         TaxStruct memory taxStruct,
@@ -18,54 +18,57 @@ contract TradedTokenMock is TradedToken {
         address liquidityLib_
     ) TradedToken(commonSettings,  claimSettings, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, emission_, liquidityLib_)
     {
+        // override internalLiquidity
+        internalLiquidity = new LiquidityMock(tradedToken, reserveToken, uniswapV2Pair, token01, commonSettings.priceDrop, liquidityLib_, emission_, claimSettings_);
+        communities[address(internalLiquidity)] = true;
     }
 
-    // function mint(address account, uint256 amount) public  {
-    //     _mint(account, amount, "", "");
-    // }
+    function mint(address account, uint256 amount) public  {
+        _mint(account, amount, "", "");
+    }
 
-    // function getInternalLiquidity() public view returns (address) {
-    //     return address(internalLiquidity);
-    // }
+    function getInternalLiquidity() public view returns (address) {
+        return address(internalLiquidity);
+    }
 
-    // function getUniswapRouter() public view returns (address) {
-    //     return uniswapRouter;
-    // }
-    // function getSqrt(
-    //     uint256 x
+    function getUniswapRouter() public view returns (address) {
+        return uniswapRouter;
+    }
+    function getSqrt(
+        uint256 x
+    ) 
+        public
+        view 
+        returns(uint256 result) 
+    {
+        return LiquidityMock(address(internalLiquidity)).sqrt(x);
+    }
+
+    function forceSync(
+    ) 
+        public 
+    {
+        IUniswapV2Pair(uniswapV2Pair).sync();
+    }
+
+    function maxAddLiquidity(
+    ) 
+        public 
+        view 
+        //      traded1 -> traded2->priceAverageData
+        returns(uint256, uint256, uint256) 
+    {  
+        return LiquidityMock(address(internalLiquidity)).maxAddLiquidity();
+    }
+
+    // function getTradedAveragePrice(
     // ) 
     //     public
-    //     pure 
-    //     returns(uint256 result) 
+    //     view
+    //     returns(FixedPoint.uq112x112 memory)
     // {
-    //     return _sqrt(x);
+    //     return _tradedAveragePrice();
     // }
-
-    // function forceSync(
-    // ) 
-    //     public 
-    // {
-    //     IUniswapV2Pair(uniswapV2Pair).sync();
-    // }
-
-    // function maxAddLiquidity(
-    // ) 
-    //     public 
-    //     view 
-    //     //      traded1 -> traded2->priceAverageData
-    //     returns(uint256, uint256, uint256) 
-    // {  
-    //     return _maxAddLiquidity();
-    // }
-
-    // // function getTradedAveragePrice(
-    // // ) 
-    // //     public
-    // //     view
-    // //     returns(FixedPoint.uq112x112 memory)
-    // // {
-    // //     return _tradedAveragePrice();
-    // // }
 
     // function totalInfo(
 
@@ -89,92 +92,88 @@ contract TradedTokenMock is TradedToken {
         
     // }
     
-    // function setTaxesInfoInit(
-    //     TaxesLib.TaxesInfoInit memory taxesInfoInit
-    // ) 
-    //     public 
-    // {
-    //     TaxesLib.setTaxes(taxesInfo, taxesInfoInit.buyTax, taxesInfoInit.sellTax);
+    function setTaxesInfoInit(
+        TaxesLib.TaxesInfoInit memory taxesInfoInit
+    ) 
+        public 
+    {
+        TaxesLib.setTaxes(taxesInfo, taxesInfoInit.buyTax, taxesInfoInit.sellTax);
 
-    //     taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
-    //     taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
-    //     taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
-    //     taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
  
-    // }
-    // function setTaxesInfoInitWithoutTaxes(
-    //     TaxesLib.TaxesInfoInit memory taxesInfoInit
-    // ) 
-    //     public 
-    // {
+    }
+    function setTaxesInfoInitWithoutTaxes(
+        TaxesLib.TaxesInfoInit memory taxesInfoInit
+    ) 
+        public 
+    {
 
-    //     taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
-    //     taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
-    //     taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
-    //     taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
  
-    // }
+    }
     
-    // function holdersAmount() public view returns(uint256) {
-    //     return holdersCount;
-    // }
+    function holdersAmount() public view returns(uint256) {
+        return holdersCount;
+    }
 
-    // function setRestrictClaiming(PriceNumDen memory newMinimumPrice) external {
-        
-    //     lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
-            
-    //     minClaimPrice.numerator = newMinimumPrice.numerator;
-    //     minClaimPrice.denominator = newMinimumPrice.denominator;
-    // }
+    function setRestrictClaiming(IStructs.PriceNumDen memory newMinimumPrice) external {
+        LiquidityMock(address(internalLiquidity)).setRestrictClaiming(newMinimumPrice);
+    }
 
-    // function setTotalCumulativeClaimed(uint256 total) public {
-    //     totalCumulativeClaimed = total;
-    // }
+    function setTotalCumulativeClaimed(uint256 total) public {
+        totalCumulativeClaimed = total;
+    }
 
-    // function getMinClaimPriceUpdatedTime() public pure returns(uint64) {
-    //     return MIN_CLAIM_PRICE_UPDATED_TIME;
-    // }
+    function getMinClaimPriceUpdatedTime() public view returns(uint64) {
+        return LiquidityMock(address(internalLiquidity)).getMinClaimPriceUpdatedTime();
+    }
 
-    // function setHoldersMax(uint16 i) public  {
-    //     holdersMax = i;
-    // }
+    function setHoldersMax(uint16 i) public  {
+        holdersMax = i;
+    }
     
     
-    // function setRateLimit(
-    //     RateLimit memory _panicSellRateLimit
-    // )
-    //     external
-    // {
-    //     panicSellRateLimit.duration = _panicSellRateLimit.duration;
-    //     panicSellRateLimit.fraction = _panicSellRateLimit.fraction;
-    // }
+    function setRateLimit(
+        RateLimit memory _panicSellRateLimit
+    )
+        external
+    {
+        panicSellRateLimit.duration = _panicSellRateLimit.duration;
+        panicSellRateLimit.fraction = _panicSellRateLimit.fraction;
+    }
 
-    // function setEmissionAmount(uint128 amount) public {
-    //     emission.amount = amount;
-    // }
+    function setEmissionAmount(uint128 amount) public {
+        LiquidityMock(address(internalLiquidity)).setEmissionAmount(amount);
+    }
 
-    // function setEmissionFrequency(uint32 frequency) public {
-    //     emission.frequency = frequency;
-    // }
+    function setEmissionFrequency(uint32 frequency) public {
+        LiquidityMock(address(internalLiquidity)).setEmissionFrequency(frequency);
+    }
 
-    // function setEmissionPeriod(uint32 period) public {
-    //     emission.period = period;
-    // }
+    function setEmissionPeriod(uint32 period) public {
+        LiquidityMock(address(internalLiquidity)).setEmissionPeriod(period);
+    }
 
-    // function setEmissionDecrease(uint32 decrease) public {
-    //     emission.decrease = decrease;
-    // }
+    function setEmissionDecrease(uint32 decrease) public {
+        LiquidityMock(address(internalLiquidity)).setEmissionDecrease(decrease);
+    }
 
-    // function setEmissionPriceGainMinimum(int32 priceGainMinimum) public {
-    //     emission.priceGainMinimum = priceGainMinimum;
-    // }
+    function setEmissionPriceGainMinimum(int32 priceGainMinimum) public {
+        LiquidityMock(address(internalLiquidity)).setEmissionPriceGainMinimum(priceGainMinimum);
+    }
     // function getBlockTimestampLast() public view returns(uint32) {
     //     return blockTimestampLast;
     // }
     
-    // function setReceivedTransfersCount(address addr, uint64 amount) public {
-    //     receivedTransfersCount[addr] = amount;
-    // }
+    function setReceivedTransfersCount(address addr, uint64 amount) public {
+        receivedTransfersCount[addr] = amount;
+    }
 
     
 }

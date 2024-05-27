@@ -43,6 +43,7 @@ contract Liquidity is IERC777Recipient {
 
     uint64 internal constant AVERAGE_PRICE_WINDOW = 5;
     uint64 internal constant FRACTION = 10000;
+    uint64 internal constant MIN_CLAIM_PRICE_UPDATED_TIME = 1 days;
 
     uint64 internal immutable startupTimestamp;
     uint256 public totalCumulativeClaimed;
@@ -54,6 +55,8 @@ contract Liquidity is IERC777Recipient {
     uint256 public immutable priceDrop;
 
     IStructs.Emission internal emission;
+    IStructs.ClaimSettings internal claimSettings;
+    uint64 internal lastMinClaimPriceUpdatedTime;
 
     struct Observation {
         uint64 timestampLast;
@@ -82,6 +85,9 @@ contract Liquidity is IERC777Recipient {
     error InputAmountCanNotBeZero();
     error PriceMayBecomeLowerThanMinClaimPrice();
     error ClaimValidationError();
+    error ZeroDenominator();
+    error ShouldBeMoreThanMinClaimPrice();
+    error MinClaimPriceGrowTooFast();
 
 
     constructor(
@@ -91,7 +97,8 @@ contract Liquidity is IERC777Recipient {
         bool token01_,
         uint256 priceDrop_,
         address liquidityLib_,
-        IStructs.Emission memory emission_
+        IStructs.Emission memory emission_,
+        IStructs.ClaimSettings memory claimSettings_
     ) {
         token0 = token0_;
         token1 = token1_;
@@ -101,11 +108,13 @@ contract Liquidity is IERC777Recipient {
         _owner = msg.sender;
 
         startupTimestamp = _currentBlockTimestamp();
+        lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
         pairObservation.timestampLast = _currentBlockTimestamp();
 
         priceDrop = priceDrop_;
 
         emission = emission_;
+        claimSettings = claimSettings_;
 
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
@@ -641,12 +650,38 @@ contract Liquidity is IERC777Recipient {
             
         }
 
-        // if (
-        //     FixedPoint.fraction(reserve1_ - amountOut, reserve0_ + currentIterationTotalCumulativeClaimed)._x <=
-        //     FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator)._x
-        // ) {
-        //     priceMayBecomeLowerThanMinClaimPrice = true;
-        // }
+        if (
+            FixedPoint.fraction(reserve1_ - amountOut, reserve0_ + currentIterationTotalCumulativeClaimed)._x <=
+            FixedPoint.fraction(claimSettings.minClaimPrice.numerator, claimSettings.minClaimPrice.denominator)._x
+        ) {
+            priceMayBecomeLowerThanMinClaimPrice = true;
+        }
+    }
+
+    function restrictClaiming(IStructs.PriceNumDen memory newMinimumPrice) external {
+        onlyCreator();
+
+        if (newMinimumPrice.denominator == 0) {
+            revert ZeroDenominator();
+        }
+
+        FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
+        FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(claimSettings.minClaimPrice.numerator, claimSettings.minClaimPrice.denominator);
+        FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(claimSettings.minClaimPriceGrow.numerator, claimSettings.minClaimPriceGrow.denominator);
+        if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
+            revert ShouldBeMoreThanMinClaimPrice();
+        }
+        if (
+            newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
+            lastMinClaimPriceUpdatedTime <= block.timestamp + MIN_CLAIM_PRICE_UPDATED_TIME
+        ) {
+            revert MinClaimPriceGrowTooFast();
+        }
+
+        lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
+            
+        claimSettings.minClaimPrice.numerator = newMinimumPrice.numerator;
+        claimSettings.minClaimPrice.denominator = newMinimumPrice.denominator;
     }
 
 }
