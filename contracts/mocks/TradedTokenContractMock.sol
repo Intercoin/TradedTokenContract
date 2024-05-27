@@ -14,167 +14,167 @@ contract TradedTokenMock is TradedToken {
         RateLimit memory panicSellRateLimit_,
         TaxStruct memory taxStruct,
         BuySellStruct memory buySellStruct,
-        Emission memory emission_,
+        IStructs.Emission memory emission_,
         address liquidityLib_
     ) TradedToken(commonSettings,  claimSettings, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, emission_, liquidityLib_)
     {
     }
 
-    function mint(address account, uint256 amount) public  {
-        _mint(account, amount, "", "");
-    }
-
-    function getInternalLiquidity() public view returns (address) {
-        return address(internalLiquidity);
-    }
-
-    function getUniswapRouter() public view returns (address) {
-        return uniswapRouter;
-    }
-    function getSqrt(
-        uint256 x
-    ) 
-        public
-        pure 
-        returns(uint256 result) 
-    {
-        return _sqrt(x);
-    }
-
-    function forceSync(
-    ) 
-        public 
-    {
-        IUniswapV2Pair(uniswapV2Pair).sync();
-    }
-
-    function maxAddLiquidity(
-    ) 
-        public 
-        view 
-        //      traded1 -> traded2->priceAverageData
-        returns(uint256, uint256, uint256) 
-    {  
-        return _maxAddLiquidity();
-    }
-
-    // function getTradedAveragePrice(
-    // ) 
-    //     public
-    //     view
-    //     returns(FixedPoint.uq112x112 memory)
-    // {
-    //     return _tradedAveragePrice();
+    // function mint(address account, uint256 amount) public  {
+    //     _mint(account, amount, "", "");
     // }
 
-    function totalInfo(
+    // function getInternalLiquidity() public view returns (address) {
+    //     return address(internalLiquidity);
+    // }
 
-    )
-        public 
-        view
-        returns(
-            uint112 r0, uint112 r1, uint32 blockTimestamp,
-            uint price0Cumulative, uint price1Cumulative,
-            uint64 timestampLast, uint price0CumulativeLast, uint224 price0Average
-        )
-    {
-        (r0, r1, blockTimestamp,) = _uniswapReserves();
-        price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
-        price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
+    // function getUniswapRouter() public view returns (address) {
+    //     return uniswapRouter;
+    // }
+    // function getSqrt(
+    //     uint256 x
+    // ) 
+    //     public
+    //     pure 
+    //     returns(uint256 result) 
+    // {
+    //     return _sqrt(x);
+    // }
 
-        timestampLast = pairObservation.timestampLast;
-        price0CumulativeLast = pairObservation.price0CumulativeLast;
+    // function forceSync(
+    // ) 
+    //     public 
+    // {
+    //     IUniswapV2Pair(uniswapV2Pair).sync();
+    // }
+
+    // function maxAddLiquidity(
+    // ) 
+    //     public 
+    //     view 
+    //     //      traded1 -> traded2->priceAverageData
+    //     returns(uint256, uint256, uint256) 
+    // {  
+    //     return _maxAddLiquidity();
+    // }
+
+    // // function getTradedAveragePrice(
+    // // ) 
+    // //     public
+    // //     view
+    // //     returns(FixedPoint.uq112x112 memory)
+    // // {
+    // //     return _tradedAveragePrice();
+    // // }
+
+    // function totalInfo(
+
+    // )
+    //     public 
+    //     view
+    //     returns(
+    //         uint112 r0, uint112 r1, uint32 blockTimestamp,
+    //         uint price0Cumulative, uint price1Cumulative,
+    //         uint64 timestampLast, uint price0CumulativeLast, uint224 price0Average
+    //     )
+    // {
+    //     (r0, r1, blockTimestamp,) = _uniswapReserves();
+    //     price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+    //     price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
+
+    //     timestampLast = pairObservation.timestampLast;
+    //     price0CumulativeLast = pairObservation.price0CumulativeLast;
         
-        price0Average = pairObservation.price0Average._x;
+    //     price0Average = pairObservation.price0Average._x;
         
-    }
+    // }
     
-    function setTaxesInfoInit(
-        TaxesLib.TaxesInfoInit memory taxesInfoInit
-    ) 
-        public 
-    {
-        TaxesLib.setTaxes(taxesInfo, taxesInfoInit.buyTax, taxesInfoInit.sellTax);
+    // function setTaxesInfoInit(
+    //     TaxesLib.TaxesInfoInit memory taxesInfoInit
+    // ) 
+    //     public 
+    // {
+    //     TaxesLib.setTaxes(taxesInfo, taxesInfoInit.buyTax, taxesInfoInit.sellTax);
 
-        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
-        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
-        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
-        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+    //     taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+    //     taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+    //     taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+    //     taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
  
-    }
-    function setTaxesInfoInitWithoutTaxes(
-        TaxesLib.TaxesInfoInit memory taxesInfoInit
-    ) 
-        public 
-    {
+    // }
+    // function setTaxesInfoInitWithoutTaxes(
+    //     TaxesLib.TaxesInfoInit memory taxesInfoInit
+    // ) 
+    //     public 
+    // {
 
-        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
-        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
-        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
-        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+    //     taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+    //     taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+    //     taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+    //     taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
  
-    }
+    // }
     
-    function holdersAmount() public view returns(uint256) {
-        return holdersCount;
-    }
+    // function holdersAmount() public view returns(uint256) {
+    //     return holdersCount;
+    // }
 
-    function setRestrictClaiming(PriceNumDen memory newMinimumPrice) external {
+    // function setRestrictClaiming(PriceNumDen memory newMinimumPrice) external {
         
-        lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
+    //     lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
             
-        minClaimPrice.numerator = newMinimumPrice.numerator;
-        minClaimPrice.denominator = newMinimumPrice.denominator;
-    }
+    //     minClaimPrice.numerator = newMinimumPrice.numerator;
+    //     minClaimPrice.denominator = newMinimumPrice.denominator;
+    // }
 
-    function setTotalCumulativeClaimed(uint256 total) public {
-        totalCumulativeClaimed = total;
-    }
+    // function setTotalCumulativeClaimed(uint256 total) public {
+    //     totalCumulativeClaimed = total;
+    // }
 
-    function getMinClaimPriceUpdatedTime() public pure returns(uint64) {
-        return MIN_CLAIM_PRICE_UPDATED_TIME;
-    }
+    // function getMinClaimPriceUpdatedTime() public pure returns(uint64) {
+    //     return MIN_CLAIM_PRICE_UPDATED_TIME;
+    // }
 
-    function setHoldersMax(uint16 i) public  {
-        holdersMax = i;
-    }
+    // function setHoldersMax(uint16 i) public  {
+    //     holdersMax = i;
+    // }
     
     
-    function setRateLimit(
-        RateLimit memory _panicSellRateLimit
-    )
-        external
-    {
-        panicSellRateLimit.duration = _panicSellRateLimit.duration;
-        panicSellRateLimit.fraction = _panicSellRateLimit.fraction;
-    }
+    // function setRateLimit(
+    //     RateLimit memory _panicSellRateLimit
+    // )
+    //     external
+    // {
+    //     panicSellRateLimit.duration = _panicSellRateLimit.duration;
+    //     panicSellRateLimit.fraction = _panicSellRateLimit.fraction;
+    // }
 
-    function setEmissionAmount(uint128 amount) public {
-        emission.amount = amount;
-    }
+    // function setEmissionAmount(uint128 amount) public {
+    //     emission.amount = amount;
+    // }
 
-    function setEmissionFrequency(uint32 frequency) public {
-        emission.frequency = frequency;
-    }
+    // function setEmissionFrequency(uint32 frequency) public {
+    //     emission.frequency = frequency;
+    // }
 
-    function setEmissionPeriod(uint32 period) public {
-        emission.period = period;
-    }
+    // function setEmissionPeriod(uint32 period) public {
+    //     emission.period = period;
+    // }
 
-    function setEmissionDecrease(uint32 decrease) public {
-        emission.decrease = decrease;
-    }
+    // function setEmissionDecrease(uint32 decrease) public {
+    //     emission.decrease = decrease;
+    // }
 
-    function setEmissionPriceGainMinimum(int32 priceGainMinimum) public {
-        emission.priceGainMinimum = priceGainMinimum;
-    }
-    function getBlockTimestampLast() public view returns(uint32) {
-        return blockTimestampLast;
-    }
+    // function setEmissionPriceGainMinimum(int32 priceGainMinimum) public {
+    //     emission.priceGainMinimum = priceGainMinimum;
+    // }
+    // function getBlockTimestampLast() public view returns(uint32) {
+    //     return blockTimestampLast;
+    // }
     
-    function setReceivedTransfersCount(address addr, uint64 amount) public {
-        receivedTransfersCount[addr] = amount;
-    }
+    // function setReceivedTransfersCount(address addr, uint64 amount) public {
+    //     receivedTransfersCount[addr] = amount;
+    // }
 
     
 }
