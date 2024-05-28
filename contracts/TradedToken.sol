@@ -4,14 +4,13 @@ pragma solidity 0.8.24;
 /**
  * @title TradedTokenContract
  * @notice A token designed to be traded on decentralized exchanges
-*    in an orderly and safe way with multiple guarantees.
+ *   in an orderly and safe way with multiple guarantees.
  * @dev Works best with Uniswap v2 and its clones, like Pancakeswap
  */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
@@ -26,7 +25,6 @@ import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
 import "./interfaces/IPresale.sol";
-
 import "./interfaces/ITradedToken.sol";
 import "./interfaces/ITokenExchange.sol";
 import "./interfaces/IStructs.sol";
@@ -41,20 +39,18 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     using TaxesLib for TaxesLib.TaxesInfo;
 
     ILiquidityLib public immutable liquidityLib;
-
+    Liquidity internal internalLiquidity;
     TaxesLib.TaxesInfo public taxesInfo;
     
     struct Bucket {
         uint256 remainingToSell;
         uint64 lastBucketTime;
     }
-    mapping (address => Bucket) private _buckets;
 
     struct RateLimit {
         uint32 duration; // for time ranges, 32 bits are enough, can also define constants like DAY, WEEK, MONTH
         uint32 fraction; // out of 10,000
     }
-    RateLimit public panicSellRateLimit;
 
     struct TaxStruct {
         uint16 buyTaxMax;
@@ -93,13 +89,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     address public immutable reserveToken;
 
-
-    
-    // uint64 internal lastMinClaimPriceUpdatedTime;
-    // PriceNumDen minClaimPrice;
-    // PriceNumDen minClaimPriceGrow;
-    IStructs.ClaimSettings internal claimSettings;
-
+    RateLimit public panicSellRateLimit;
 
     /**
      * 
@@ -107,18 +97,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     address public immutable uniswapV2Pair;
 
-    address internal uniswapRouter;
     address internal uniswapRouterFactory;
     
-
-    // keep gas when try to get reserves
-    // if token01 == true then (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken) so reserve0 it's reserves of TradedToken
-    bool internal immutable token01;
     bool internal buyPaused;
     bool private addedInitialLiquidityRun;
 
-    
-    
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant LOCKUP_INTERVAL = 1 days; //24 * 60 * 60; // day in seconds
     uint64 internal constant MAX_TRANSFER_COUNT = 4; // minimum transfers count until user can send to other user above own minimum lockup
@@ -132,7 +115,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     uint256 public holdersThreshold;
 
     uint256 public totalBought;
-    uint256 public totalCumulativeClaimed;
 
     /**
      * @notice address of token used to buy and sell, default is native coin
@@ -147,27 +129,17 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     uint256 public sellPrice;
 
-    Liquidity internal internalLiquidity;
-    
-
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
     mapping(address => uint64) public managers;
     mapping(address => uint64) public presales;
     mapping(address => uint64) public sales;
     mapping(address => uint64) public receivedTransfersCount;
+    mapping(address => Bucket) private _buckets;
 
     mapping(address => bool) public communities;
     mapping(address => bool) public exchanges;
     address internal governor;
-
-
-    //IStructs.Emission internal emission;
-    // uint32 internal blockTimestampLast;
-    // uint256 internal priceReservedCumulativeLast;
-    // uint256 internal twapPriceLast;
-    // uint256 internal amountClaimedInLastPeriod;
-    uint32 internal frequencyInLastPeriod;
  
     event AddedLiquidity(uint256 tradedTokenAmount);
     event AddedManager(address account, address sender);
@@ -184,36 +156,26 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     event ClaimsEnabled(uint64 claimsEnabledTime);
 
     error AlreadyCalled();
-    error InitialLiquidityRequired();
     error BeforeInitialLiquidityRequired();
-    error ReserveTokenInvalid();
-    error BadAmount();
-    error NeedsApproval();
-    error EmptyAddress();
-    error EmptyAccountAddress();
-    error EmptyManagerAddress();
-    error InputAmountCanNotBeZero();
-    error ZeroDenominator();
-    error InsufficientAmount();
-    error TaxesTooHigh();
-    
-    error OwnerAndManagersOnly();
-    error OwnerOrGovernorOnly();
-    error GovernorOnly();
-    error ManagersOnly();
-    error OwnersOnly();
-    error NotInTheWhiteList();
+    error BuySellNotAvailable();
     error CantCreatePair(address tradedToken, address reserveToken);
-    error EmptyReserves();
-    error ClaimValidationError();
-    error PriceMayBecomeLowerThanMinClaimPrice();
     error ClaimsDisabled();
     error ClaimsEnabledTimeAlreadySetup();
-    error ShouldBeMoreThanMinClaimPrice();
-    error MinClaimPriceGrowTooFast();
-    error MaxHoldersCountExceeded(uint256 count);
+    error EmptyAddress();
+    error EmptyManagerAddress();
+    error GovernorOnly();
+    error InitialLiquidityRequired();
     error InvalidSellRateLimitFraction();
-    error BuySellNotAvailable();
+    error InsufficientAmount();
+    error ManagersOnly();
+    error MaxHoldersCountExceeded(uint256 count);
+    error NotInTheWhiteList();
+    error OwnerAndManagersOnly();
+    error OwnerOrGovernorOnly();
+    error OwnersOnly();
+    error TaxesTooHigh();
+    error ReserveTokenInvalid();
+    error ZeroDenominator();
 
     /**
      * @param commonSettings imploded common variables to variables to avoid stuck too deep error
@@ -253,38 +215,24 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         tradedToken = address(this);
         reserveToken = commonSettings.reserveToken;
 
-        
-        
         // setup swap addresses
         liquidityLib = ILiquidityLib(liquidityLib_);
+        address uniswapRouter;
         (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
         
         lockupDays = commonSettings.lockupDays;
         
-        claimSettings = claimSettings_;
-
-        // minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
-        // minClaimPriceGrow.denominator = claimSettings.minClaimPriceGrow.denominator;
-        // minClaimPrice.numerator = claimSettings.minClaimPrice.numerator;
-        // minClaimPrice.denominator = claimSettings.minClaimPrice.denominator;
-
-        panicSellRateLimit.duration = panicSellRateLimit_.duration;
-        panicSellRateLimit.fraction = panicSellRateLimit_.fraction;
-
-        
+        panicSellRateLimit = panicSellRateLimit_;
 
         taxesInfo.init(taxesInfoInit);
-
-        //emission = emission_;
-
 
         //validations
         if (sellPrice > buyPrice) {
             revert BuySellNotAvailable();
         }
         if (
-            claimSettings.minClaimPriceGrow.denominator == 0 ||
-            claimSettings.minClaimPrice.denominator == 0
+            claimSettings_.minClaimPriceGrow.denominator == 0 ||
+            claimSettings_.minClaimPrice.denominator == 0
         ) { 
             revert ZeroDenominator();
         }
@@ -309,7 +257,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (panicSellRateLimit_.fraction > FRACTION) {
             revert InvalidSellRateLimitFraction();
         }
-        
 
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), _TOKENS_SENDER_INTERFACE_HASH, address(this));
@@ -322,13 +269,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert CantCreatePair(tradedToken, reserveToken);
         }
 
-        token01 = (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken);
-
-        internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapV2Pair, token01, commonSettings.priceDrop, liquidityLib_, emission_, claimSettings_);
+        internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapV2Pair, commonSettings.priceDrop, liquidityLib_, emission_, claimSettings_);
 
         fillExchangesAndCommunities();
     }
 
+    /**
+     * @notice Fills the exchanges and communities mappings with initial values
+     */
     function fillExchangesAndCommunities()  internal {
         communities[address(0)] = true; // minting
         communities[address(this)] = true;
@@ -337,7 +285,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         //exchanges
         exchanges[address(uniswapV2Pair)] = true;
-        //exchanges[address(uniswapRouterFactory)] = true;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -369,9 +316,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     ) external {}
 
     /**
-     * @notice used to add a manager to the contract, who can
-     *   take certain actions even after ownership is renounced
-     * @param manager the manager's address
+     * @notice Adds a manager to the contract who can take certain actions even after ownership is renounced
+     * @param manager The address of the manager to be added
      */
     function addManager(
         address manager
@@ -387,9 +333,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     /**
-     * @notice used to remove a manager to the contract, who can
-     *   take certain actions even after ownership is renounced
-     * @param managers_ array of manager addresses
+     * @notice Removes multiple managers from the contract
+     * @param managers_ Array of manager addresses to be removed
      */
     function removeManagers(
         address[] memory managers_
@@ -484,22 +429,22 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      *   only callable by owner or managers
      * @param tradedTokenAmount amount to attempt to claim
      * @param account the account to mint the tokens to
-     * 
      */
     function claim(uint256 tradedTokenAmount, address account) external {
         onlyOwnerAndManagers();
-        //------
-        //_validateClaim(tradedTokenAmount, account);
-        //--
+        
         if (claimsEnabledTime == 0) {
             revert ClaimsDisabled();
         }
-        //--
-        internalLiquidity._validateClaim(tradedTokenAmount, account);
-        //------
+        
+        internalLiquidity.validateClaim(tradedTokenAmount, account);
+        
         _claim(tradedTokenAmount, account);
     }
 
+    /**
+     * @notice Enables claims
+     */
     function enableClaims() external onlyOwner {
         if (claimsEnabledTime != 0) {
             revert ClaimsEnabledTimeAlreadySetup();
@@ -508,17 +453,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         emit ClaimsEnabled(claimsEnabledTime);
     }
 
-    function availableToClaim() public view returns(uint256 tradedTokenAmount) {
-        bool priceMayBecomeLowerThanMinClaimPrice;
-        (tradedTokenAmount,,priceMayBecomeLowerThanMinClaimPrice,,,,,,) = internalLiquidity._availableToClaim(0);
-        if (priceMayBecomeLowerThanMinClaimPrice) {
-            tradedTokenAmount = 0;
-        }
-
-    }
-
-   
-
     /**
      * @notice managers can restrict future claims to make sure
      *  that selling all claimed tokens will never drop price below
@@ -526,34 +460,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param newMinimumPrice below which the token price on Uniswap v2 pair
      *  won't drop, if all claimed tokens were sold right after being minted.
      *  This price can't increase faster than minClaimPriceGrow per day.
-     * 
      */
     function restrictClaiming(IStructs.PriceNumDen memory newMinimumPrice) external {
         onlyManagers();
-
         internalLiquidity.restrictClaiming(newMinimumPrice);
-
-        // if (newMinimumPrice.denominator == 0) {
-        //     revert ZeroDenominator();
-        // }
-
-        // FixedPoint.uq112x112 memory newMinimumPriceFraction     = FixedPoint.fraction(newMinimumPrice.numerator, newMinimumPrice.denominator);
-        // FixedPoint.uq112x112 memory minClaimPriceFraction       = FixedPoint.fraction(minClaimPrice.numerator, minClaimPrice.denominator);
-        // FixedPoint.uq112x112 memory minClaimPriceGrowFraction   = FixedPoint.fraction(minClaimPriceGrow.numerator, minClaimPriceGrow.denominator);
-        // if (newMinimumPriceFraction._x <= minClaimPriceFraction._x) {
-        //     revert ShouldBeMoreThanMinClaimPrice();
-        // }
-        // if (
-        //     newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
-        //     lastMinClaimPriceUpdatedTime <= block.timestamp + MIN_CLAIM_PRICE_UPDATED_TIME
-        // ) {
-        //     revert MinClaimPriceGrowTooFast();
-        // }
-
-        // lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
-            
-        // minClaimPrice.numerator = newMinimumPrice.numerator;
-        // minClaimPrice.denominator = newMinimumPrice.denominator;
     }
 
     /**
@@ -579,35 +489,67 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         emit AddedLiquidity(tradedTokenAmount);
     }
 
+    /**
+     * @notice Add an address to the list of communities.
+     * @param addr The address to add to the communities list
+     */
     function communitiesAdd(address addr) external {
         onlyGovernor();
         _manageCommunities(addr, true);
     }
 
+    /**
+     * @notice Remove an address from the list of communities.
+     * @param addr The address to remove from the communities list
+     */
     function communitiesRemove(address addr) external {
         onlyGovernor();
         _manageCommunities(addr, false);
     }
 
+    /**
+     * @notice Add an address to the list of exchanges.
+     * @param addr The address to add to the exchanges list
+     */
     function exchangesAdd(address addr) external {
         onlyGovernor();
         _manageExchanges(addr, true);
     }
+
+    /**
+     * @notice Remove an address from the list of exchanges.
+     * @param addr The address to remove from the exchanges list
+     */
     function exchangesRemove(address addr) external {
         onlyGovernor();
         _manageExchanges(addr, false);
     }
 
+    /**
+     * @notice Set the governor address.
+     * @param addr The address to set as the governor
+     */
     function setGovernor(address addr) external {
         onlyOwnerAndGovernor();
         governor = addr;
+    }
+    
+    /**
+     * @notice Get the amount of tokens available to claim.
+     * @return tradedTokenAmount The amount of tokens available to claim
+     */
+    function availableToClaim() external view returns(uint256 tradedTokenAmount) {
+        bool priceMayBecomeLowerThanMinClaimPrice;
+        (tradedTokenAmount,,priceMayBecomeLowerThanMinClaimPrice,,,,,,) = internalLiquidity._availableToClaim(0);
+        if (priceMayBecomeLowerThanMinClaimPrice) {
+            tradedTokenAmount = 0;
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
 
-    
     /**
      * @notice standard ERC-20 function called by token holder to transfer some amount to recipient
      * @param recipient who to transfer to
@@ -645,51 +587,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param amount the amount to transfer
      * @return bool returns true if transfer is successful
      */
-    function transferFrom(
-        address holder,
-        address recipient,
-        uint256 amount
-    ) public virtual override returns (bool) {
-        
+    function transferFrom(address holder, address recipient,uint256 amount) public virtual override returns (bool) {
         amount = _handleTransferToUniswap(holder, recipient, amount);
-        
         return super.transferFrom(holder, recipient, amount);
     }
 
     /**
-     * @notice burn taxes during a transfer
-     * @param holder from whom to transfer
-     * @param amount the amount to transfer
-     * @param tax the fraction out of 10000 representing the tax
-     * @return amount remaining
-     */
-    function _burnTaxes(address holder, uint256 amount, uint16 tax) internal returns(uint256) {
-        uint256 taxAmount = (amount * tax) / FRACTION;
-        if (taxAmount != 0) {
-            amount -= taxAmount;
-            _burn(holder, taxAmount, "", "");
-        }
-        return amount > 1 ? amount : 1; // to avoid transferring 0 in edge cases, transfer a tiny amount
-    }
-
-    /**
-     * @notice get the current buy tax
-     * @return the fraction out of 10000 representing the tax
-     */
-    function buyTax() public view returns(uint16) {
-        return taxesInfo.buyTax();
-    }
-
-    /**
-     * @notice get the current sell tax
-     * @return the fraction out of 10000 representing the tax
-     */
-    function sellTax() public view returns(uint16) {
-        return taxesInfo.sellTax();
-    }
-
-    /**
-     * @notice used to buy tokens for a fixed price in reserveToken
+     * @notice Buys tokens for a fixed price in reserveToken
+     * @param amount Amount to buy
      */
     function buy(uint256 amount) public payable {
         if (buyPrice == 0 || buyPaused) {
@@ -706,7 +611,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     /**
-     * @notice used to sell TradedTokens for a fixed price in reserveToken
+     * @notice Sells TradedTokens for a fixed price in reserveToken
+     * @param amount Amount to sell
      */
     function sell(uint256 amount) public {
         if (sellPrice == 0) {
@@ -718,7 +624,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 revert InsufficientAmount();
             }
             // see https://ethereum.stackexchange.com/a/56760/19734
-            (bool sent, bytes memory data) = address(msg.sender).call{value: out}("");
+            (bool sent, /*bytes memory data*/) = address(msg.sender).call{value: out}("");
             if (!sent) {
                 revert BuySellNotAvailable();
             }
@@ -732,6 +638,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     /**
      * @notice used to pause buying, e.g. if buySellToken is compromised
+     * @param status New status of buying
      */
     function pauseBuy(bool status) public {
         onlyOwnerAndManagers();
@@ -809,25 +716,60 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         _burn(contract_, toBurn, "", "");
         emit PresaleTokensBurned(contract_, toBurn);
-        
     }
 
+    /**
+     * @notice Retrieves the locked amount for an address
+     * @param from Address for which the locked amount is to be retrieved
+     * @return The locked amount
+     */
     function getLockedAmount(address from) public view returns(uint256) {
         return tokensLocked[from]._getMinimum();
+    }
+    
+    /**
+     * @notice get the current buy tax
+     * @return the fraction out of 10000 representing the tax
+     */
+    function buyTax() public view returns(uint16) {
+        return taxesInfo.buyTax();
+    }
+
+    /**
+     * @notice get the current sell tax
+     * @return the fraction out of 10000 representing the tax
+     */
+    function sellTax() public view returns(uint16) {
+        return taxesInfo.sellTax();
     }
 
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    
-    function _preventPanic(
-        address holder,
-        address recipient,
-        uint256 amount
-    ) 
-        internal 
-        returns(uint256 adjustedAmount)
-    {
+    /**
+     * @notice burn taxes during a transfer
+     * @param holder from whom to transfer
+     * @param amount the amount to transfer
+     * @param tax the fraction out of 10000 representing the tax
+     * @return amount remaining
+     */
+    function _burnTaxes(address holder, uint256 amount, uint16 tax) internal returns(uint256) {
+        uint256 taxAmount = (amount * tax) / FRACTION;
+        if (taxAmount != 0) {
+            amount -= taxAmount;
+            _burn(holder, taxAmount, "", "");
+        }
+        return amount > 1 ? amount : 1; // to avoid transferring 0 in edge cases, transfer a tiny amount
+    }
+
+    /**
+     * @notice Prevents panic selling by limiting the amount a holder can sell
+     * @param holder The address of the holder
+     * @param recipient The address of the recipient
+     * @param amount The amount of tokens to transfer
+     * @return adjustedAmount The adjusted amount based on the panic sell rate limit
+     */
+    function _preventPanic(address holder, address recipient, uint256 amount) internal returns(uint256 adjustedAmount) {
         if (
             holder == address(internalLiquidity) ||
             recipient == address(internalLiquidity) ||
@@ -910,30 +852,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             }
         }
     }
-    // either owner or managers
-    function onlyOwnerAndManagers() internal view {
-        if (owner() != _msgSender() && managers[_msgSender()] == 0) {
-            revert OwnerAndManagersOnly();
-        }
-    }
-    // only managers without owner
-    function onlyManagers() internal view {
-        if (managers[_msgSender()] == 0) {
-            revert ManagersOnly();
-        }
-    }
-    // only owner or governor
-    function onlyOwnerAndGovernor() internal view {
-        if (owner() != _msgSender() && governor != _msgSender()) {
-            revert OwnerOrGovernorOnly();
-        }
-    }
-    // only governor
-    function onlyGovernor() internal view {
-        if (governor != _msgSender()) {
-            revert GovernorOnly();
-        }
-    }
+
     // can only add liquidity once
     function addLiquidityOnlyOnce() internal {
         if (addedInitialLiquidityRun) {
@@ -941,25 +860,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
         addedInitialLiquidityRun = true;
     }
-    // after initial liquidity was added
-    function initialLiquidityRequired() internal view {
-        if (!addedInitialLiquidityRun) {
-            revert InitialLiquidityRequired();
-        }
-    }
-    // before initial liquidity was added
-    function onlyBeforeInitialLiquidity() internal view{
-        if (addedInitialLiquidityRun) {
-            revert BeforeInitialLiquidityRequired();
-        }
-    }
+
     // called before any transfer
-    function _beforeTokenTransfer(
-        address /*operator*/,
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual override {
+    function _beforeTokenTransfer(address /*operator*/, address from, address to, uint256 amount) internal virtual override {
         //communities can receive from anyone, and send to anyone (subject to optional maxHolders threshold)
         //exchanges can only send, not receive unless it is from a community
         //3 regular accounts can send to communities (this was already described in 1)
@@ -972,7 +875,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }else {
             revert NotInTheWhiteList();
         }
-
 
         holdersCheckBeforeTransfer(from, to, amount);
         if (sales[from] != 0) {
@@ -1013,48 +915,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 receivedTransfersCount[from] += 1;
             }
         }
-        
     }
 
-    /**
-     * @notice helper function that returns the current block timestamp within the range of uint32, i.e. [0, 2**64 - 1]
-     */
-    function _currentBlockTimestamp() internal view returns (uint64) {
-        return uint64(block.timestamp);
-    }
-
-    /**
-     * @notice wrapper for getting uniswap reserves function. we use `token01` var here to be sure that reserve0 and token0 are always traded token data
-     */
-    function _uniswapReserves()
-        internal
-        view
-        returns (
-            // reserveTraded, reserveReserved, blockTimestampLast, priceReservedCumulativeLast
-            uint112,
-            uint112,
-            uint32,
-            uint256
-        )
-    {
-        (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast_) = IUniswapV2Pair(uniswapV2Pair).getReserves();
-        if (reserve0 == 0 || reserve1 == 0) {
-            revert EmptyReserves();
-        }
-
-        uint256 priceCumulativeLast;
-        if (token01) {
-            priceCumulativeLast = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
-            return (reserve0, reserve1, blockTimestampLast_, priceCumulativeLast);
-        } else {
-            priceCumulativeLast = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
-            return (reserve1, reserve0, blockTimestampLast_, priceCumulativeLast);
-        }
-    }
-
-    //function _validateEmission
-    
-    
     /**
      * @notice do claim to the `account` and locked tokens if
      */
@@ -1076,16 +938,21 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         ) {
             tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupDays, LOCKUP_INTERVAL, true);
         }
-
     }
 
     function __claim(uint256 tradedTokenAmount, address account) internal {
-       
-
         _mint(account, tradedTokenAmount, "", "");
     }
 
-    function _handleTransferToUniswap(address holder, address recipient, uint256 amount) private returns(uint256) {
+    function _manageCommunities(address addr, bool state) internal {
+        communities[addr] = state;
+    }
+
+    function _manageExchanges(address addr, bool state) internal {
+        exchanges[addr] = state;
+    }
+
+    function _handleTransferToUniswap(address holder, address recipient, uint256 amount) internal returns(uint256) {
         if (isUniswapV2Pair(recipient)) {
             if(!addedInitialLiquidityRun) {
                 // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
@@ -1100,8 +967,75 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
         return amount;
     }
+    
+    /**
+     * @notice Checks if the message sender is the owner or a manager
+     */
+    function onlyOwnerAndManagers() internal view {
+        if (owner() != _msgSender() && managers[_msgSender()] == 0) {
+            revert OwnerAndManagersOnly();
+        }
+    }
 
-    function isUniswapV2Pair(address addr) private returns(bool) {
+    /**
+     * @notice Checks if the message sender is a manager only
+     */
+    function onlyManagers() internal view {
+        if (managers[_msgSender()] == 0) {
+            revert ManagersOnly();
+        }
+    }
+
+    /**
+     * @notice Checks if the message sender is the owner or governor
+     */
+    function onlyOwnerAndGovernor() internal view {
+        if (owner() != _msgSender() && governor != _msgSender()) {
+            revert OwnerOrGovernorOnly();
+        }
+    }
+
+    /**
+     * @notice Checks if the message sender is the governor only
+     */
+    function onlyGovernor() internal view {
+        if (governor != _msgSender()) {
+            revert GovernorOnly();
+        }
+    }
+
+    /**
+     * @notice Retrieves the current block timestamp within the range of uint32
+     * @return The current block timestamp
+     */
+    function _currentBlockTimestamp() internal view returns (uint64) {
+        return uint64(block.timestamp);
+    }
+
+    /**
+     * @notice Ensures that initial liquidity has been added
+     */
+    function initialLiquidityRequired() internal view {
+        if (!addedInitialLiquidityRun) {
+            revert InitialLiquidityRequired();
+        }
+    }
+
+    /**
+     * @notice Ensures that it is before initial liquidity has been added
+     */
+    function onlyBeforeInitialLiquidity() internal view{
+        if (addedInitialLiquidityRun) {
+            revert BeforeInitialLiquidityRequired();
+        }
+    }
+
+    /**
+     * @notice Checks if the recipient is a Uniswap V2 pair contract
+     * @param addr The address to check
+     * @return True if the address is a Uniswap V2 pair contract, false otherwise
+     */
+    function isUniswapV2Pair(address addr) internal view returns(bool) {
         if (addr.isContract()) {
             try IUniswapV2Pair(addr).factory() returns (address f) {
                 if (f == uniswapRouterFactory) {
@@ -1115,14 +1049,5 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         }
         return false;
     }
-
-    function _manageCommunities(address addr, bool state) internal {
-        communities[addr] = state;
-    }
-
-    function _manageExchanges(address addr, bool state) internal {
-        exchanges[addr] = state;
-    }
-
     
 }

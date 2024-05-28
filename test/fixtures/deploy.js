@@ -201,12 +201,19 @@ async function deploy2() {
         claimManager.target
     );
 
+    
+    const internalLiquidityAddress = await mainInstance.getInternalLiquidity();
+    const internalLiquidity = await ethers.getContractAt("Liquidity", internalLiquidityAddress);
+
+
     return {...res, ...{
         mainInstance,
         claimManager,
         distributionManager,
         erc20ReservedToken,
-        externalToken
+        externalToken,
+        internalLiquidityAddress,
+        internalLiquidity
     }};
 }
 
@@ -356,10 +363,8 @@ async function deployAndTestUniswapSettingsWithFirstSwap() {
         timeUntil //uint deadline   
     );
 
-    const internalLiquidityAddress = await mainInstance.getInternalLiquidity();
-
     return {...res, ...{
-        internalLiquidityAddress
+//        internalLiquidityAddress
     }};
 }
 

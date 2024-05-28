@@ -19,7 +19,7 @@ contract TradedTokenMock is TradedToken {
     ) TradedToken(commonSettings, claimSettings_, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, emission_, liquidityLib_)
     {
         // override internalLiquidity
-        internalLiquidity = new LiquidityMock(tradedToken, reserveToken, uniswapV2Pair, token01, commonSettings.priceDrop, liquidityLib_, emission_, claimSettings_);
+        internalLiquidity = new LiquidityMock(tradedToken, reserveToken, uniswapV2Pair, commonSettings.priceDrop, liquidityLib_, emission_, claimSettings_);
         communities[address(internalLiquidity)] = true;
     }
 
@@ -32,7 +32,7 @@ contract TradedTokenMock is TradedToken {
     }
 
     function getUniswapRouter() public view returns (address) {
-        return uniswapRouter;
+        return LiquidityMock(address(internalLiquidity)).getUniswapRouter();
     }
     function getSqrt(
         uint256 x
@@ -127,7 +127,7 @@ contract TradedTokenMock is TradedToken {
     }
 
     function setTotalCumulativeClaimed(uint256 total) public {
-        totalCumulativeClaimed = total;
+        LiquidityMock(address(internalLiquidity)).setTotalCumulativeClaimed(total);
     }
 
     function getMinClaimPriceUpdatedTime() public view returns(uint64) {

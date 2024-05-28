@@ -148,12 +148,13 @@ describe("TradedTokenInstance", function () {
 
         it("reverted if didn't add liquidity before", async() => {
             const {
-                mainInstance
+                mainInstance,
+                internalLiquidity
             } = await loadFixture(deploy2);
 
             await expect(
                 mainInstance.availableToClaim()
-            ).to.be.revertedWithCustomError(mainInstance, 'EmptyReserves');
+            ).to.be.revertedWithCustomError(internalLiquidity, 'EmptyReserves');
         });
         
         it("should valid ClamedEnabledTime", async() => {
@@ -294,6 +295,7 @@ describe("TradedTokenInstance", function () {
                 owner,
                 bob,
                 erc20ReservedToken,
+                internalLiquidity,
                 mainInstance
             } = await loadFixture(deploy2);
 
@@ -307,7 +309,7 @@ describe("TradedTokenInstance", function () {
             await mainInstance.connect(owner).setTotalCumulativeClaimed(1n);
             await expect(
                 mainInstance.connect(owner).claim(1n, bob.address)
-            ).to.be.revertedWithCustomError(mainInstance, "ClaimValidationError");
+            ).to.be.revertedWithCustomError(internalLiquidity, "ClaimValidationError");
         });   
 
         describe("presale", function () {
@@ -580,6 +582,7 @@ describe("TradedTokenInstance", function () {
                         owner,
                         bob,
                         claimManager,
+                        internalLiquidity,
                         mainInstance
                     } = res;
 
@@ -591,20 +594,21 @@ describe("TradedTokenInstance", function () {
                     await mainInstance.connect(owner).enableClaims();
                     await expect(
                         mainInstance.connect(owner).claim(0, owner.address)
-                    ).to.be.revertedWithCustomError(mainInstance, "InputAmountCanNotBeZero");
+                    ).to.be.revertedWithCustomError(internalLiquidity, "InputAmountCanNotBeZero");
                 });
 
                 it("shouldnt claim with empty address", async() => {
                     const res = await loadFixture(deploy3);
                     const {
                         owner,
+                        internalLiquidity,
                         mainInstance
                     } = res;
 
                     await mainInstance.connect(owner).enableClaims();
                     await expect(
                         mainInstance.connect(owner).claim(ethers.parseEther('1'), constants.ZERO_ADDRESS)
-                    ).to.be.revertedWithCustomError(mainInstance, "EmptyAccountAddress");
+                    ).to.be.revertedWithCustomError(internalLiquidity, "EmptyAccountAddress");
                 });
 
                 it("shouldnt call restrictClaiming by owner", async() => {
@@ -639,13 +643,14 @@ describe("TradedTokenInstance", function () {
                     const {
                         owner,
                         bob,
+                        internalLiquidity,
                         mainInstance
                     } = await loadFixture(deploy3);
 
                     await mainInstance.connect(owner).addManager(bob.address);
                     await expect(
                         mainInstance.connect(bob).restrictClaiming([1n, 100n])
-                    ).to.be.revertedWithCustomError(mainInstance, "MinClaimPriceGrowTooFast");
+                    ).to.be.revertedWithCustomError(internalLiquidity, "MinClaimPriceGrowTooFast");
                 });
 
                 it("shouldnt price less than setup before", async() => {
@@ -654,6 +659,7 @@ describe("TradedTokenInstance", function () {
                         bob,
                         minClaimPriceNumerator, 
                         minClaimPriceDenominator,
+                        internalLiquidity,
                         mainInstance
                     } = await loadFixture(deploy3);
 
@@ -665,7 +671,7 @@ describe("TradedTokenInstance", function () {
 
                     await expect(
                         mainInstance.connect(bob).restrictClaiming([minClaimPriceNumerator, minClaimPriceDenominator + 1n])
-                    ).to.be.revertedWithCustomError(mainInstance, "ShouldBeMoreThanMinClaimPrice");
+                    ).to.be.revertedWithCustomError(internalLiquidity, "ShouldBeMoreThanMinClaimPrice");
                 });
 
                 describe("some validate", function () {
@@ -682,6 +688,7 @@ describe("TradedTokenInstance", function () {
                             erc20ReservedToken,
                             lockupIntervalAmount,
                             buySellToken,
+                            internalLiquidity,
                             mainInstance
                         } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
 
@@ -725,7 +732,7 @@ describe("TradedTokenInstance", function () {
                         await externalToken.connect(charlie).approve(mainInstance.target, tokensToClaim);
                         await expect(
                             mainInstance.connect(owner).claim(tokensToClaim, charlie.address)
-                        ).to.be.revertedWithCustomError(mainInstance, "PriceMayBecomeLowerThanMinClaimPrice");
+                        ).to.be.revertedWithCustomError(internalLiquidity, "PriceMayBecomeLowerThanMinClaimPrice");
                     });
 
                     it("shouldnt claim if claimTime == 0 (disabled)", async() => {
@@ -1535,7 +1542,7 @@ describe("TradedTokenInstance", function () {
             it("shouldnt add liquidity", async() => {
                 const {
                     owner,
-                    internalLiquidityAddress,
+                    internalLiquidity,
                     mainInstance
                 } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
 
@@ -1545,7 +1552,6 @@ describe("TradedTokenInstance", function () {
                 maxliquidity = tradedReserve2 - tradedReserve1;
                 add2Liquidity = maxliquidity;//.abs()//.mul(1).div(10000);
 
-                const internalLiquidity = await ethers.getContractAt("Liquidity", internalLiquidityAddress);
                 await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWithCustomError(internalLiquidity, "PriceDropTooBig");
 
                 // or try to max from maxAddLiquidity

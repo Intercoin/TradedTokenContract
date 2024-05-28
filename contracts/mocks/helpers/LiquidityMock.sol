@@ -9,13 +9,12 @@ contract LiquidityMock is Liquidity {
         address token0_,
         address token1_,
         address uniswapPair_,
-        bool token01_,
         uint256 priceDrop_,
         address liquidityLib_,
         IStructs.Emission memory emission_,
         IStructs.ClaimSettings memory claimSettings_
     ) 
-        Liquidity(token0_, token1_, uniswapPair_, token01_, priceDrop_, liquidityLib_, emission_, claimSettings_)
+        Liquidity(token0_, token1_, uniswapPair_, priceDrop_, liquidityLib_, emission_, claimSettings_)
     {
         
     }
@@ -68,4 +67,13 @@ contract LiquidityMock is Liquidity {
     function getMinClaimPriceUpdatedTime() public pure returns(uint64) {
         return MIN_CLAIM_PRICE_UPDATED_TIME;
     }
+
+    function setTotalCumulativeClaimed(uint256 total) public {
+        totalCumulativeClaimed = total;
+    }
+
+    function getUniswapRouter() public view returns (address) {
+        return uniswapRouter;
+    }
+
 }

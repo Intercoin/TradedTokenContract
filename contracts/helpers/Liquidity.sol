@@ -94,7 +94,6 @@ contract Liquidity is IERC777Recipient {
         address token0_,
         address token1_,
         address uniswapPair_,
-        bool token01_,
         uint256 priceDrop_,
         address liquidityLib_,
         IStructs.Emission memory emission_,
@@ -104,7 +103,7 @@ contract Liquidity is IERC777Recipient {
         token1 = token1_;
         
         uniswapV2Pair = uniswapPair_;
-        token01 = token01_;
+        token01 = (IUniswapV2Pair(uniswapV2Pair).token0() == token0_);
 
         _owner = msg.sender;
 
@@ -162,7 +161,7 @@ contract Liquidity is IERC777Recipient {
         IERC20(token0).approve(address(uniswapRouter), token0Amount);
         IERC20(token1).approve(address(uniswapRouter), token1Amount);
 
-        (/* uint256 A*/, /*uint256 B*/, uint256 lpTokens) =
+        //(/* uint256 A*/, /*uint256 B*/, /*uint256 lpTokens*/) =
         IUniswapV2Router02(uniswapRouter).addLiquidity(
             token0,
             token1,
@@ -480,7 +479,7 @@ contract Liquidity is IERC777Recipient {
         }
     }
 
-    function _validateClaim(uint256 tradedTokenAmount, address account) external {
+    function validateClaim(uint256 tradedTokenAmount, address account) external {
         onlyCreator();
 
         if (account == address(0)) {
@@ -495,8 +494,8 @@ contract Liquidity is IERC777Recipient {
             uint256 availableToClaim_,
             uint256 amountOut, 
             bool priceMayBecomeLowerThanMinClaimPrice,
-            uint112 _reserve0, 
-            uint112 _reserve1, 
+            /*uint112 _reserve0*/, 
+            /*uint112 _reserve1*/, 
             uint32 blockTimestampCurrent, 
             uint256 priceReservedCumulativeCurrent, 
             uint256 twapPriceCurrent,
