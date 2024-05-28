@@ -2,22 +2,25 @@
 pragma solidity ^0.8.15;
 
 import "../TradedToken.sol";
-
+import "./helpers/LiquidityMock.sol";
 contract TradedTokenMock is TradedToken {
 
     using FixedPoint for *;
  
     constructor(
         CommonSettings memory commonSettings,
-        ClaimSettings memory claimSettings,
+        IStructs.ClaimSettings memory claimSettings_,
         TaxesLib.TaxesInfoInit memory taxesInfoInit,
         RateLimit memory panicSellRateLimit_,
         TaxStruct memory taxStruct,
         BuySellStruct memory buySellStruct,
-        Emission memory emission_,
+        IStructs.Emission memory emission_,
         address liquidityLib_
-    ) TradedToken(commonSettings,  claimSettings, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, emission_, liquidityLib_)
+    ) TradedToken(commonSettings, claimSettings_, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, emission_, liquidityLib_)
     {
+        // override internalLiquidity
+        internalLiquidity = new LiquidityMock(tradedToken, reserveToken, uniswapV2Pair, commonSettings.priceDrop, liquidityLib_, emission_, claimSettings_);
+        communities[address(internalLiquidity)] = true;
     }
 
     function mint(address account, uint256 amount) public  {
@@ -29,16 +32,16 @@ contract TradedTokenMock is TradedToken {
     }
 
     function getUniswapRouter() public view returns (address) {
-        return uniswapRouter;
+        return LiquidityMock(address(internalLiquidity)).getUniswapRouter();
     }
     function getSqrt(
         uint256 x
     ) 
         public
-        pure 
+        view 
         returns(uint256 result) 
     {
-        return _sqrt(x);
+        return LiquidityMock(address(internalLiquidity)).sqrt(x);
     }
 
     function forceSync(
@@ -55,7 +58,7 @@ contract TradedTokenMock is TradedToken {
         //      traded1 -> traded2->priceAverageData
         returns(uint256, uint256, uint256) 
     {  
-        return _maxAddLiquidity();
+        return LiquidityMock(address(internalLiquidity)).maxAddLiquidity();
     }
 
     // function getTradedAveragePrice(
@@ -67,27 +70,27 @@ contract TradedTokenMock is TradedToken {
     //     return _tradedAveragePrice();
     // }
 
-    function totalInfo(
+    // function totalInfo(
 
-    )
-        public 
-        view
-        returns(
-            uint112 r0, uint112 r1, uint32 blockTimestamp,
-            uint price0Cumulative, uint price1Cumulative,
-            uint64 timestampLast, uint price0CumulativeLast, uint224 price0Average
-        )
-    {
-        (r0, r1, blockTimestamp,) = _uniswapReserves();
-        price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
-        price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
+    // )
+    //     public 
+    //     view
+    //     returns(
+    //         uint112 r0, uint112 r1, uint32 blockTimestamp,
+    //         uint price0Cumulative, uint price1Cumulative,
+    //         uint64 timestampLast, uint price0CumulativeLast, uint224 price0Average
+    //     )
+    // {
+    //     (r0, r1, blockTimestamp,) = _uniswapReserves();
+    //     price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+    //     price1Cumulative = IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
 
-        timestampLast = pairObservation.timestampLast;
-        price0CumulativeLast = pairObservation.price0CumulativeLast;
+    //     timestampLast = pairObservation.timestampLast;
+    //     price0CumulativeLast = pairObservation.price0CumulativeLast;
         
-        price0Average = pairObservation.price0Average._x;
+    //     price0Average = pairObservation.price0Average._x;
         
-    }
+    // }
     
     function setTaxesInfoInit(
         TaxesLib.TaxesInfoInit memory taxesInfoInit
@@ -119,20 +122,16 @@ contract TradedTokenMock is TradedToken {
         return holdersCount;
     }
 
-    function setRestrictClaiming(PriceNumDen memory newMinimumPrice) external {
-        
-        lastMinClaimPriceUpdatedTime = uint64(block.timestamp);
-            
-        minClaimPrice.numerator = newMinimumPrice.numerator;
-        minClaimPrice.denominator = newMinimumPrice.denominator;
+    function setRestrictClaiming(IStructs.PriceNumDen memory newMinimumPrice) external {
+        LiquidityMock(address(internalLiquidity)).setRestrictClaiming(newMinimumPrice);
     }
 
     function setTotalCumulativeClaimed(uint256 total) public {
-        totalCumulativeClaimed = total;
+        LiquidityMock(address(internalLiquidity)).setTotalCumulativeClaimed(total);
     }
 
-    function getMinClaimPriceUpdatedTime() public pure returns(uint64) {
-        return MIN_CLAIM_PRICE_UPDATED_TIME;
+    function getMinClaimPriceUpdatedTime() public view returns(uint64) {
+        return LiquidityMock(address(internalLiquidity)).getMinClaimPriceUpdatedTime();
     }
 
     function setHoldersMax(uint16 i) public  {
@@ -150,27 +149,27 @@ contract TradedTokenMock is TradedToken {
     }
 
     function setEmissionAmount(uint128 amount) public {
-        emission.amount = amount;
+        LiquidityMock(address(internalLiquidity)).setEmissionAmount(amount);
     }
 
     function setEmissionFrequency(uint32 frequency) public {
-        emission.frequency = frequency;
+        LiquidityMock(address(internalLiquidity)).setEmissionFrequency(frequency);
     }
 
     function setEmissionPeriod(uint32 period) public {
-        emission.period = period;
+        LiquidityMock(address(internalLiquidity)).setEmissionPeriod(period);
     }
 
     function setEmissionDecrease(uint32 decrease) public {
-        emission.decrease = decrease;
+        LiquidityMock(address(internalLiquidity)).setEmissionDecrease(decrease);
     }
 
     function setEmissionPriceGainMinimum(int32 priceGainMinimum) public {
-        emission.priceGainMinimum = priceGainMinimum;
+        LiquidityMock(address(internalLiquidity)).setEmissionPriceGainMinimum(priceGainMinimum);
     }
-    function getBlockTimestampLast() public view returns(uint32) {
-        return blockTimestampLast;
-    }
+    // function getBlockTimestampLast() public view returns(uint32) {
+    //     return blockTimestampLast;
+    // }
     
     function setReceivedTransfersCount(address addr, uint64 amount) public {
         receivedTransfersCount[addr] = amount;
