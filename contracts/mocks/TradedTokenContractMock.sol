@@ -16,7 +16,7 @@ contract TradedTokenMock is TradedToken {
         BuySellStruct memory buySellStruct,
         IStructs.Emission memory emission_,
         address liquidityLib_
-    ) TradedToken(commonSettings,  claimSettings, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, emission_, liquidityLib_)
+    ) TradedToken(commonSettings, claimSettings_, taxesInfoInit, panicSellRateLimit_, taxStruct, buySellStruct, emission_, liquidityLib_)
     {
         // override internalLiquidity
         internalLiquidity = new LiquidityMock(tradedToken, reserveToken, uniswapV2Pair, token01, commonSettings.priceDrop, liquidityLib_, emission_, claimSettings_);

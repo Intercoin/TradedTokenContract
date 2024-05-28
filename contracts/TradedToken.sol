@@ -262,6 +262,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         lockupDays = commonSettings.lockupDays;
         
         claimSettings = claimSettings_;
+
         // minClaimPriceGrow.numerator = claimSettings.minClaimPriceGrow.numerator;
         // minClaimPriceGrow.denominator = claimSettings.minClaimPriceGrow.denominator;
         // minClaimPrice.numerator = claimSettings.minClaimPrice.numerator;
@@ -573,10 +574,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         _mint(address(internalLiquidity), traded2Swap + traded2Liq, "", "");
 
-        internalLiquidity.addLiquidity(traded2Swap, traded2Liq);
+        internalLiquidity.swapAndAddLiquidity(traded2Swap, traded2Liq);
 
         emit AddedLiquidity(tradedTokenAmount);
-
     }
 
     function communitiesAdd(address addr) external {
@@ -623,7 +623,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 // prevent added liquidity manually with presale tokens (before adding initial liquidity from here)
                 revert InitialLiquidityRequired();
             }
+            
             amount = _burnTaxes(_msgSender(), amount, buyTax());
+            
         } else {
             //The way a user sends tokens directly to a Uniswap pair in the hope of executing a flash swap.
             amount = _handleTransferToUniswap(_msgSender(), recipient, amount);

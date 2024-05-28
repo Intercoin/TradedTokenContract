@@ -1535,6 +1535,7 @@ describe("TradedTokenInstance", function () {
             it("shouldnt add liquidity", async() => {
                 const {
                     owner,
+                    internalLiquidityAddress,
                     mainInstance
                 } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
 
@@ -1544,7 +1545,8 @@ describe("TradedTokenInstance", function () {
                 maxliquidity = tradedReserve2 - tradedReserve1;
                 add2Liquidity = maxliquidity;//.abs()//.mul(1).div(10000);
 
-                await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWithCustomError(mainInstance, "PriceDropTooBig");
+                const internalLiquidity = await ethers.getContractAt("Liquidity", internalLiquidityAddress);
+                await expect(mainInstance.connect(owner).addLiquidity(add2Liquidity)).to.be.revertedWithCustomError(internalLiquidity, "PriceDropTooBig");
 
                 // or try to max from maxAddLiquidity
                 // seems we can add ZERO. Contract will try to use max as possible

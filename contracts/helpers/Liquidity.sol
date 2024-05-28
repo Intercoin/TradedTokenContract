@@ -102,8 +102,9 @@ contract Liquidity is IERC777Recipient {
     ) {
         token0 = token0_;
         token1 = token1_;
-
+        
         uniswapV2Pair = uniswapPair_;
+        token01 = token01_;
 
         _owner = msg.sender;
 
@@ -124,9 +125,10 @@ contract Liquidity is IERC777Recipient {
         (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
 
         (k1, k2, k3, k4,/*k5*/,/*k6*/) = liquidityLib.koefficients();
+
     }
 
-    function onlyCreator() internal {
+    function onlyCreator() internal view{
         if (msg.sender != _owner) {
             revert AccessDenied();
         }
@@ -160,7 +162,7 @@ contract Liquidity is IERC777Recipient {
         IERC20(token0).approve(address(uniswapRouter), token0Amount);
         IERC20(token1).approve(address(uniswapRouter), token1Amount);
 
-        //(/* uint256 A*/, /*uint256 B*/, /*uint256 lpTokens*/) =
+        (/* uint256 A*/, /*uint256 B*/, uint256 lpTokens) =
         IUniswapV2Router02(uniswapRouter).addLiquidity(
             token0,
             token1,
@@ -276,11 +278,9 @@ contract Liquidity is IERC777Recipient {
     }
 
     // here expecting that tradedtokens(traded2Swap+traded2Liq) is already on internalLiquidity contract
-    function addLiquidity(uint256 traded2Swap, uint256 traded2Liq) external {
+    function swapAndAddLiquidity(uint256 traded2Swap, uint256 traded2Liq) external {
         onlyCreator();
      
-        // trade trade tokens and add liquidity
-
         // claim to address(this) necessary amount to swap from traded to reserved tokens
 
         uint256 reserved2Liq = _doSwapOnUniswap(traded2Swap);
@@ -358,7 +358,6 @@ contract Liquidity is IERC777Recipient {
         reserved2Liq = IUniswapV2Router02(uniswapRouter).getAmountOut(traded2Swap, rTraded, rReserved);
         traded2Liq = incomingTradedToken - traded2Swap;
     }
-
 
     function _maxAddLiquidity()
         internal
