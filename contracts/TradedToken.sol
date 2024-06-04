@@ -18,13 +18,14 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
+import "@intercoin/sales/contracts/interfaces/ISales.sol";
+import "@intercoin/sales/contracts/interfaces/IPresale.sol";
 
 import "./libs/FixedPoint.sol";
 import "./libs/TaxesLib.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./helpers/Liquidity.sol";
 
-import "./interfaces/IPresale.sol";
 import "./interfaces/ITradedToken.sol";
 import "./interfaces/ITokenExchange.sol";
 import "./interfaces/IStructs.sol";
@@ -682,7 +683,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert EmptyAddress();
         }
         
-        if (Ownable(contract_).owner() != msg.sender) {
+        if (ISales(contract_).owner() != msg.sender) {
 			revert OwnersOnly();
 		}
         
@@ -878,7 +879,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         holdersCheckBeforeTransfer(from, to, amount);
         if (sales[from] != 0) {
-            if (Ownable(from).owner() != to) {
+            if (ISales(from).owner() != to) {
                 tokensLocked[to]._minimumsAdd(amount, sales[from], LOCKUP_INTERVAL, true);
             }
         } 

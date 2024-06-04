@@ -32,6 +32,7 @@
   "dependencies": {
     "@intercoin/liquidity": "^1.0.0",
     "@intercoin/releasemanager": "^2.0.0",
+    "@intercoin/sales": "^1.2.0",
     "@openzeppelin/contracts": "^4.7.3",
     "@openzeppelin/contracts-upgradeable": "^4.7.3",
     "@openzeppelin/test-helpers": "^0.5.16",
