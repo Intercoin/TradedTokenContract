@@ -7,12 +7,13 @@ async function main() {
 	//const [deployer] = await ethers.getSigners();
 	var signers = await ethers.getSigners();
     var deployer;
+	
     if (signers.length == 1) {
         deployer = signers[0];
     } else {
-        [,,deployer] = signers;
+		// for tests just use auxillary address. 
+        [,deployer] = signers;
     }
-
 
 	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 	console.log(
@@ -30,28 +31,23 @@ async function main() {
 		options
 	];
 
-	console.log("Account balance:", (await deployer.getBalance()).toString());
+	console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
 
 	const TaxesLib = await ethers.getContractFactory("TaxesLib");
-	const library = await TaxesLib.deploy();
-	await library.deployed();
-
-	const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
-	const library2 = await SwapSettingsLib.deploy();
-	await library2.deployed();
+	const library = await TaxesLib.connect(deployer).deploy();
+	await library.waitForDeployment();
 
 	const MainF = await ethers.getContractFactory("TradedToken",  {
 		libraries: {
-			TaxesLib:library.address,
-			SwapSettingsLib:library2.address
+			TaxesLib:library.target
 		}
 	});
 
 	this.instance = await MainF.connect(deployer).deploy(...params);
 	
-	console.log("Instance deployed at:", this.instance.address);
+	console.log("Instance deployed at:", this.instance.target);
 	console.log("with params:", [...paramArguments]);
-	console.log("TaxesLib.library deployed at:", library.address);
+	console.log("TaxesLib.library deployed at:", library.target);
 
 }
 

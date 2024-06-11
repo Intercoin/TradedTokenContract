@@ -17,12 +17,13 @@ module.exports = {
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true,
-      chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
-      forking: {
-        //url: mainnetURL,
-        url: bscURL,
-        //url: maticURL,
-      }
+      // bsc
+      // chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
+      // forking: {url: bscURL}
+      // matic
+      chainId: 137,  // sync with url or getting uniswap settings will reject transactions
+      forking: {url: maticURL}
+
     },
     kovan: {
       url: kovanURL,
