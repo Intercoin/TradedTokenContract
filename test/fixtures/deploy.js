@@ -2,6 +2,7 @@ const { constants } = require("@openzeppelin/test-helpers");
 const { time, loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
 async function deploy() {
+    
     const FRACTION = 10000n;
     const [
         owner, alice, bob, charlie, david, eve,
@@ -60,6 +61,7 @@ async function deploy() {
     const ERC20MintableF = await ethers.getContractFactory("ERC20Mintable");
     const DistributionManagerF = await ethers.getContractFactory("DistributionManager");
     const ClaimManagerF = await ethers.getContractFactory("ClaimManagerMock");
+    const ClaimManagerFactoryF = await ethers.getContractFactory("ClaimManagerFactory");
 
     const tokenName = "Intercoin Investor Token";
     const tokenSymbol = "ITR";
@@ -68,6 +70,7 @@ async function deploy() {
     const liquidityLib = await libData.deploy();
 
     const StakeManagerF = await ethers.getContractFactory("StakeManagerMock",  {});
+    const StakeManagerFactoryF = await ethers.getContractFactory("StakeManagerFactory",  {});
     const TradedTokenImitationF = await ethers.getContractFactory("TradedTokenImitation",  {});
     
     // emission. we will setup fake values. old tests must be passed
@@ -83,6 +86,60 @@ async function deploy() {
         buyPrice,
         sellPrice
     ];
+
+    /////
+    const NO_COSTMANAGER = constants.ZERO_ADDRESS;
+    const ReleaseManagerFactoryF= await ethers.getContractFactory("@intercoin/releasemanager/contracts/ReleaseManagerFactory.sol:ReleaseManagerFactory")
+    const ReleaseManagerF = await ethers.getContractFactory("@intercoin/releasemanager/contracts/ReleaseManager.sol:ReleaseManager");
+    let implementationReleaseManager = await ReleaseManagerF.deploy();
+    await implementationReleaseManager.waitForDeployment();
+
+    const releaseManagerFactory = await ReleaseManagerFactoryF.connect(owner).deploy(implementationReleaseManager.target);
+    await releaseManagerFactory.waitForDeployment();
+
+    let tx,rc,event,instance,instancesCount;
+    //
+    tx = await releaseManagerFactory.connect(owner).produce();
+    rc = await tx.wait(); // 0ms, as tx is already confirmed
+    event = rc.logs.find(obj => obj.fragment.name === 'InstanceProduced');
+    [instance, instancesCount] = event.args;
+
+    const releaseManager = await ethers.getContractAt("@intercoin/releasemanager/contracts/ReleaseManager.sol:ReleaseManager",instance);
+
+    const implementationClaimManagerInstance = await ClaimManagerF.deploy();
+    await implementationClaimManagerInstance.waitForDeployment();
+
+    const implementationStakeManagerInstance = await StakeManagerF.deploy();
+    await implementationStakeManagerInstance.waitForDeployment();
+
+    const ClaimManagerFactory = await ClaimManagerFactoryF.connect(owner).deploy(
+        implementationClaimManagerInstance.target,
+        NO_COSTMANAGER,
+        releaseManager.target
+    );
+
+    const StakeManagerFactory = await StakeManagerFactoryF.connect(owner).deploy(
+        implementationStakeManagerInstance.target,
+        NO_COSTMANAGER,
+        releaseManager.target
+    );
+
+    const factoriesList = [ClaimManagerFactory.target, StakeManagerFactory.target];
+    const factoryInfo = [
+        [   //ClaimManagerFactory
+            24,//uint8 factoryIndex; 
+            1,//uint16 releaseTag; 
+            "0x53696c766572000000000000000000000000000000000000"//bytes24 factoryChangeNotes;
+        ],
+        [   //StakeManagerFactory
+            25,//uint8 factoryIndex; 
+            1,//uint16 releaseTag; 
+            "0x53696c766572000000000000000000000000000000000000"//bytes24 factoryChangeNotes;
+        ]
+    ];
+
+    await releaseManager.connect(owner).newRelease(factoriesList, factoryInfo);
+
 
     return {
         owner, alice, bob, charlie, david, eve,
@@ -124,6 +181,8 @@ async function deploy() {
         DistributionManagerF,
         ClaimManagerF,
         StakeManagerF,
+        ClaimManagerFactory,
+        StakeManagerFactory,
         TradedTokenImitationF
     }
 }
@@ -153,6 +212,7 @@ async function deploy2() {
         ERC20MintableF,
         ERC777MintableF,
         ClaimManagerF,
+        ClaimManagerFactory,
         DistributionManagerF,
         TradedTokenF,
         liquidityLib
@@ -187,7 +247,8 @@ async function deploy2() {
         liquidityLib.target
     );
 
-    const claimManager = await ClaimManagerF.deploy(
+    let tx,rc,event,instance,instancesCount;
+    tx = await ClaimManagerFactory.produce(
         mainInstance.target,
         [
             externalToken.target,
@@ -195,6 +256,10 @@ async function deploy2() {
             claimFrequency
         ]
     );
+    rc = await tx.wait(); // 0ms, as tx is already confirmed
+    event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
+    [instance, instancesCount] = event.args;
+    const claimManager = ClaimManagerF.attach(instance);
 
     const distributionManager = await DistributionManagerF.connect(owner).deploy(
         externalToken.target, 
@@ -346,7 +411,7 @@ async function deployAndTestUniswapSettingsWithFirstSwap() {
         timeUntil //uint deadline   
     );
 
-    const smthFromOwner = ethers.parseEther("0.0001");;
+    const smthFromOwner = ethers.parseEther("0.0001");
     await mainInstance.connect(owner).enableClaims();
     await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
 
@@ -397,6 +462,7 @@ async function deployStakingManager() {
     const {
         ERC20MintableF,
         StakeManagerF,
+        StakeManagerFactory,
         TradedTokenImitationF
     } = res;
 
@@ -405,12 +471,17 @@ async function deployStakingManager() {
     const bonusSharesRate = 100n;
     const defaultStakeDuration = 86400n;
 
-    const StakeManager = await StakeManagerF.deploy(
+    let tx,rc,event,instance,instancesCount;
+    tx = await StakeManagerFactory.produce(
         TradedTokenImitation.target, //address tradedToken_,
         SimpleERC20.target, //address stakingToken_,
         bonusSharesRate,                //uint16 bonusSharesRate_,
         defaultStakeDuration,              //uint64 defaultStakeDuration_
     );
+    rc = await tx.wait(); // 0ms, as tx is already confirmed
+    event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
+    [instance, instancesCount] = event.args;
+    const StakeManager = StakeManagerF.attach(instance);
 
     return {...res, ...{
         SimpleERC20,

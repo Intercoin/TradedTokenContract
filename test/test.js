@@ -110,11 +110,12 @@ describe("TradedTokenInstance", function () {
                 externalTokenExchangePriceDenominator,
                 claimFrequency,
                 externalToken,
-                ClaimManagerF
+                ClaimManagerF,
+                ClaimManagerFactory
             } = await loadFixture(deploy2);
 
             await expect(
-                ClaimManagerF.deploy(
+                ClaimManagerFactory.produce(
                     constants.ZERO_ADDRESS,
                     [
                         externalToken.target,
@@ -131,11 +132,12 @@ describe("TradedTokenInstance", function () {
                 externalTokenExchangePriceDenominator,
                 claimFrequency,
                 mainInstance,
-                ClaimManagerF
+                ClaimManagerF,
+                ClaimManagerFactory
             } = await loadFixture(deploy2);
 
             await expect(
-                ClaimManagerF.deploy(
+                ClaimManagerFactory.produce(
                     mainInstance.target,
                     [
                         constants.ZERO_ADDRESS,
@@ -1409,7 +1411,8 @@ describe("TradedTokenInstance", function () {
                     bob.address, //address to,
                     timeUntil //uint deadline   
 
-                )).to.be.revertedWith('Pancake: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly"
+                )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly"
+                //Pancake: TRANSFER_FAILED
             });
    
             xit("synth case: try to get stored average price", async() => {

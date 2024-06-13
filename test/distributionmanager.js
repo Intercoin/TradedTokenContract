@@ -43,11 +43,14 @@ describe("DistributionManager", function () {
                 claimFrequency,
                 ERC20MintableF,
                 ClaimManagerF,
+                ClaimManagerFactory,
                 DistributionManagerF
             } = res;
             const nevermindToken = await ERC20MintableF.deploy("somename","somesymbol");
             const simpleerc20 = await ERC20MintableF.deploy("someERC20name","someERC20symbol");
-            const claimManager = await ClaimManagerF.deploy(
+
+            let tx,rc,event,instance,instancesCount;
+            tx = await ClaimManagerFactory.produce(
                 simpleerc20.target,
                 [
                     nevermindToken.target,
@@ -55,7 +58,11 @@ describe("DistributionManager", function () {
                     claimFrequency
                 ]
             );
-            
+            rc = await tx.wait(); // 0ms, as tx is already confirmed
+            event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
+            [instance, instancesCount] = event.args;
+            const claimManager = ClaimManagerF.attach(instance);
+
             const distributionManager = await DistributionManagerF.connect(owner).deploy(
                 nevermindToken.target, 
                 claimManager.target
@@ -99,13 +106,15 @@ describe("DistributionManager", function () {
                 ERC20MintableF,
                 ERC777MintableF,
                 ClaimManagerF,
+                ClaimManagerFactory,
                 DistributionManagerF
             } = res;
 
             const nevermindToken = await ERC20MintableF.deploy("somename","somesymbol");
             const simpleerc777 = await ERC777MintableF.deploy();
 
-            const claimManager = await ClaimManagerF.deploy(
+            let tx,rc,event,instance,instancesCount;
+            tx = await ClaimManagerFactory.produce(
                 simpleerc777.target,
                 [
                     nevermindToken.target,
@@ -113,6 +122,10 @@ describe("DistributionManager", function () {
                     claimFrequency
                 ]
             );
+            rc = await tx.wait(); // 0ms, as tx is already confirmed
+            event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
+            [instance, instancesCount] = event.args;
+            const claimManager = ClaimManagerF.attach(instance);
             
             const distributionManager = await DistributionManagerF.connect(owner).deploy(
                 nevermindToken.target, 
@@ -175,6 +188,7 @@ describe("DistributionManager", function () {
                 ERC20MintableF,
                 ERC777MintableF,
                 ClaimManagerF,
+                ClaimManagerFactory,
                 DistributionManagerF,
                 TradedTokenF
             } = res;
@@ -210,7 +224,8 @@ describe("DistributionManager", function () {
                 liquidityLib.target
             );
 
-            const claimManager = await ClaimManagerF.deploy(
+            let tx,rc,event,instance,instancesCount;
+            tx = await ClaimManagerFactory.produce(
                 tradedTokenInstance.target,
                 [
                     externalToken.target,
@@ -218,6 +233,10 @@ describe("DistributionManager", function () {
                     claimFrequency
                 ]
             );
+            rc = await tx.wait(); // 0ms, as tx is already confirmed
+            event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
+            [instance, instancesCount] = event.args;
+            const claimManager = ClaimManagerF.attach(instance);
 
             const distributionManager = await DistributionManagerF.connect(owner).deploy(
                 externalToken.target, 

@@ -1,19 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../StakeManager.sol";
+import "../StakeManagerUpgradeable.sol";
 
-contract StakeManagerMock is StakeManager {
-
-    constructor (
-        address tradedToken_,
-        address stakingToken_,
-        uint16 bonusSharesRate_,
-        uint64 defaultStakeDuration_
-    ) 
-        StakeManager (tradedToken_, stakingToken_, bonusSharesRate_, defaultStakeDuration_)
-    {
-    }
+contract StakeManagerMock is StakeManagerUpgradeable {
 
     function setBonusSharesRate(uint16 bonusSharesRate_) public {
         bonusSharesRate = bonusSharesRate_;
