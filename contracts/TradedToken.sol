@@ -140,6 +140,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     mapping(address => bool) public communities;
     mapping(address => bool) public exchanges;
+    mapping(address => bool) public sources;
+    mapping(address => uint256) public availableToSell;
+    
+
     address internal governor;
  
     event AddedLiquidity(uint256 tradedTokenAmount);
@@ -527,6 +531,24 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     /**
+     * @notice Add an address to the list of sources.
+     * @param addr The address to add to the sources list
+     */
+    function sourcesAdd(address addr) external {
+        onlyGovernor();
+        _manageSources(addr, true);
+    }
+
+    /**
+     * @notice Remove an address from the list of sources.
+     * @param addr The address to remove from the sources list
+     */
+    function sourcesRemove(address addr) external {
+        onlyGovernor();
+        _manageSources(addr, false);
+    }
+
+    /**
      * @notice Set the governor address.
      * @param addr The address to set as the governor
      */
@@ -867,15 +889,27 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //communities can receive from anyone, and send to anyone (subject to optional maxHolders threshold)
         //exchanges can only send, not receive unless it is from a community
         //3 regular accounts can send to communities (this was already described in 1)
+        bool willRevert = true;
         if (
             communities[from] == true || 
             communities[to] == true || 
             exchanges[from] == true
         ) {
-
-        }else {
-            revert NotInTheWhiteList();
+            willRevert = false;
         }
+
+        if (sources[from]) {
+            availableToSell[to] += amount;
+            willRevert = false;
+        }
+
+        if (exchanges[to] && (availableToSell[from] >= amount)) {
+            availableToSell[from] -= amount;
+            willRevert = false;
+        }
+        if (willRevert) {
+            revert NotInTheWhiteList();
+        }        
 
         holdersCheckBeforeTransfer(from, to, amount);
         if (sales[from] != 0) {
@@ -951,6 +985,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     function _manageExchanges(address addr, bool state) internal {
         exchanges[addr] = state;
+    }
+    function _manageSources(address addr, bool state) internal {
+        sources[addr] = state;
     }
 
     function _handleTransferToUniswap(address holder, address recipient, uint256 amount) internal returns(uint256) {
