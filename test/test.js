@@ -612,7 +612,7 @@ describe("TradedTokenInstance", function () {
                         mainInstance.connect(owner).claim(ethers.parseEther('1'), constants.ZERO_ADDRESS)
                     ).to.be.revertedWithCustomError(internalLiquidity, "EmptyAccountAddress");
                 });
-
+                
                 it("shouldnt call restrictClaiming by owner", async() => {
                     const {
                         owner,
@@ -872,6 +872,7 @@ describe("TradedTokenInstance", function () {
                                 const {
                                     owner,
                                     bob,
+                                    david,
                                     claimFrequency,
                                     claimManager,
                                     externalToken,
@@ -888,8 +889,12 @@ describe("TradedTokenInstance", function () {
 
 
                                 await mainInstance.connect(owner).addManager(claimManager.target);
-
+                                const balanceBefore = await mainInstance.balanceOf(bob.address);
                                 await claimManager.connect(bob).claim(ethers.parseEther('1'), bob.address);
+                                const balanceAfter = await mainInstance.balanceOf(bob.address);
+
+                                expect(balanceAfter-balanceBefore).to.be.eq(ethers.parseEther('1'));
+                                
                             });
 
                             it("should transfer to dead-address tokens after user claim", async() => {
@@ -1283,6 +1288,9 @@ describe("TradedTokenInstance", function () {
 
                         await mainInstance.connect(owner).claim(smthFromOwner, SaleMock.target);
                         await mainInstance.connect(alice).startSale(SaleMock.target, 10n*86400n);
+                        await expect(
+                            mainInstance.connect(alice).startSale(SaleMock.target, 10n*86400n)
+                        ).to.be.revertedWithCustomError(mainInstance, 'AlreadyCalled');
 
                         
                         // transfer from SaleContract to David. now David have locked up tokens
@@ -1993,7 +2001,7 @@ describe("TradedTokenInstance", function () {
 
             });
 
-            it("only governor can manage communities or exchanges list", async() => {
+            it("only governor can manage communities/exchanges/sources list", async() => {
 
                 const {
                     owner,
@@ -2018,6 +2026,12 @@ describe("TradedTokenInstance", function () {
                 await expect( 
                     mainInstance.connect(owner).exchangesRemove(bob.address)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(owner).sourcesAdd(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(owner).sourcesRemove(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
 
                 // not any users
                 await expect( 
@@ -2032,12 +2046,31 @@ describe("TradedTokenInstance", function () {
                 await expect( 
                     mainInstance.connect(charlie).exchangesRemove(bob.address)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(charlie).sourcesAdd(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
+                await expect( 
+                    mainInstance.connect(charlie).sourcesRemove(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
 
                 // only current governor
+                expect(await mainInstance.communities(bob.address)).to.be.eq(false);
                 await mainInstance.connect(alice).communitiesAdd(bob.address);
+                expect(await mainInstance.communities(bob.address)).to.be.eq(true);
                 await mainInstance.connect(alice).communitiesRemove(bob.address);
+                expect(await mainInstance.communities(bob.address)).to.be.eq(false);
+
+                expect(await mainInstance.exchanges(bob.address)).to.be.eq(false);
                 await mainInstance.connect(alice).exchangesAdd(bob.address);
+                expect(await mainInstance.exchanges(bob.address)).to.be.eq(true);
                 await mainInstance.connect(alice).exchangesRemove(bob.address);
+                expect(await mainInstance.exchanges(bob.address)).to.be.eq(false);
+
+                expect(await mainInstance.sources(bob.address)).to.be.eq(false);
+                await mainInstance.connect(alice).sourcesAdd(bob.address);
+                expect(await mainInstance.sources(bob.address)).to.be.eq(true);
+                await mainInstance.connect(alice).sourcesRemove(bob.address);
+                expect(await mainInstance.sources(bob.address)).to.be.eq(false);
                 
             });
             it("shouldnt sell tokens if seller outside whitelist", async() => {
@@ -2112,6 +2145,113 @@ describe("TradedTokenInstance", function () {
                 )
 
             }); 
+
+            it("should sell tokens if seller outside whitelist, BUT got them from sources", async() => {
+                const {
+                    owner,
+                    bob,
+                    charlie,
+                    david,
+                    buyPrice,
+                    lockupIntervalAmount,
+                    claimFrequency,
+                    buySellToken,
+                    uniswapRouterInstance,
+                    erc20ReservedToken,
+                    mainInstance
+                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                // pass time to clear bucket
+                await time.increase(claimFrequency);
+                await addNewHolderAndSwap({
+                    owner: owner,
+                    account: charlie,
+                    buyPrice: buyPrice,
+                    lockupIntervalAmount: lockupIntervalAmount,
+                    mainInstance: mainInstance,
+                    buySellToken: buySellToken,
+                    uniswapRouterInstance: uniswapRouterInstance,
+                    erc20ReservedToken: erc20ReservedToken
+                });
+
+                let ts, timeUntil;
+                
+                await erc20ReservedToken.connect(owner).mint(bob.address, ethers.parseEther('0.5'));
+                await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+                await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                    ethers.parseEther('0.5'), //uint amountIn,
+                    0, //uint amountOutMin,
+                    [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+                    bob.address, //address to,
+                    timeUntil //uint deadline   
+
+                );
+
+                let balanceTradedTokens = await mainInstance.balanceOf(bob.address);
+                const halfOfBalanceTradedTokens = balanceTradedTokens/2n;
+
+                await mainInstance.connect(owner).setGovernor(owner.address);
+                // imitation case when SalesContract transfer tokens to David. and hardcoded holderMax before it
+                await mainInstance.connect(owner).setHoldersMax(0);
+
+                // transfer to david half before bob become in sources list
+                await mainInstance.connect(owner).addManager(bob.address);
+                await mainInstance.connect(bob).transfer(david.address, halfOfBalanceTradedTokens);
+                await mainInstance.connect(owner).removeManagers([bob.address]);
+
+                // put Bob into the sources list
+                // it's just imitation of SalesContract
+                
+                await mainInstance.connect(owner).sourcesAdd(bob.address);
+
+                // and transfer to david half after bob become in sources list
+                await mainInstance.connect(bob).transfer(david.address, halfOfBalanceTradedTokens);
+
+                expect(await mainInstance.balanceOf(david.address)).to.be.eq(balanceTradedTokens);
+
+                // now try to sell only a half
+                await mainInstance.connect(david).approve(uniswapRouterInstance.target, halfOfBalanceTradedTokens);
+
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+                await expect(
+                    uniswapRouterInstance.connect(david).swapExactTokensForTokens(
+                        halfOfBalanceTradedTokens, //uint amountIn,
+                        0, //uint amountOutMin,
+                        [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
+                        david.address, //address to,
+                        timeUntil //uint deadline   
+                    )
+                ).not.to.be.revertedWith('TransferHelper: TRANSFER_FROM_FAILED');
+
+                // but second half will reverted
+                await mainInstance.connect(david).approve(uniswapRouterInstance.target, halfOfBalanceTradedTokens);
+                await expect(
+                    uniswapRouterInstance.connect(david).swapExactTokensForTokens(
+                        halfOfBalanceTradedTokens, //uint amountIn,
+                        0, //uint amountOutMin,
+                        [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
+                        david.address, //address to,
+                        timeUntil //uint deadline   
+                    )
+                ).to.be.revertedWith('TransferHelper: TRANSFER_FROM_FAILED');
+
+                // //after adding bob into the communities list tx will pass
+                // await mainInstance.connect(owner).setGovernor(owner.address);
+                // await mainInstance.connect(owner).communitiesAdd(bob.address);
+
+                // await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                //     balanceTradedTokens, //uint amountIn,
+                //     0, //uint amountOutMin,
+                //     [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
+                //     bob.address, //address to,
+                //     timeUntil //uint deadline   
+                // )
+
+            }); 
+
             it("should buy tokens if seller outside whitelist", async() => {
                   
                 const {
