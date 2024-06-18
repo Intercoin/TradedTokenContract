@@ -889,25 +889,48 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //communities can receive from anyone, and send to anyone (subject to optional maxHolders threshold)
         //exchanges can only send, not receive unless it is from a community
         //3 regular accounts can send to communities (this was already described in 1)
+        bool willRevert = true;
         if (
             communities[from] == true || 
             communities[to] == true || 
-            exchanges[from] == true ||
-            sources[from] == true ||
-            (exchanges[to] && (availableToSell[from] >= amount))
+            exchanges[from] == true
         ) {
-
-        }else {
-            revert NotInTheWhiteList();
+            willRevert = false;
         }
 
         if (sources[from]) {
             availableToSell[to] += amount;
+            willRevert = false;
         }
 
         if (exchanges[to] && (availableToSell[from] >= amount)) {
             availableToSell[from] -= amount;
+            willRevert = false;
         }
+        if (willRevert) {
+            revert NotInTheWhiteList();
+        }        
+
+
+        // if (
+        //     communities[from] == true || 
+        //     communities[to] == true || 
+        //     exchanges[from] == true ||
+        //     sources[from] == true ||
+        //     (exchanges[to] && (availableToSell[from] >= amount))
+        // ) {
+
+        // }else {
+        //     revert NotInTheWhiteList();
+        // }
+
+        // if (sources[from]) {
+        //     availableToSell[to] += amount;
+        // }
+
+        // if (exchanges[to] && (availableToSell[from] >= amount)) {
+        //     availableToSell[from] -= amount;
+        // }
 
         holdersCheckBeforeTransfer(from, to, amount);
         if (sales[from] != 0) {
