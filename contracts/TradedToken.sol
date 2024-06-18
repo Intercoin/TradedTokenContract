@@ -911,27 +911,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert NotInTheWhiteList();
         }        
 
-
-        // if (
-        //     communities[from] == true || 
-        //     communities[to] == true || 
-        //     exchanges[from] == true ||
-        //     sources[from] == true ||
-        //     (exchanges[to] && (availableToSell[from] >= amount))
-        // ) {
-
-        // }else {
-        //     revert NotInTheWhiteList();
-        // }
-
-        // if (sources[from]) {
-        //     availableToSell[to] += amount;
-        // }
-
-        // if (exchanges[to] && (availableToSell[from] >= amount)) {
-        //     availableToSell[from] -= amount;
-        // }
-
         holdersCheckBeforeTransfer(from, to, amount);
         if (sales[from] != 0) {
             if (ISales(from).owner() != to) {
