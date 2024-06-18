@@ -140,6 +140,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     mapping(address => bool) public communities;
     mapping(address => bool) public exchanges;
+    mapping(address => bool) public sources;
+    mapping(address => uint256) public availableToSell;
+    
+
     address internal governor;
  
     event AddedLiquidity(uint256 tradedTokenAmount);
@@ -527,6 +531,24 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     }
 
     /**
+     * @notice Add an address to the list of sources.
+     * @param addr The address to add to the sources list
+     */
+    function sourcesAdd(address addr) external {
+        onlyGovernor();
+        _manageSources(addr, true);
+    }
+
+    /**
+     * @notice Remove an address from the list of sources.
+     * @param addr The address to remove from the sources list
+     */
+    function sourcesRemove(address addr) external {
+        onlyGovernor();
+        _manageSources(addr, false);
+    }
+
+    /**
      * @notice Set the governor address.
      * @param addr The address to set as the governor
      */
@@ -870,11 +892,21 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (
             communities[from] == true || 
             communities[to] == true || 
-            exchanges[from] == true
+            exchanges[from] == true ||
+            sources[from] == true ||
+            (exchanges[to] && (availableToSell[from] >= amount))
         ) {
 
         }else {
             revert NotInTheWhiteList();
+        }
+
+        if (sources[from]) {
+            availableToSell[to] += amount;
+        }
+
+        if (exchanges[to] && (availableToSell[from] >= amount)) {
+            availableToSell[from] -= amount;
         }
 
         holdersCheckBeforeTransfer(from, to, amount);
@@ -951,6 +983,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
     function _manageExchanges(address addr, bool state) internal {
         exchanges[addr] = state;
+    }
+    function _manageSources(address addr, bool state) internal {
+        sources[addr] = state;
     }
 
     function _handleTransferToUniswap(address holder, address recipient, uint256 amount) internal returns(uint256) {
