@@ -2008,6 +2008,7 @@ describe("TradedTokenInstance", function () {
                     alice,
                     bob,
                     charlie,
+                    timeUntil,
                     mainInstance
                 } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
 
@@ -2015,19 +2016,19 @@ describe("TradedTokenInstance", function () {
 
                 //not owner
                 await expect( 
-                    mainInstance.connect(owner).communitiesAdd(bob.address)
+                    mainInstance.connect(owner).communitiesAdd(bob.address, timeUntil)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
                     mainInstance.connect(owner).communitiesRemove(bob.address)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
-                    mainInstance.connect(owner).exchangesAdd(bob.address)
+                    mainInstance.connect(owner).exchangesAdd(bob.address, timeUntil)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
                     mainInstance.connect(owner).exchangesRemove(bob.address)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
-                    mainInstance.connect(owner).sourcesAdd(bob.address)
+                    mainInstance.connect(owner).sourcesAdd(bob.address, timeUntil)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
                     mainInstance.connect(owner).sourcesRemove(bob.address)
@@ -2035,42 +2036,72 @@ describe("TradedTokenInstance", function () {
 
                 // not any users
                 await expect( 
-                    mainInstance.connect(charlie).communitiesAdd(bob.address)
+                    mainInstance.connect(charlie).communitiesAdd(bob.address, timeUntil)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
                     mainInstance.connect(charlie).communitiesRemove(bob.address)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
-                    mainInstance.connect(charlie).exchangesAdd(bob.address)
+                    mainInstance.connect(charlie).exchangesAdd(bob.address, timeUntil)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
                     mainInstance.connect(charlie).exchangesRemove(bob.address)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
-                    mainInstance.connect(charlie).sourcesAdd(bob.address)
+                    mainInstance.connect(charlie).sourcesAdd(bob.address, timeUntil)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
                 await expect( 
                     mainInstance.connect(charlie).sourcesRemove(bob.address)
                 ).to.be.revertedWithCustomError(mainInstance, 'GovernorOnly');
 
                 // only current governor
-                expect(await mainInstance.communities(bob.address)).to.be.eq(false);
-                await mainInstance.connect(alice).communitiesAdd(bob.address);
-                expect(await mainInstance.communities(bob.address)).to.be.eq(true);
+                expect(await mainInstance.communities(bob.address)).to.be.eq(0n);
+                expect(await mainInstance.exchanges(bob.address)).to.be.eq(0n);
+                expect(await mainInstance.sources(bob.address)).to.be.eq(0n);
+
+                // but timeUntil can not be zero
+                await expect( 
+                    mainInstance.connect(alice).communitiesAdd(bob.address, 0n)
+                ).to.be.revertedWithCustomError(mainInstance, 'CantBeZero');
+                await expect( 
+                    mainInstance.connect(alice).exchangesAdd(bob.address, 0n)
+                ).to.be.revertedWithCustomError(mainInstance, 'CantBeZero');
+                await expect( 
+                    mainInstance.connect(alice).sourcesAdd(bob.address, 0n)
+                ).to.be.revertedWithCustomError(mainInstance, 'CantBeZero');
+
+                await mainInstance.connect(alice).communitiesAdd(bob.address, timeUntil);
+                await mainInstance.connect(alice).exchangesAdd(bob.address, timeUntil);
+                await mainInstance.connect(alice).sourcesAdd(bob.address, timeUntil);
+
+                expect(await mainInstance.communities(bob.address)).not.to.be.eq(0n);
+                expect(await mainInstance.exchanges(bob.address)).not.to.be.eq(0n);
+                expect(await mainInstance.sources(bob.address)).not.to.be.eq(0n);
+
+                // governor can remove but until `timeUntil` time passed
+                await expect( 
+                    mainInstance.connect(alice).communitiesRemove(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'CantRemove').withArgs(timeUntil);
+                await expect( 
+                    mainInstance.connect(alice).exchangesRemove(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'CantRemove').withArgs(timeUntil);
+                await expect( 
+                    mainInstance.connect(alice).sourcesRemove(bob.address)
+                ).to.be.revertedWithCustomError(mainInstance, 'CantRemove').withArgs(timeUntil);
+
+                await time.increaseTo(timeUntil+50n);
+
+                //still in list
+                expect(await mainInstance.communities(bob.address)).not.to.be.eq(0n);
+                expect(await mainInstance.exchanges(bob.address)).not.to.be.eq(0n);
+                expect(await mainInstance.sources(bob.address)).not.to.be.eq(0n);
+                //but now possible to remove
                 await mainInstance.connect(alice).communitiesRemove(bob.address);
-                expect(await mainInstance.communities(bob.address)).to.be.eq(false);
-
-                expect(await mainInstance.exchanges(bob.address)).to.be.eq(false);
-                await mainInstance.connect(alice).exchangesAdd(bob.address);
-                expect(await mainInstance.exchanges(bob.address)).to.be.eq(true);
+                expect(await mainInstance.communities(bob.address)).to.be.eq(0n);
                 await mainInstance.connect(alice).exchangesRemove(bob.address);
-                expect(await mainInstance.exchanges(bob.address)).to.be.eq(false);
-
-                expect(await mainInstance.sources(bob.address)).to.be.eq(false);
-                await mainInstance.connect(alice).sourcesAdd(bob.address);
-                expect(await mainInstance.sources(bob.address)).to.be.eq(true);
+                expect(await mainInstance.exchanges(bob.address)).to.be.eq(0n);
                 await mainInstance.connect(alice).sourcesRemove(bob.address);
-                expect(await mainInstance.sources(bob.address)).to.be.eq(false);
+                expect(await mainInstance.sources(bob.address)).to.be.eq(0n);
                 
             });
             it("shouldnt sell tokens if seller outside whitelist", async() => {
@@ -2134,7 +2165,7 @@ describe("TradedTokenInstance", function () {
 
                 //after adding bob into the communities list tx will pass
                 await mainInstance.connect(owner).setGovernor(owner.address);
-                await mainInstance.connect(owner).communitiesAdd(bob.address);
+                await mainInstance.connect(owner).communitiesAdd(bob.address, timeUntil);
 
                 await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                     balanceTradedTokens, //uint amountIn,
@@ -2204,7 +2235,7 @@ describe("TradedTokenInstance", function () {
                 // put Bob into the sources list
                 // it's just imitation of SalesContract
                 
-                await mainInstance.connect(owner).sourcesAdd(bob.address);
+                await mainInstance.connect(owner).sourcesAdd(bob.address, timeUntil);
 
                 // and transfer to david half after bob become in sources list
                 await mainInstance.connect(bob).transfer(david.address, halfOfBalanceTradedTokens);

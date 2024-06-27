@@ -271,7 +271,11 @@ async function deploy2() {
     const internalLiquidity = await ethers.getContractAt("Liquidity", internalLiquidityAddress);
 
 
+    const ts = await time.latest();
+    const timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+
     return {...res, ...{
+        timeUntil,
         mainInstance,
         claimManager,
         distributionManager,
@@ -333,19 +337,11 @@ async function deploy5() {
 
 async function deployInPresale() {
     const res = await loadFixture(deploy2);
-    const {
-        lockupIntervalAmount
-    } = res;
-
-    const ts = await time.latest();
-    const timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
-
+    
     const PresaleF = await ethers.getContractFactory("PresaleMock");
     const Presale = await PresaleF.deploy();
 
     return {...res, ...{
-        ts,
-        timeUntil,
         Presale
     }};
 }
@@ -375,6 +371,7 @@ async function deployAndTestUniswapSettingsWithFirstSwap() {
         owner,
         bob,
         lockupIntervalAmount,
+        timeUntil,
         buyPrice,
         FRACTION,
         buySellToken,
@@ -400,9 +397,7 @@ async function deployAndTestUniswapSettingsWithFirstSwap() {
     const reserveTokenToSwap = ethers.parseEther("0.5");
     await erc20ReservedToken.connect(owner).mint(bob.address, reserveTokenToSwap);
     await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, reserveTokenToSwap);
-    var ts = await time.latest();
-    var timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
-
+    
     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
         reserveTokenToSwap, //uint amountIn,
         0, //uint amountOutMin,
@@ -418,8 +413,6 @@ async function deployAndTestUniswapSettingsWithFirstSwap() {
     await erc20ReservedToken.connect(owner).mint(bob.address, reserveTokenToSwap);
     await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, reserveTokenToSwap);
 
-    var ts = await time.latest();
-    var timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
         reserveTokenToSwap, //uint amountIn,
         0, //uint amountOutMin,
@@ -442,15 +435,16 @@ async function deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted() {
         charlie,
         eve,
         david,
+        timeUntil,
         mainInstance
     } =  res;
 
     await mainInstance.connect(owner).setGovernor(owner.address);
-    await mainInstance.connect(owner).communitiesAdd(alice.address);
-    await mainInstance.connect(owner).communitiesAdd(bob.address);
-    await mainInstance.connect(owner).communitiesAdd(charlie.address);
-    await mainInstance.connect(owner).communitiesAdd(eve.address);
-    await mainInstance.connect(owner).communitiesAdd(david.address);
+    await mainInstance.connect(owner).communitiesAdd(alice.address, timeUntil);
+    await mainInstance.connect(owner).communitiesAdd(bob.address, timeUntil);
+    await mainInstance.connect(owner).communitiesAdd(charlie.address, timeUntil);
+    await mainInstance.connect(owner).communitiesAdd(eve.address, timeUntil);
+    await mainInstance.connect(owner).communitiesAdd(david.address, timeUntil);
 
     return {...res, ...{
     }};

@@ -20,7 +20,7 @@ contract TradedTokenMock is TradedToken {
     {
         // override internalLiquidity
         internalLiquidity = new LiquidityMock(tradedToken, reserveToken, uniswapV2Pair, commonSettings.priceDrop, liquidityLib_, emission_, claimSettings_);
-        communities[address(internalLiquidity)] = true;
+        communities[address(internalLiquidity)] = type(uint64).max;
     }
 
     function mint(address account, uint256 amount) public  {
