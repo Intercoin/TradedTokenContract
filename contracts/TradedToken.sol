@@ -138,9 +138,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => uint64) public receivedTransfersCount;
     mapping(address => Bucket) private _buckets;
 
-    mapping(address => bool) public communities;
-    mapping(address => bool) public exchanges;
-    mapping(address => bool) public sources;
+    mapping(address => uint64) public communities;
+    mapping(address => uint64) public exchanges;
+    mapping(address => uint64) public sources;
     mapping(address => uint256) public availableToSell;
     
 
@@ -164,6 +164,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error BeforeInitialLiquidityRequired();
     error BuySellNotAvailable();
     error CantCreatePair(address tradedToken, address reserveToken);
+    error CantRemove(uint64 untilTime);
+    error CantBeZero();
     error ClaimsDisabled();
     error ClaimsEnabledTimeAlreadySetup();
     error EmptyAddress();
@@ -283,13 +285,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @notice Fills the exchanges and communities mappings with initial values
      */
     function fillExchangesAndCommunities()  internal {
-        communities[address(0)] = true; // minting
-        communities[address(this)] = true;
-        communities[owner()] = true;
-        communities[address(internalLiquidity)] = true;
+        communities[address(0)] = type(uint64).max; // minting
+        communities[address(this)] = type(uint64).max;
+        communities[owner()] = type(uint64).max;
+        communities[address(internalLiquidity)] = type(uint64).max;
 
         //exchanges
-        exchanges[address(uniswapV2Pair)] = true;
+        exchanges[address(uniswapV2Pair)] = type(uint64).max;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -332,7 +334,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     {
         if (manager == address(0)) {revert EmptyManagerAddress();}
         managers[manager] = _currentBlockTimestamp();
-        _manageCommunities(manager, true);
+        _manageCommunities(manager, type(uint64).max);
 
         emit AddedManager(manager, _msgSender());
     }
@@ -350,7 +352,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         for (uint256 i = 0; i < managers_.length; i++) {
             if (managers_[i] == address(0)) {revert EmptyManagerAddress();}
             delete managers[managers_[i]];
-            _manageCommunities(managers_[i], false);
+            _manageCommunities(managers_[i], 0);
 
             emit RemovedManager(managers_[i], _msgSender());
         }
@@ -498,9 +500,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @notice Add an address to the list of communities.
      * @param addr The address to add to the communities list
      */
-    function communitiesAdd(address addr) external {
+    function communitiesAdd(address addr, uint64 timestamp) external {
         onlyGovernor();
-        _manageCommunities(addr, true);
+        if (timestamp == 0) {
+            revert CantBeZero();
+        }
+        _manageCommunities(addr, timestamp);
     }
 
     /**
@@ -509,16 +514,20 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function communitiesRemove(address addr) external {
         onlyGovernor();
-        _manageCommunities(addr, false);
+        _validateRemoving(communities[addr]);
+        _manageCommunities(addr, 0);
     }
 
     /**
      * @notice Add an address to the list of exchanges.
      * @param addr The address to add to the exchanges list
      */
-    function exchangesAdd(address addr) external {
+    function exchangesAdd(address addr, uint64 timestamp) external {
         onlyGovernor();
-        _manageExchanges(addr, true);
+        if (timestamp == 0) {
+            revert CantBeZero();
+        }
+        _manageExchanges(addr, timestamp);
     }
 
     /**
@@ -527,16 +536,20 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function exchangesRemove(address addr) external {
         onlyGovernor();
-        _manageExchanges(addr, false);
+        _validateRemoving(exchanges[addr]);
+        _manageExchanges(addr, 0);
     }
 
     /**
      * @notice Add an address to the list of sources.
      * @param addr The address to add to the sources list
      */
-    function sourcesAdd(address addr) external {
+    function sourcesAdd(address addr, uint64 timestamp) external {
         onlyGovernor();
-        _manageSources(addr, true);
+        if (timestamp == 0) {
+            revert CantBeZero();
+        }
+        _manageSources(addr, timestamp);
     }
 
     /**
@@ -545,7 +558,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     function sourcesRemove(address addr) external {
         onlyGovernor();
-        _manageSources(addr, false);
+        _validateRemoving(sources[addr]);
+        _manageSources(addr, 0);
     }
 
     /**
@@ -688,7 +702,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (block.timestamp < endTime - 3600 * 2) {
             _mint(contract_, amount, "", "");
             presales[contract_] = sales[contract_] = presaleLockupDays;
-            _manageExchanges(contract_, true);
+            _manageExchanges(contract_, type(uint64).max);
             emit Presale(contract_, amount);
         }
     }
@@ -713,7 +727,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 			revert AlreadyCalled();
 		}
 		sales[contract_] = saleLockupDays;
-        _manageExchanges(contract_, true);
+        _manageExchanges(contract_, type(uint64).max);
 		emit Sale(contract_, saleLockupDays);
 	}
 
@@ -891,19 +905,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         //3 regular accounts can send to communities (this was already described in 1)
         bool willRevert = true;
         if (
-            communities[from] == true || 
-            communities[to] == true || 
-            exchanges[from] == true
+            communities[from] != 0 || 
+            communities[to] != 0 || 
+            exchanges[from] != 0
         ) {
             willRevert = false;
         }
 
-        if (sources[from]) {
+        if (sources[from] != 0) {
             availableToSell[to] += amount;
             willRevert = false;
         }
 
-        if (exchanges[to] && (availableToSell[from] >= amount)) {
+        if (exchanges[to] != 0 && (availableToSell[from] >= amount)) {
             availableToSell[from] -= amount;
             willRevert = false;
         }
@@ -979,15 +993,21 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         _mint(account, tradedTokenAmount, "", "");
     }
 
-    function _manageCommunities(address addr, bool state) internal {
-        communities[addr] = state;
+    function _manageCommunities(address addr, uint64 timestamp) internal {
+        communities[addr] = timestamp;
     }
 
-    function _manageExchanges(address addr, bool state) internal {
-        exchanges[addr] = state;
+    function _manageExchanges(address addr, uint64 timestamp) internal {
+        exchanges[addr] = timestamp;
     }
-    function _manageSources(address addr, bool state) internal {
-        sources[addr] = state;
+    function _manageSources(address addr, uint64 timestamp) internal {
+        sources[addr] = timestamp;
+    }
+
+    function _validateRemoving(uint64 timestamp) internal {
+        if (block.timestamp < timestamp)  {
+            revert CantRemove(timestamp);
+        }
     }
 
     function _handleTransferToUniswap(address holder, address recipient, uint256 amount) internal returns(uint256) {
