@@ -8,7 +8,7 @@ const rinkebyURL = /*`https://rinkeby.infura.io/v3/${process.env.INFURA_ID_PROJE
 const bscURL = 'https://bsc-dataseed.binance.org' //`https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_RINKEBY}`
 const bsctestURL = 'https://data-seed-prebsc-1-s1.binance.org:8545';
 const mainnetURL = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_MAINNET}`
-const maticURL = `https://polygon.drpc.org`;//`https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
+const maticURL = `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
 const mumbaiURL = `https://matic-mumbai.chainstacklabs.com`;
 
 
