@@ -678,7 +678,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @param status New status of buying
      */
     function pauseBuy(bool status) public {
-        onlyOwnerAndManagers();
+        //onlyOwnerAndManagers();
+        onlyOwnerAndGovernor();
         buyPaused = status;
     }
 
