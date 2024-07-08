@@ -11,7 +11,7 @@ const getBUSDAddress = () => {
 	} else if ((networkName == 'polygonMumbai') && (chainId == 80001)) {
 		return "0x9fb83c0635de2e815fd1c21b3a292277540c2e8d";
 	} else if ((networkName == 'polygon') && (chainId == 137)) {
-		return "0x9fb83c0635de2e815fd1c21b3a292277540c2e8d";
+		return "0x9c9e5fd8bbc25984b178fdce6117defa39d2db39";
 	} else if ((networkName == 'mainnet') && (chainId == 1)) {
 		return "0x4Fabb145d64652a948d72533023f6E7A623C7C53";
 	} else if ((networkName == 'hardhat')) {
