@@ -722,7 +722,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
         
-        if (to != address(0)) {
+        if (to != address(0) && from != to) {
         
             uint256 toBalanceOf = balanceOf(to);
 
@@ -754,11 +754,12 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             }
         }
 
-        if (from != address(0)) {
+        if (from != address(0) && from != to) {
             if (balanceOf(from) < amount) {
                 // will revert inside transferFrom or transfer method
             } else {
-                if (balanceOf(from) - amount <= holdersThreshold) {
+                if (balanceOf(from) > holdersThreshold 
+                && balanceOf(from) - amount <= holdersThreshold ) {
                     --holdersCount;
                 }
             }
