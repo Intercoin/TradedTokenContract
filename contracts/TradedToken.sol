@@ -987,7 +987,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
     function _tradedAveragePrice() internal view returns (FixedPoint.uq112x112 memory) {
         //uint64 blockTimestamp = _currentBlockTimestamp();
-        uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+        uint256 price0Cumulative = token01 
+        ? IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast() 
+        : IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
+
         uint64 timeElapsed = _currentBlockTimestamp() - pairObservation.timestampLast;
         uint64 windowSize = ((_currentBlockTimestamp() - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
@@ -1009,7 +1012,10 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         uint64 windowSize = ((blockTimestamp - startupTimestamp) * AVERAGE_PRICE_WINDOW) / FRACTION;
 
         if (timeElapsed > windowSize && timeElapsed > 0) {
-            uint256 price0Cumulative = IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast();
+            uint256 price0Cumulative = token01
+            ? IUniswapV2Pair(uniswapV2Pair).price0CumulativeLast()
+            : IUniswapV2Pair(uniswapV2Pair).price1CumulativeLast();
+            
             pairObservation.price0Average = FixedPoint.divuq(
                 FixedPoint.uq112x112(uint224(price0Cumulative - pairObservation.price0CumulativeLast)),
                 FixedPoint.encode(timeElapsed)
