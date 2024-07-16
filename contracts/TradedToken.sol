@@ -712,7 +712,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             return 5;
         }  
         
-        if (_buckets[holder].remainingToSell < amount) {
+        if (amount > _buckets[holder].remainingToSell) {
             amount = _buckets[holder].remainingToSell;
         }
 
