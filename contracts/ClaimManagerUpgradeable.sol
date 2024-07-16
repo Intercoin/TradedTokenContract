@@ -65,16 +65,16 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
     uint256 private timeDeploy;
     address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
-    address public tradedToken;
-    address public claimingToken;
-    PriceNumDen claimingTokenExchangePrice;
+    address public immutable tradedToken;
+    address public immutable claimingToken;
+    PriceNumDen immutable claimingTokenExchangePrice;
     /**
      * @custom:shortd claimFrequency
      * @notice claimFrequency
      */
     uint16 public claimFrequency;
 
-    uint256 public wantToClaimTotal; // value that accomulated all users `wantToClaim requests`
+    uint256 public wantToClaimTotal; // value that accumulated all users `wantToClaim requests`
     
     mapping(address => ClaimStruct) public wantToClaimMap;
     
@@ -105,6 +105,11 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
 
         if (tradedToken_ == address(0) || claimSettings.claimingToken == address(0)) {
             revert EmptyTokenAddress();
+        }
+
+        if (claimSettings.claimingTokenExchangePrice.denominator == 0
+        || claimSettings.claimingTokenExchangePrice.numerator == 0) {
+            revert InputAmountCanNotBeZero();
         }
         
         tradedToken = tradedToken_;
