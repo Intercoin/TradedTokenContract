@@ -198,17 +198,12 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
             revert InsufficientAmountToClaim(tradedTokenAmount, scalingMaxTradedTokenAmount);
         }
 
-        //_claim(tradedTokenAmount, account);
         IClaim(tradedToken).claim(tradedTokenAmount, account);
 
         wantToClaimMap[msg.sender].lastActionTime = block.timestamp;
-        // wantToClaimTotal -= tradedTokenAmount;
-        // wantToClaimMap[account].amount -= tradedTokenAmount;
-        // or just empty all wantToClaimMap
-        wantToClaimTotal -= wantToClaimMap[account].amount;
-        delete wantToClaimMap[account].amount;
-        
-        
+
+        wantToClaimTotal -= wantToClaimMap[msg.sender].amount;
+        delete wantToClaimMap[msg.sender].amount;
     }
 
      /**
