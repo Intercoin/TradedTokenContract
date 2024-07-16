@@ -4,17 +4,34 @@ const paramArguments = require('./arguments-test.js');
 
 async function main() {
 
-	//const [deployer] = await ethers.getSigners();
 	var signers = await ethers.getSigners();
-    var deployer;
-	
-    if (signers.length == 1) {
-        deployer = signers[0];
-    } else {
-		// for tests just use auxillary address. 
-        [,deployer] = signers;
-    }
-
+	var deployer,
+		deployer_auxiliary,
+		deployer_releasemanager,
+		deployer_itr,
+		deployer_qbix,
+		deployer_claim,
+		deployer_stake;
+	if (signers.length == 1) {
+		deployer = signers[0];
+		deployer_auxiliary = signers[0];
+		deployer_releasemanager = signers[0];
+		deployer_itr = signers[0];
+		deployer_qbix = signers[0];
+		deployer_claim = signers[0];
+		deployer_stake = signers[0];
+	} else {
+		[
+		deployer,
+		deployer_auxiliary,
+		deployer_releasemanager,
+		deployer_itr,
+		deployer_qbix,
+		deployer_claim,
+		deployer_stake
+		] = signers;
+	}
+//return;
 	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 	console.log(
 		"Deploying contracts with the account:",
@@ -22,8 +39,9 @@ async function main() {
 	);
 
 	var options = {
-		//gasPrice: ethers.utils.parseUnits('50', 'gwei'), 
+		//gasPrice: ethers.parseUnits('27.5', 'gwei'), 
 		//gasLimit: 5e6
+		nonce: nonce
 	};
 
 	let params = [
@@ -34,7 +52,7 @@ async function main() {
 	console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
 
 	const TaxesLib = await ethers.getContractFactory("TaxesLib");
-	const library = await TaxesLib.connect(deployer).deploy();
+	const library = await TaxesLib.connect(deployer).deploy({nonce: nonce});
 	await library.waitForDeployment();
 
 	const MainF = await ethers.getContractFactory("TradedToken",  {

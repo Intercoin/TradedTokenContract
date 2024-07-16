@@ -21,8 +21,11 @@ module.exports = {
       // chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
       // forking: {url: bscURL}
       // matic
-      chainId: 137,  // sync with url or getting uniswap settings will reject transactions
-      forking: {url: maticURL}
+      // chainId: 137,  // sync with url or getting uniswap settings will reject transactions
+      // forking: {url: maticURL}
+      // mainnet
+      chainId: 1,  // sync with url or getting uniswap settings will reject transactions
+      forking: {url: mainnetURL}
 
     },
     kovan: {
@@ -54,9 +57,11 @@ module.exports = {
       accounts: [
         process.env.private_key,
         process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
-        process.env.private_key_claim
+        process.env.private_key_claim,
+        process.env.private_key_stake
       ],
       saveDeployments: true
     },
@@ -70,14 +75,16 @@ module.exports = {
     polygon: {
       url: maticURL,
       chainId: 137,
-      //gasPrice: "auto",
+      //gasPrice: 20_000000000,
       //accounts: [process.env.private_key],
       accounts: [
         process.env.private_key,
         process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
-        process.env.private_key_claim
+        process.env.private_key_claim,
+        process.env.private_key_stake
       ],
       saveDeployments: true
     },
@@ -92,14 +99,16 @@ module.exports = {
     mainnet: {
       url: mainnetURL,
       chainId: 1,
-      gasPrice: 20000000000,
+      //gasPrice: 20000000000,
       //accounts: [process.env.private_key],
       accounts: [
         process.env.private_key,
         process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
-        process.env.private_key_claim
+        process.env.private_key_claim,
+        process.env.private_key_stake
       ],
       saveDeployments: true
     }

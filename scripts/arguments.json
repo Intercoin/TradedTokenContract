@@ -1,11 +1,12 @@
 {
   "hardhat": {
     "time_created": 1685705981550,
-    "claimManagerUpgradeable": "0x3c705dB336C81c7FEFC5746e283aB2c0781A4B7b",
-    "time_updated": 1685706679741,
-    "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671"
+    "claimManagerUpgradeable": "0x9687796759CAbecC1674A4Aaf23889fC9EC2FCA2",
+    "time_updated": 1721019676746,
+    "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
+    "stakeManagerUpgradeable": "0x9687796759CAbecC1674A4Aaf23889fC9EC2FCA2"
   },
-  "time_updated": 1685710690054,
+  "time_updated": 1721020982134,
   "polygonMumbai": {
     "time_created": 1685708032483,
     "claimManagerUpgradeable": "0x6bdb34d8DcbFb402935Ff613843c4A07CACC4bc8",
@@ -23,5 +24,12 @@
     "claimManagerUpgradeable": "0xcd240d3a06a2C8447Dd0505fE5079727a3c1eE3E",
     "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
     "time_updated": 1685710690054
+  },
+  "mainnet": {
+    "time_created": 1721020123155,
+    "claimManagerUpgradeable": "0xc297C38D23Bb712861622DB521BDA70268682E63",
+    "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
+    "time_updated": 1721020982134,
+    "stakeManagerUpgradeable": "0x25c850F82A54c83776Aaaf8a1AB4EE244939BC99"
   }
 }

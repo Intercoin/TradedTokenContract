@@ -4,14 +4,33 @@ const paramArguments = require('./arguments-qbux.js');
 
 async function main() {
 
-	//const [deployer] = await ethers.getSigners();
 	var signers = await ethers.getSigners();
-    var deployer,deployer_qbix;
-    if (signers.length == 1) {
-        deployer = signers[0];
-    } else {
-        [,deployer,,deployer_qbix] = signers;
-    }
+	var deployer,
+		deployer_auxiliary,
+		deployer_releasemanager,
+		deployer_itr,
+		deployer_qbix,
+		deployer_claim,
+		deployer_stake;
+	if (signers.length == 1) {
+		deployer = signers[0];
+		deployer_auxiliary = signers[0];
+		deployer_releasemanager = signers[0];
+		deployer_itr = signers[0];
+		deployer_qbix = signers[0];
+		deployer_claim = signers[0];
+		deployer_stake = signers[0];
+	} else {
+		[
+		deployer,
+		deployer_auxiliary,
+		deployer_releasemanager,
+		deployer_itr,
+		deployer_qbix,
+		deployer_claim,
+		deployer_stake
+		] = signers;
+	}
 
 	var options = {
 		//gasPrice: ethers.utils.parseUnits('50', 'gwei'), 
