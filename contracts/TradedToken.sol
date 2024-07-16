@@ -459,7 +459,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         }
         if (
             newMinimumPriceFraction._x - minClaimPriceFraction._x > minClaimPriceGrowFraction._x ||
-            lastMinClaimPriceUpdatedTime <= block.timestamp + MIN_CLAIM_PRICE_UPDATED_TIME
+             block.timestamp <= lastMinClaimPriceUpdatedTime + MIN_CLAIM_PRICE_UPDATED_TIME
         ) {
             revert MinClaimPriceGrowTooFast();
         }
