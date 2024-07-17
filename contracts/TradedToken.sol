@@ -1142,7 +1142,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             xAux >>= 4;
             result <<= 2;
         }
-        if (xAux >= 0x8) {
+        if (xAux >= 0x4) {
             result <<= 1;
         }
         // The operations can never overflow because the result is
