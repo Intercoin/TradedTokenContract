@@ -828,17 +828,19 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         if (_buckets[holder].remainingToSell == 0) {
             emit PanicSellRateExceeded(holder, recipient, amount);
             return 5;
-        } else if (_buckets[holder].remainingToSell >= amount) {
-            _buckets[holder].remainingToSell -= amount;
-            return amount;
-        } else {
-            return _buckets[holder].remainingToSell;
         }
+
+        if (amount > _buckets[holder].remainingToSell) {
+            amount = _buckets[holder].remainingToSell;
+        }
+
+        _buckets[holder].remainingToSell -= amount;
+        return amount;
     }
 
     function holdersCheckBeforeTransfer(address from, address to, uint256 amount) internal {
         
-        if (to != address(0)) {
+        if (to != address(0) && from != to) {
         
             uint256 toBalanceOf = balanceOf(to);
 
@@ -873,7 +875,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             }
         }
 
-        if (from != address(0)) {
+        if (from != address(0) && from != to) {
             uint256 fromBalanceOf = balanceOf(from);
             if (fromBalanceOf < amount) {
                 // will revert inside transferFrom or transfer method

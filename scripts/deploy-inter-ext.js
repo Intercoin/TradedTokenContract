@@ -101,45 +101,43 @@ async function main() {
     //------------
 
     const distributionManagerF = await ethers.getContractFactory("distributionManager");
-    await distributionManagerF.connect(deployer_itr).deploy(
+    const distributionManager1 = await distributionManagerF.connect(deployer_itr).deploy(
         // address claiming, 
         claimingToken1,
         // address manager
         claimManagerAddress1
     );
 
-    await distributionManagerF.connect(deployer_itr).deploy(
+    const distributionManager2 = await distributionManagerF.connect(deployer_itr).deploy(
         // address claiming, 
         claimingToken2,
         // address manager
         claimManagerAddress2
     );
 
-	const networkName = hre.network.name;
+    await distributionManager1.waitForDeployment();
+    await distributionManager2.waitForDeployment();
 	
-	const libs = require('./libraries/'+networkName+'/list.js');
+	console.log("distributionManager1 deployed at:", distributionManager1.target);
+    console.log("claimManagerAddress1 deployed at:", claimManagerAddress1.target);
 
-	const MainF = await ethers.getContractFactory("TradedToken",  {
-		libraries: {
-			TaxesLib:libs.TaxesLib
-		}
-	});
-
-
-	this.instance = await MainF.connect(deployer_itr).deploy(...params);
-
-	await this.instance.waitForDeployment();
-	
-	console.log("Instance deployed at:", this.instance.target);
-	console.log("with params:", [...paramArguments]);
-	console.log("TaxesLib.library deployed at:", libs.TaxesLib);
+    console.log("distributionManager2 deployed at:", distributionManager2.target);
+    console.log("claimManagerAddress2 deployed at:", claimManagerAddress2.target);
 
 	await hre.run("verify:verify", {
-		address: this.instance.target,
-		constructorArguments: paramArguments,
-		libraries: {
-			TaxesLib:libs.TaxesLib
-		}
+		address: distributionManager1.target,
+		constructorArguments: [
+            claimingToken1,
+            claimManagerAddress1
+        ],
+	});
+
+    await hre.run("verify:verify", {
+		address: distributionManager2.target,
+		constructorArguments: [
+            claimingToken2,
+            claimManagerAddress2
+        ],
 	});
 
 }

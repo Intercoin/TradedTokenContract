@@ -76,11 +76,8 @@ abstract contract ClaimBase is IClaim {
     {
         uint256 a = IClaim(tradedToken).availableToClaim();
         uint256 w = wantToClaimMap[account].amount; 
-        // console.log("a                  = ",a);
-        // console.log("w                  = ",w);
-        // console.log("wantToClaimTotal   = ",wantToClaimTotal);
-        return wantToClaimTotal <= a ? w : w * a / wantToClaimTotal; 
-        
+        uint256 t = (w * claimingTokenExchangePrice.numerator) / claimingTokenExchangePrice.denominator;
+        return wantToClaimTotal <= a ? t : t * a / wantToClaimTotal; 
     }
     
     function lastActionTime(address sender) internal view returns(uint256) {
@@ -122,11 +119,8 @@ abstract contract ClaimBase is IClaim {
         IClaim(tradedToken).claim(tradedTokenAmount, account);
 
         wantToClaimMap[msg.sender].lastActionTime = block.timestamp;
-        // wantToClaimTotal -= tradedTokenAmount;
-        // wantToClaimMap[account].amount -= tradedTokenAmount;
-        // or just empty all wantToClaimMap
-        wantToClaimTotal -= wantToClaimMap[account].amount;
-        delete wantToClaimMap[account].amount;
+        wantToClaimTotal -= wantToClaimMap[msg.sender].amount;
+        delete wantToClaimMap[msg.sender].amount;
     }
 
     /**
