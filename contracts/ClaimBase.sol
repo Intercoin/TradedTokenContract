@@ -126,8 +126,8 @@ abstract contract ClaimBase is IClaim {
         // wantToClaimTotal -= tradedTokenAmount;
         // wantToClaimMap[account].amount -= tradedTokenAmount;
         // or just empty all wantToClaimMap
-        wantToClaimTotal -= wantToClaimMap[account].amount;
-        delete wantToClaimMap[account].amount;
+        wantToClaimTotal -= wantToClaimMap[msg.sender].amount;
+        delete wantToClaimMap[msg.sender].amount;
     }
 
     /**
