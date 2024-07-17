@@ -79,7 +79,8 @@ abstract contract ClaimBase is IClaim {
         // console.log("a                  = ",a);
         // console.log("w                  = ",w);
         // console.log("wantToClaimTotal   = ",wantToClaimTotal);
-        return wantToClaimTotal <= a ? w : w * a / wantToClaimTotal; 
+        uint256 t = (w * claimingTokenExchangePrice.numerator) / claimingTokenExchangePrice.denominator;
+        return wantToClaimTotal <= a ? t : t * a / wantToClaimTotal; 
         
     }
     
