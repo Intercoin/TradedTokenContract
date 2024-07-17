@@ -35,8 +35,8 @@ async function main() {
 	data_object = data_object_root[hre.network.name];
 
 	if (
-		typeof data_object.claimManagerUpgradeable === 'undefined' ||
-		!data_object.claimManagerUpgradeable ||
+		typeof data_object.stakeManagerUpgradeable === 'undefined' ||
+		!data_object.stakeManagerUpgradeable ||
 		!data_object.releaseManager
 	) {
 		throw("Arguments file: wrong addresses");
@@ -69,7 +69,8 @@ async function main() {
 		deployer_stake
 		] = signers;
 	}
-	
+
+
 	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
   	// const discountSensitivity = 0;
 
@@ -78,7 +79,7 @@ async function main() {
 		//gasLimit: 5e6
 	};
 	let _params = [
-		data_object.claimManagerUpgradeable,
+		data_object.stakeManagerUpgradeable,
 		ZERO_ADDRESS, // costmanager
 		data_object.releaseManager
 	]
@@ -87,12 +88,12 @@ async function main() {
 		options
 	]
 
-	console.log("Deploying contracts with the account:",deployer_claim.address);
-	console.log("Account balance:", (await ethers.provider.getBalance(deployer_claim.address)).toString());
+	console.log("Deploying contracts with the account:",deployer_stake.address);
+	console.log("Account balance:", (await ethers.provider.getBalance(deployer_stake.address)).toString());
 
-  	const ClaimManagerFactoryF = await ethers.getContractFactory("ClaimManagerFactory");
+  	const StakeManagerFactoryF = await ethers.getContractFactory("StakeManagerFactory");
 
-	this.factory = await ClaimManagerFactoryF.connect(deployer_claim).deploy(...params);
+	this.factory = await StakeManagerFactoryF.connect(deployer_stake).deploy(...params);
 
 	await this.factory.waitForDeployment();
 
@@ -106,8 +107,8 @@ async function main() {
         [this.factory.target], 
         [
             [
-                24,//uint8 factoryIndex; 
-                24,//uint16 releaseTag; 
+                27,//uint8 factoryIndex; 
+                27,//uint16 releaseTag; 
                 "0x53696c766572000000000000000000000000000000000000"//bytes24 factoryChangeNotes;
             ]
         ]
@@ -119,7 +120,7 @@ async function main() {
 
 	console.log("verifying");
     await hre.run("verify:verify", {address: this.factory.target, constructorArguments: _params});
-
+	
 }
 
 main()

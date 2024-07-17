@@ -1,20 +1,6 @@
-require('dotenv').config()
-
-require("@nomiclabs/hardhat-ethers")
-require("hardhat-docgen")
-require("@hardhat-docgen/core")
-//require("@hardhat-docgen/markdown")
-require("./docgen-custom-markdown")
-require('hardhat-deploy')
-require("@nomiclabs/hardhat-waffle")
-require("@nomiclabs/hardhat-web3")
-//require("@nomiclabs/hardhat-etherscan")
-require('@nomicfoundation/hardhat-verify');
-require("solidity-coverage")
-require("hardhat-gas-reporter")
-require('hardhat-contract-sizer');
-
-
+require('dotenv').config();
+require("@nomicfoundation/hardhat-toolbox");
+require("hardhat-contract-sizer");
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
 const goerliURL = `https://eth-goerli.alchemyapi.io/v2/${process.env.ALCHEMY_GOERLI}`
@@ -27,14 +13,20 @@ const mumbaiURL = `https://matic-mumbai.chainstacklabs.com`;
 
 
 module.exports = {
+  defaultNetwork: "hardhat",
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true,
-      forking: {
-        url: mainnetURL,
-        //url: bscURL,
-        //url: maticURL,
-      }
+      // bsc
+      // chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
+      // forking: {url: bscURL}
+      // matic
+      // chainId: 137,  // sync with url or getting uniswap settings will reject transactions
+      // forking: {url: maticURL}
+      // mainnet
+      chainId: 1,  // sync with url or getting uniswap settings will reject transactions
+      forking: {url: mainnetURL}
+
     },
     kovan: {
       url: kovanURL,
@@ -65,9 +57,11 @@ module.exports = {
       accounts: [
         process.env.private_key,
         process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
-        process.env.private_key_claim
+        process.env.private_key_claim,
+        process.env.private_key_stake
       ],
       saveDeployments: true
     },
@@ -81,14 +75,16 @@ module.exports = {
     polygon: {
       url: maticURL,
       chainId: 137,
-      //gasPrice: "auto",
+      //gasPrice: 20_000000000,
       //accounts: [process.env.private_key],
       accounts: [
         process.env.private_key,
         process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
-        process.env.private_key_claim
+        process.env.private_key_claim,
+        process.env.private_key_stake
       ],
       saveDeployments: true
     },
@@ -103,24 +99,19 @@ module.exports = {
     mainnet: {
       url: mainnetURL,
       chainId: 1,
-      gasPrice: 20000000000,
+      //gasPrice: 20000000000,
       //accounts: [process.env.private_key],
       accounts: [
         process.env.private_key,
         process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
-        process.env.private_key_claim
+        process.env.private_key_claim,
+        process.env.private_key_stake
       ],
       saveDeployments: true
     }
-  },
-  docgen: {
-    path: './docs',
-    clear: true,
-    only: ['contracts/v2'],
-    theme: '../../docgen-custom-markdown',
-    runOnCompile: false,
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
@@ -141,8 +132,9 @@ module.exports = {
   solidity: {
     compilers: [
         {
-          version: "0.8.18",
+          version: "0.8.24",
           settings: {
+            //viaIR: true,
             optimizer: {
               enabled: true,
               runs: 10,
@@ -158,6 +150,7 @@ module.exports = {
         {
           version: "0.8.15",
           settings: {
+            //viaIR: true,
             optimizer: {
               enabled: true,
               runs: 10,
@@ -174,6 +167,7 @@ module.exports = {
           version: "0.6.7",
           settings: {},
           settings: {
+            //viaIR: true,
             optimizer: {
               enabled: false,
               runs: 200,

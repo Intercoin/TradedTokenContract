@@ -1,16 +1,20 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/proxy/Clones.sol";
-import "./interfaces/IClaimUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@intercoin/releasemanager/contracts/CostManagerHelper.sol";
+import "./interfaces/IStakeUpgradeable.sol";
+import "./StakeBase.sol";
 
-import "@intercoin/releasemanager/contracts/CostManagerFactoryHelper.sol";
-import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
-
+//import "hardhat/console.sol";
 /**
-****************
-FACTORY CONTRACT
-****************
+*****************
+TEMPLATE CONTRACT
+*****************
 Although this code is available for viewing on GitHub and here, the general public is NOT given a license to freely deploy smart contracts based on this code, on any blockchains.
 To prevent confusion and increase trust in the audited code bases of smart contracts we produce, we intend for there to be only ONE official Factory address on the blockchain producing the corresponding smart contracts, and we are going to point a blockchain domain name at it.
 Copyright (c) Intercoin Inc. All rights reserved.
@@ -44,7 +48,7 @@ STAKING OR SPENDING REQUIREMENTS.
 In the future, Developer may begin requiring staking or spending of Intercoin tokens in order to take further actions (such as producing series and minting tokens). Any staking or spending requirements will first be announced on Developer's website (intercoin.org) four weeks in advance. Staking requirements will not apply to any actions already taken before they are put in place.
 
 CUSTOM ARRANGEMENTS.
-Reach out to us at intercoin.org if you are looking to obtain Intercoin tokens in bulk, remove link requirements forever, remove staking requirements forever, or get custom work done with your decentralized projects.
+Reach out to us at intercoin.org if you are looking to obtain Intercoin tokens in bulk, remove link requirements forever, remove staking requirements forever, or get custom work done with your Web3 projects.
 
 ENTIRE AGREEMENT
 This Agreement contains the entire agreement and understanding among the parties hereto with respect to the subject matter hereof, and supersedes all prior and contemporaneous agreements, understandings, inducements and conditions, express or implied, oral or written, of any nature whatsoever with respect to the subject matter hereof. The express terms hereof control and supersede any course of performance and/or usage of the trade inconsistent with any of the terms hereof. Provisions from previous Agreements executed between Customer and Developer., which are not expressly dealt with in this Agreement, will remain in effect.
@@ -55,125 +59,74 @@ This Agreement shall continue to apply to any successors or assigns of either pa
 ARBITRATION
 All disputes related to this agreement shall be governed by and interpreted in accordance with the laws of New York, without regard to principles of conflict of laws. The parties to this agreement will submit all disputes arising under this agreement to arbitration in New York City, New York before a single arbitrator of the American Arbitration Association (“AAA”). The arbitrator shall be selected by application of the rules of the AAA, or by mutual agreement of the parties, except that such arbitrator shall be an attorney admitted to practice law New York. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section.
 **/
-contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
-    using Clones for address;
+contract StakeManagerUpgradeable is StakeBase, IStakeUpgradeable, IERC777RecipientUpgradeable, IERC777SenderUpgradeable, ReentrancyGuardUpgradeable, CostManagerHelper {
 
-    /**
-     * 
-     * @notice ClaimManager implementation address
-     */
-    address public immutable claimManagerImplementation;
+    using SafeERC20Upgradeable for ERC777Upgradeable;
+    
+    uint8 internal constant OPERATION_SHIFT_BITS = 240;  // 256 - 16
+    // Constants representing operations
+    uint8 internal constant OPERATION_INITIALIZE = 0x0;
 
-    address[] public instances;
-
-    error EmptyAddress();
-
-    event InstanceCreated(address instance, uint256 instancesCount);
-
-    /**
-     * @param claimManagerImplementation_ address of claimManagerImplementation implementation
-     * @param costManager_ address of costmanager
-     * @param releaseManager_ address of releaseManager
-     */
-    constructor(
-        address claimManagerImplementation_,
+    constructor() {
+        _disableInitializers();
+    }
+    
+    function initialize(
+        address tradedToken_,
+        address stakingToken_,
+        uint16 bonusSharesRate_,
+        uint64 defaultStakeDuration_,
         address costManager_,
-        address releaseManager_
-    ) 
-        CostManagerFactoryHelper(costManager_) 
-        ReleaseManagerHelper(releaseManager_)
-    {
-        if (claimManagerImplementation_ == address(0)) {
-            revert EmptyAddress();
+        address producedBy_
+    ) external initializer {
+
+        __CostManagerHelper_init(_msgSender());
+        _setCostManager(costManager_);
+        __ReentrancyGuard_init();
+
+        __StakeBaseInit(tradedToken_, stakingToken_, bonusSharesRate_, defaultStakeDuration_);
+        
+        _accountForOperation(
+            OPERATION_INITIALIZE << OPERATION_SHIFT_BITS,
+            uint256(uint160(producedBy_)),
+            0
+        );
+
+    }
+    
+    /**
+     * @notice part of IERC777Recipient
+     */
+    function tokensReceived(
+        address operator,
+        address from,
+        address to,
+        uint256 amount,
+        bytes calldata userData,
+        bytes calldata operatorData
+    ) external {
+        if (_msgSender() == stakingToken) {
+            _stakeFromAddress(from, amount, defaultStakeDuration);
         }
-        claimManagerImplementation = claimManagerImplementation_;
-    }
-
-    ////////////////////////////////////////////////////////////////////////
-    // external section ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
-    /**
-     * @dev view amount of created instances
-     * @return amount amount instances
-     * 
-     */
-    function instancesCount() external view returns (uint256 amount) {
-        amount = instances.length;
-    }
-
-    ////////////////////////////////////////////////////////////////////////
-    // public section //////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
-    /**
-     * @param tradedToken internal token name 
-     * @param claimSettings tuple of claim settings
-     *        claimSettings.claimingToken claiming token address
-     *        claimSettings.claimingTokenExchangePrice tuple of exchange price [numerator, denominator]
-     *        claimSettings.claimFrequency claiming frequency. hot often user can claim
-     * @return instance address of created instance pool `ClaimManagerUpgradeable`
-     * 
-     */
-    function produce(
-        address tradedToken,
-        IClaimUpgradeable.ClaimSettings memory claimSettings
-    ) public returns (address instance) {
-
-        instance = claimManagerImplementation.clone();
-        
-        require(instance != address(0), "CommunityCoinFactory: INSTANCE_CREATION_FAILED");
-
-        instances.push(instance);
-
-        emit InstanceCreated(instance, instances.length);
-
-        IClaimUpgradeable(instance).initialize(
-            tradedToken,
-            claimSettings,
-            costManager,
-            _msgSender()
-        );
-
-        // register instance in release manager
-        registerInstance(instance);
     }
 
     /**
-     * @param tradedToken internal token name 
-     * @param claimSettings tuple of claim settings
-     *        claimSettings.claimingToken claiming token address
-     *        claimSettings.claimingTokenExchangePrice tuple of exchange price [numerator, denominator]
-     *        claimSettings.claimFrequency claiming frequency. hot often user can claim
-     * @return instance address of created instance pool `ClaimManagerUpgradeable`
-     * 
+     * @notice part of IERC777Sender
      */
-    function produceDeterministic(
-        bytes32 salt,
-        address tradedToken,
-        IClaimUpgradeable.ClaimSettings memory claimSettings
-    ) public returns (address instance) {
+    function tokensToSend(
+        address operator,
+        address from,
+        address to,
+        uint256 amount,
+        bytes calldata userData,
+        bytes calldata operatorData
+    ) external {}
 
-        instance = claimManagerImplementation.cloneDeterministic(salt);
-        
-        require(instance != address(0), "CommunityCoinFactory: INSTANCE_CREATION_FAILED");
-
-        instances.push(instance);
-
-        emit InstanceCreated(instance, instances.length);
-
-        IClaimUpgradeable(instance).initialize(
-            tradedToken,
-            claimSettings,
-            costManager,
-            _msgSender()
-        );
-
-        // register instance in release manager
-        registerInstance(instance);
+    function _transfer(address token, address to, uint256 amount) internal override {
+        ERC777Upgradeable(token).transfer(to, amount);
     }
-
-    ////////////////////////////////////////////////////////////////////////
-    // internal section ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
+    function _transferFrom(address token, address from, address to, uint256 amount) internal override {
+        ERC777Upgradeable(token).transferFrom(from, to, amount);
+    }
 }
+

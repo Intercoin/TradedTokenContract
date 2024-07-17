@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./IClaimManager.sol";
+import "./IClaim.sol";
 
-interface IClaimManagerUpgradeable is IClaimManager {
+interface IClaimUpgradeable is IClaim {
 
     function initialize(
         address tradedToken_,

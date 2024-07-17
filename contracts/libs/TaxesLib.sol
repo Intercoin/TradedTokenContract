@@ -9,25 +9,39 @@ library TaxesLib {
         uint16 toSellTax;
         uint64 buyTaxTimestamp;
         uint64 sellTaxTimestamp;
-        uint16 buyTaxDuration;
-        uint16 sellTaxDuration;
+        uint64 buyTaxDuration;
+        uint64 sellTaxDuration;
         bool buyTaxGradual;
         bool sellTaxGradual;
     } 
 
     struct TaxesInfoInit { 
-        uint16 buyTaxDuration;
-        uint16 sellTaxDuration;
+        uint16 buyTax;
+        uint16 sellTax;
+        uint64 buyTaxDuration;
+        uint64 sellTaxDuration;
         bool buyTaxGradual;
         bool sellTaxGradual;
+    }
+
+    function init(TaxesInfo storage taxesInfo, TaxesInfoInit memory taxesInfoInit) external {
+        _setTaxes(taxesInfo, taxesInfoInit.buyTax, taxesInfoInit.sellTax);
+
+        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
+        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
+        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
+        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
+    }
+
+    function setTaxes(TaxesInfo storage taxesInfo, uint16 newBuyTax, uint16 newSellTax) external {
+        _setTaxes(taxesInfo, newBuyTax, newSellTax);
     }
 
     function buyTax(TaxesInfo storage taxesInfo) external view returns(uint16) {
         return _buyTax(taxesInfo);
     }
 
-
-    function sellTax(TaxesInfo storage taxesInfo) public view returns(uint16) {
+    function sellTax(TaxesInfo storage taxesInfo) external view returns(uint16) {
         return _sellTax(taxesInfo);
     }
 
@@ -69,9 +83,9 @@ library TaxesLib {
         ) {
             if (taxesInfo.sellTaxGradual) {
                 if (taxesInfo.toSellTax > taxesInfo.fromSellTax) {
-                    return taxesInfo.fromSellTax + uint16(uint32(taxesInfo.toSellTax - taxesInfo.fromSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
+                    return taxesInfo.fromSellTax + uint16(uint64(taxesInfo.toSellTax - taxesInfo.fromSellTax) * uint64(block.timestamp - taxesInfo.sellTaxTimestamp) / uint64(taxesInfo.sellTaxDuration));
                 } else {
-                    return taxesInfo.fromSellTax - uint16(uint32(taxesInfo.fromSellTax - taxesInfo.toSellTax) * uint32(block.timestamp - taxesInfo.sellTaxTimestamp) / uint32(taxesInfo.sellTaxDuration));
+                    return taxesInfo.fromSellTax - uint16(uint64(taxesInfo.fromSellTax - taxesInfo.toSellTax) * uint64(block.timestamp - taxesInfo.sellTaxTimestamp) / uint64(taxesInfo.sellTaxDuration));
                 }
             } else {
                 return taxesInfo.fromSellTax;
@@ -83,15 +97,7 @@ library TaxesLib {
         
     }
 
-
-    function init(TaxesInfo storage taxesInfo, TaxesInfoInit memory taxesInfoInit) external {
-        taxesInfo.buyTaxDuration = taxesInfoInit.buyTaxDuration;
-        taxesInfo.sellTaxDuration = taxesInfoInit.sellTaxDuration;
-        taxesInfo.buyTaxGradual = taxesInfoInit.buyTaxGradual;
-        taxesInfo.sellTaxGradual = taxesInfoInit.sellTaxGradual;
-    }
-
-    function setTaxes(TaxesInfo storage taxesInfo, uint16 newBuyTax, uint16 newSellTax) external {
+    function _setTaxes(TaxesInfo storage taxesInfo, uint16 newBuyTax, uint16 newSellTax) private {
         taxesInfo.fromSellTax = _sellTax(taxesInfo);
         taxesInfo.toSellTax = newSellTax;
         taxesInfo.sellTaxTimestamp = uint64(block.timestamp);

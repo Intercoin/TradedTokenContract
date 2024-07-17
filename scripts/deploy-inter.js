@@ -1,6 +1,6 @@
 const fs = require('fs');
 const hre = require('hardhat');
-const paramArguments = require('./arguments-test.js');
+const paramArguments = require('./arguments-inter.js');
 
 async function main() {
 
@@ -31,17 +31,15 @@ async function main() {
 		deployer_stake
 		] = signers;
 	}
-//return;
-	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
 	console.log(
 		"Deploying contracts with the account:",
-		deployer.address
+		deployer_itr.address
 	);
 
 	var options = {
-		//gasPrice: ethers.parseUnits('27.5', 'gwei'), 
+		//gasPrice: ethers.utils.parseUnits('50', 'gwei'), 
 		//gasLimit: 5e6
-		nonce: nonce
 	};
 
 	let params = [
@@ -49,23 +47,34 @@ async function main() {
 		options
 	];
 
-	console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
+	console.log("Account balance:", (await ethers.provider.getBalance(deployer_itr.address)).toString());
 
-	const TaxesLib = await ethers.getContractFactory("TaxesLib");
-	const library = await TaxesLib.connect(deployer).deploy({nonce: nonce});
-	await library.waitForDeployment();
+	const networkName = hre.network.name;
+	
+	const libs = require('./libraries/'+networkName+'/list.js');
 
 	const MainF = await ethers.getContractFactory("TradedToken",  {
 		libraries: {
-			TaxesLib:library.target
+			TaxesLib:libs.TaxesLib
 		}
 	});
 
-	this.instance = await MainF.connect(deployer).deploy(...params);
+
+	this.instance = await MainF.connect(deployer_itr).deploy(...params);
+
+	await this.instance.waitForDeployment();
 	
 	console.log("Instance deployed at:", this.instance.target);
 	console.log("with params:", [...paramArguments]);
-	console.log("TaxesLib.library deployed at:", library.target);
+	console.log("TaxesLib.library deployed at:", libs.TaxesLib);
+
+	await hre.run("verify:verify", {
+		address: this.instance.target,
+		constructorArguments: paramArguments,
+		libraries: {
+			TaxesLib:libs.TaxesLib
+		}
+	});
 
 }
 

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "./interfaces/IClaimUpgradeable.sol";
+import "./interfaces/IStakeUpgradeable.sol";
 
 import "@intercoin/releasemanager/contracts/CostManagerFactoryHelper.sol";
 import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
@@ -55,14 +55,14 @@ This Agreement shall continue to apply to any successors or assigns of either pa
 ARBITRATION
 All disputes related to this agreement shall be governed by and interpreted in accordance with the laws of New York, without regard to principles of conflict of laws. The parties to this agreement will submit all disputes arising under this agreement to arbitration in New York City, New York before a single arbitrator of the American Arbitration Association (“AAA”). The arbitrator shall be selected by application of the rules of the AAA, or by mutual agreement of the parties, except that such arbitrator shall be an attorney admitted to practice law New York. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section.
 **/
-contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
+contract StakeManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
     using Clones for address;
 
     /**
      * 
-     * @notice ClaimManager implementation address
+     * @notice StakeManager implementation address
      */
-    address public immutable claimManagerImplementation;
+    address public immutable stakeManagerImplementation;
 
     address[] public instances;
 
@@ -71,22 +71,22 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
     event InstanceCreated(address instance, uint256 instancesCount);
 
     /**
-     * @param claimManagerImplementation_ address of claimManagerImplementation implementation
+     * @param stakeManagerImplementation_ address of stakeManagerImplementation implementation
      * @param costManager_ address of costmanager
      * @param releaseManager_ address of releaseManager
      */
     constructor(
-        address claimManagerImplementation_,
+        address stakeManagerImplementation_,
         address costManager_,
         address releaseManager_
     ) 
         CostManagerFactoryHelper(costManager_) 
         ReleaseManagerHelper(releaseManager_)
     {
-        if (claimManagerImplementation_ == address(0)) {
+        if (stakeManagerImplementation_ == address(0)) {
             revert EmptyAddress();
         }
-        claimManagerImplementation = claimManagerImplementation_;
+        stakeManagerImplementation = stakeManagerImplementation_;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -108,19 +108,20 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
 
     /**
      * @param tradedToken internal token name 
-     * @param claimSettings tuple of claim settings
-     *        claimSettings.claimingToken claiming token address
-     *        claimSettings.claimingTokenExchangePrice tuple of exchange price [numerator, denominator]
-     *        claimSettings.claimFrequency claiming frequency. hot often user can claim
-     * @return instance address of created instance pool `ClaimManagerUpgradeable`
+     * @param stakingToken external token name
+     * @param bonusSharesRate percent bonus per defaultStakeDuration
+     * @param defaultStakeDuration duration of stake when tokens are received by ERC777claim
+     * @return instance address of created instance pool `StakeManagerUpgradeable`
      * 
      */
     function produce(
         address tradedToken,
-        IClaimUpgradeable.ClaimSettings memory claimSettings
+        address stakingToken,
+        uint16 bonusSharesRate,
+        uint64 defaultStakeDuration
     ) public returns (address instance) {
 
-        instance = claimManagerImplementation.clone();
+        instance = stakeManagerImplementation.clone();
         
         require(instance != address(0), "CommunityCoinFactory: INSTANCE_CREATION_FAILED");
 
@@ -128,9 +129,11 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
 
         emit InstanceCreated(instance, instances.length);
 
-        IClaimUpgradeable(instance).initialize(
+        IStakeUpgradeable(instance).initialize(
             tradedToken,
-            claimSettings,
+            stakingToken,
+            bonusSharesRate,
+            defaultStakeDuration,
             costManager,
             _msgSender()
         );
@@ -141,20 +144,21 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
 
     /**
      * @param tradedToken internal token name 
-     * @param claimSettings tuple of claim settings
-     *        claimSettings.claimingToken claiming token address
-     *        claimSettings.claimingTokenExchangePrice tuple of exchange price [numerator, denominator]
-     *        claimSettings.claimFrequency claiming frequency. hot often user can claim
-     * @return instance address of created instance pool `ClaimManagerUpgradeable`
+     * @param stakingToken external token name
+     * @param bonusSharesRate percent bonus per defaultStakeDuration
+     * @param defaultStakeDuration duration of stake when tokens are received by ERC777
+     * @return instance address of created instance pool `StakemManagerUpgradeable`
      * 
      */
     function produceDeterministic(
         bytes32 salt,
         address tradedToken,
-        IClaimUpgradeable.ClaimSettings memory claimSettings
+        address stakingToken,
+        uint16 bonusSharesRate,
+        uint64 defaultStakeDuration
     ) public returns (address instance) {
 
-        instance = claimManagerImplementation.cloneDeterministic(salt);
+        instance = stakeManagerImplementation.cloneDeterministic(salt);
         
         require(instance != address(0), "CommunityCoinFactory: INSTANCE_CREATION_FAILED");
 
@@ -162,9 +166,11 @@ contract ClaimManagerFactory is CostManagerFactoryHelper, ReleaseManagerHelper {
 
         emit InstanceCreated(instance, instances.length);
 
-        IClaimUpgradeable(instance).initialize(
+        IStakeUpgradeable(instance).initialize(
             tradedToken,
-            claimSettings,
+            stakingToken,
+            bonusSharesRate,
+            defaultStakeDuration,
             costManager,
             _msgSender()
         );

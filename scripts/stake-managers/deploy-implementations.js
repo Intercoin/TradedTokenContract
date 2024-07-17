@@ -83,22 +83,22 @@ async function main() {
 	// 	//gasPrice: ethers.utils.parseUnits('50', 'gwei'), 
 	// 	gasLimit: 10e6
 	// };
-    
+
 	const deployerBalanceBefore = await ethers.provider.getBalance(deployer_auxiliary.address);
     console.log("Account balance:", (deployerBalanceBefore).toString());
 
-    const ClaimManagerUpgradeableF = await ethers.getContractFactory("ClaimManagerUpgradeable");
+    const stakeManagerUpgradeableF = await ethers.getContractFactory("StakeManagerUpgradeable");
 
-	const claimManagerUpgradeable = await ClaimManagerUpgradeableF.connect(deployer_auxiliary).deploy();
+	const stakeManagerUpgradeable = await stakeManagerUpgradeableF.connect(deployer_auxiliary).deploy();
+
+	await stakeManagerUpgradeable.waitForDeployment();
     
-    await claimManagerUpgradeable.waitForDeployment();
-
 	console.log("Implementations:");
-	console.log("  claimManagerUpgradeable deployed at:       ", claimManagerUpgradeable.address);
+	console.log("  stakeManagerUpgradeable deployed at:       ", stakeManagerUpgradeable.address);
     console.log("Linked with manager:");
     console.log("  Release manager:", RELEASE_MANAGER);
 
-	data_object.claimManagerUpgradeable 		    = claimManagerUpgradeable.target;
+	data_object.stakeManagerUpgradeable 		    = stakeManagerUpgradeable.target;
 	
     data_object.releaseManager  = RELEASE_MANAGER;
     
@@ -115,8 +115,8 @@ async function main() {
 	console.log(data_to_write);
     await write_data(data_to_write);
 
-    console.log("verifying");
-    await hre.run("verify:verify", {address: data_object.claimManagerUpgradeable, constructorArguments: []});
+	console.log("verifying");
+    await hre.run("verify:verify", {address: data_object.stakeManagerUpgradeable, constructorArguments: []});
 }
 
 main()

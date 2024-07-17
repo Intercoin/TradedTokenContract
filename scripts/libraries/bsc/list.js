@@ -1,4 +1,3 @@
 module.exports = {
-  TaxesLib: "0x5b9b3f04dE69F7FBd47B52b8308aA177421492CA",
-  SwapSettingsLib: "0x45776fA46307235998a4f9c57d575e503919cC4a",
+  TaxesLib: "0xc9EC9d1ac91312509def11b1eDb0DB2eEaDf7d44",
 };

@@ -6,9 +6,9 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgrade
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@artman325/releasemanager/contracts/CostManagerHelper.sol";
-import "./interfaces/IClaimManagerUpgradeable.sol";
-import "./interfaces/IClaim.sol";
+import "@intercoin/releasemanager/contracts/CostManagerHelper.sol";
+import "./interfaces/IClaimUpgradeable.sol";
+import "./ClaimBase.sol";
 
 //import "hardhat/console.sol";
 /**
@@ -59,31 +59,10 @@ This Agreement shall continue to apply to any successors or assigns of either pa
 ARBITRATION
 All disputes related to this agreement shall be governed by and interpreted in accordance with the laws of New York, without regard to principles of conflict of laws. The parties to this agreement will submit all disputes arising under this agreement to arbitration in New York City, New York before a single arbitrator of the American Arbitration Association (“AAA”). The arbitrator shall be selected by application of the rules of the AAA, or by mutual agreement of the parties, except that such arbitrator shall be an attorney admitted to practice law New York. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section.
 **/
-contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUpgradeable, IERC777SenderUpgradeable, ReentrancyGuardUpgradeable, CostManagerHelper {
+contract ClaimManagerUpgradeable is ClaimBase, IClaimUpgradeable, IERC777RecipientUpgradeable, IERC777SenderUpgradeable, ReentrancyGuardUpgradeable, CostManagerHelper {
 
     using SafeERC20Upgradeable for ERC777Upgradeable;
-    uint256 private timeDeploy;
-    address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
-
-    address public immutable tradedToken;
-    address public immutable claimingToken;
-    PriceNumDen immutable claimingTokenExchangePrice;
-    /**
-     * @custom:shortd claimFrequency
-     * @notice claimFrequency
-     */
-    uint16 public claimFrequency;
-
-    uint256 public wantToClaimTotal; // value that accumulated all users `wantToClaim requests`
     
-    mapping(address => ClaimStruct) public wantToClaimMap;
-    
-    error EmptyTokenAddress();
-    error InputAmountCanNotBeZero();
-    error InsufficientAmount();
-    error ClaimTooFast(uint256 untilTime);
-    error InsufficientAmountToClaim(uint256 requested, uint256 maxAvailable);
-
     uint8 internal constant OPERATION_SHIFT_BITS = 240;  // 256 - 16
     // Constants representing operations
     uint8 internal constant OPERATION_INITIALIZE = 0x0;
@@ -103,23 +82,7 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
         _setCostManager(costManager_);
         __ReentrancyGuard_init();
 
-        if (tradedToken_ == address(0) || claimSettings.claimingToken == address(0)) {
-            revert EmptyTokenAddress();
-        }
-
-        if (claimSettings.claimingTokenExchangePrice.denominator == 0
-        || claimSettings.claimingTokenExchangePrice.numerator == 0) {
-            revert InputAmountCanNotBeZero();
-        }
-        
-        tradedToken = tradedToken_;
-        claimingToken = claimSettings.claimingToken;
-        claimingTokenExchangePrice.numerator = claimSettings.claimingTokenExchangePrice.numerator;
-        claimingTokenExchangePrice.denominator = claimSettings.claimingTokenExchangePrice.denominator;
-        
-        claimFrequency = claimSettings.claimFrequency;
-
-        timeDeploy = block.timestamp;
+        __ClaimBaseInit(tradedToken_, claimSettings);
         
         _accountForOperation(
             OPERATION_INITIALIZE << OPERATION_SHIFT_BITS,
@@ -154,93 +117,25 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
         bytes calldata operatorData
     ) external {}
 
-    /**
-    * @return (this is called clamping a value or sum to fit into a range, in this case 0….availableToClaimTotal).
-    */
-    function availableToClaimByAddress(
-        address account
-    ) 
-        public 
-        view 
-        returns(uint256) 
-    {
-        uint256 a = IClaim(tradedToken).availableToClaim(); 
-        uint256 w = wantToClaimMap[account].amount; 
-        uint256 t = (w * claimingTokenExchangePrice.numerator) / claimingTokenExchangePrice.denominator;
-        return wantToClaimTotal <= a ? t : t * a / wantToClaimTotal; 
-        
-    }
-
-    /**
-     * @notice claims to account traded tokens instead external tokens(if set). external tokens will send to dead address
-     * @param claimingTokenAmount amount of external token to claim traded token
-     * @param account address to claim for
-     */
     function claim(uint256 claimingTokenAmount, address account) external nonReentrant() {
-
-        //address sender = _msgSender();
-
-        if (claimingTokenAmount == 0) { 
-            revert InputAmountCanNotBeZero();
-        }
-        
-        if (claimingTokenAmount > ERC777Upgradeable(claimingToken).allowance(msg.sender, address(this))) {
-            revert InsufficientAmount();
-        }
-        
-        if (lastActionTime(msg.sender) + claimFrequency > block.timestamp) {
-            revert ClaimTooFast(lastActionTime(msg.sender) + claimFrequency);
-        }
-        
-        ERC777Upgradeable(claimingToken).safeTransferFrom(msg.sender, DEAD_ADDRESS, claimingTokenAmount);
-
-        uint256 tradedTokenAmount = (claimingTokenAmount * claimingTokenExchangePrice.numerator) /
-            claimingTokenExchangePrice.denominator;
-
-        uint256 scalingMaxTradedTokenAmount = availableToClaimByAddress(msg.sender);
-
-        if (scalingMaxTradedTokenAmount < tradedTokenAmount) {
-            revert InsufficientAmountToClaim(tradedTokenAmount, scalingMaxTradedTokenAmount);
-        }
-
-        IClaim(tradedToken).claim(tradedTokenAmount, account);
-
-        wantToClaimMap[msg.sender].lastActionTime = block.timestamp;
-
-        wantToClaimTotal -= wantToClaimMap[msg.sender].amount;
-        delete wantToClaimMap[msg.sender].amount;
+        _claim(claimingTokenAmount, account);
     }
 
-     /**
-    * If there is a claimingToken, then they have to pass an amount that is <= claimingToken.balanceOf(caller). 
-    * If they pass zero here, it will actually look up and use their entire balance.
-    */
-    function wantToClaim(
-        uint256 amount
-    ) 
-        external 
-    {
-        //address sender = _msgSender();
-        uint256 availableAmount = ERC777Upgradeable(claimingToken).balanceOf(msg.sender);
-        
-        if (amount == 0) {
-            amount = availableAmount;
-        }
-
-        if (availableAmount < amount || amount == 0) {
-            revert InsufficientAmount();
-        }
-
-        wantToClaimTotal += amount - wantToClaimMap[msg.sender].amount;
-        wantToClaimMap[msg.sender].amount = amount;
-
-        wantToClaimMap[msg.sender].lastActionTime = block.timestamp;
-
+    function wantToClaim(uint256 amount) external {
+        _wantToClaim(amount);
+    }
+    
+    function claimingTokenAllowance(address from, address to) internal override view returns(uint256) {
+        return ERC777Upgradeable(claimingToken).allowance(from, to);
     }
 
-    function lastActionTime(address sender) internal view returns(uint256) {
-        return wantToClaimMap[sender].lastActionTime == 0 ? timeDeploy : wantToClaimMap[sender].lastActionTime;
+    function getClaimingTokenBalanceOf(address account) internal override view returns(uint256) {
+        return ERC777Upgradeable(claimingToken).balanceOf(account);
     }
 
+    
+    function claimingTokenTransferFrom(address from, address to, uint256 claimingTokenAmount) internal override {
+        ERC777Upgradeable(claimingToken).safeTransferFrom(from, to, claimingTokenAmount);
+    }
 }
 

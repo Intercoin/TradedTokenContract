@@ -3,8 +3,8 @@ const FRACTION = 10000n;
 module.exports =  [
   //CommonSettings memory commonSettings,
   [
-    "Intercoin-Test", // string memory tokenName_,
-    "INTER-Test",// string memory tokenSymbol_,
+    "Intercoin", // string memory tokenName_,
+    "INTER",// string memory tokenSymbol_,
     helperAddresses.getUSDTAddress(), // address reserveToken_, //” (USDT)
     1000, // uint256 priceDrop_,
     365,// uint64 lockupDays,
