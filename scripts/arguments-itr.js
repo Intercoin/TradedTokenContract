@@ -22,9 +22,9 @@ module.exports =  [
   //And panicSell globally is max 10% in a day 
   [ // means no limit
     86400, // uint32 duration;  
-        1000 // uint32 fraction; 
+    0 // uint32 fraction; 
   ],
-      1000, // uint256 buyTaxMax_,
-      1000, // uint256 sellTaxMax_
-  10 //holdersMax
+  1000, // uint256 buyTaxMax_,
+  1000, // uint256 sellTaxMax_
+  0 //holdersMax
 ];

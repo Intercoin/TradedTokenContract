@@ -9,3 +9,4 @@ TODO.txt
 /flattenen
 /coverage
 coverage.json
+scripts/test.js

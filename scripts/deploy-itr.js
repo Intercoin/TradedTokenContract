@@ -32,22 +32,32 @@ async function main() {
 
 	console.log("Account balance:", (await deployer.getBalance()).toString());
 
-	const TaxesLib = await ethers.getContractFactory("TaxesLib");
-	const library = await TaxesLib.connect(deployer).deploy();
-	await library.deployed();
-console.log("Account balance:", (await deployer.getBalance()).toString());
-	const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
-	const library2 = await SwapSettingsLib.connect(deployer).deploy();
-	await library2.deployed();
-console.log("Account balance:", (await deployer.getBalance()).toString());
+// 	const TaxesLib = await ethers.getContractFactory("TaxesLib");
+// 	const library = await TaxesLib.connect(deployer).deploy();
+// 	await library.deployed();
+// console.log("Account balance:", (await deployer.getBalance()).toString());
+// 	const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
+// 	const library2 = await SwapSettingsLib.connect(deployer).deploy();
+// 	await library2.deployed();
+// console.log("Account balance:", (await deployer.getBalance()).toString());
+
+	// const MainF = await ethers.getContractFactory("TradedToken",  {
+	// 	libraries: {
+	// 		TaxesLib:library.address,
+	// 		SwapSettingsLib:library2.address
+	// 	}
+	// });
+
+
+	const networkName = hre.network.name;
+	const libs = require('./libraries/'+networkName+'/list.js');
 	const MainF = await ethers.getContractFactory("TradedToken",  {
 		libraries: {
-			TaxesLib:library.address,
-			SwapSettingsLib:library2.address
+			TaxesLib:libs.TaxesLib,
+			SwapSettingsLib:libs.SwapSettingsLib
 		}
 	});
-
-
+	
 	this.instance = await MainF.connect(deployer_itr).deploy(...params);
 console.log("Account balance:", (await deployer.getBalance()).toString());	
 	console.log("Instance deployed at:", this.instance.address);
