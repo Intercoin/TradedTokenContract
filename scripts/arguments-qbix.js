@@ -1,9 +1,9 @@
-const helperAddresses = require('./helpers/busdAddress.js');
+const helperAddresses = require('./helpers/usdtAddress.js');
 
 module.exports =  [
   'QBIX',
   'QBIX',
-  helperAddresses.getBUSDAddress(), // address reserveToken_, //” (USDC)
+  helperAddresses.getUSDTAddress(),
   1000, // uint256 priceDrop_,
   365,// uint64 lockupIntervalAmount_,
   // TradedToken.ClaimSettings memory claimSettings,
