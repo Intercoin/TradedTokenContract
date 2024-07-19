@@ -17,7 +17,7 @@ async function main() {
 	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 	console.log(
 		"Deploying contracts with the account:",
-		deployer.address
+		deployer_qbix.address
 	);
 
 	var options = {
@@ -30,7 +30,7 @@ async function main() {
 		options
 	];
 
-	console.log("Account balance:", (await deployer.getBalance()).toString());
+	console.log("Account balance:", (await deployer_qbix.getBalance()).toString());
 
 
 	// const TaxesLib = await ethers.getContractFactory("TaxesLib");

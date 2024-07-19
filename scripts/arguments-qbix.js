@@ -1,9 +1,9 @@
-const helperAddresses = require('./helpers/usdtAddress.js');
+const helperAddresses = require('./helpers/usdcAddress.js');
 
 module.exports =  [
   'QBIX',
   'QBIX',
-  helperAddresses.getUSDTAddress(),
+  helperAddresses.getUSDCAddress(),
   1000, // uint256 priceDrop_,
   365,// uint64 lockupIntervalAmount_,
   // TradedToken.ClaimSettings memory claimSettings,
@@ -22,7 +22,7 @@ module.exports =  [
   //And panicSell globally is max 10% in a day 
   [ // means no limit
     86400, // uint32 duration;  
-    0 // uint32 fraction; 
+    1000 // uint32 fraction; 
   ],
   1000, // uint256 buyTaxMax_,
   1000, // uint256 sellTaxMax_

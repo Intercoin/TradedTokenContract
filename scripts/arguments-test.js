@@ -1,9 +1,9 @@
-const helperAddresses = require('./helpers/usdtAddress.js');
+const helperAddresses = require('./helpers/usdcAddress.js');
 
 module.exports =  [
   "Intercoin-Test", // string memory tokenName_,
   "ITRTest",// string memory tokenSymbol_,
-  helperAddresses.getUSDTAddress(),
+  helperAddresses.getUSDCAddress(),
   1000, // uint256 priceDrop_,
   365,// uint64 lockupIntervalAmount_,
   // TradedToken.ClaimSettings memory claimSettings,

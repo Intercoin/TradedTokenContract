@@ -65,9 +65,9 @@ contract ClaimManagerUpgradeable is IClaimManagerUpgradeable, IERC777RecipientUp
     uint256 private timeDeploy;
     address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
-    address public immutable tradedToken;
-    address public immutable claimingToken;
-    PriceNumDen immutable claimingTokenExchangePrice;
+    address public tradedToken;
+    address public claimingToken;
+    PriceNumDen claimingTokenExchangePrice;
     /**
      * @custom:shortd claimFrequency
      * @notice claimFrequency

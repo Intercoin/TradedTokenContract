@@ -25,6 +25,8 @@ const mainnetURL = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_M
 const maticURL = `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
 const mumbaiURL = `https://matic-mumbai.chainstacklabs.com`;
 
+const baseURL = 'https://mainnet.base.org';
+const optimismURL = 'https://optimism-mainnet.infura.io';
 
 module.exports = {
   networks: {
@@ -113,6 +115,30 @@ module.exports = {
         process.env.private_key_claim
       ],
       saveDeployments: true
+    },
+    base: {
+      url: baseURL,
+      chainId: 8453,
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_claim
+      ],
+      saveDeployments: true
+    },
+    optimisticEthereum: {
+      url: optimismURL,
+      chainId: 10,
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_claim
+      ],
+      saveDeployments: true
     }
   },
   docgen: {
@@ -135,7 +161,9 @@ module.exports = {
       polygonMumbai: process.env.MATIC_API_KEY,
       mainnet: process.env.ETHERSCAN_API_KEY,
       bsctest: process.env.BSCSCAN_API_KEY,
-      bsc: process.env.BSCSCAN_API_KEY
+      bsc: process.env.BSCSCAN_API_KEY,
+      optimisticEthereum: process.env.OPTIMISM_API_KEY,
+      base: process.env.BASE_API_KEY
     }
   },
   solidity: {

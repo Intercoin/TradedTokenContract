@@ -209,10 +209,10 @@ describe("TradedTokenInstance", function () {
 
 
     describe("instance check", function () {
-        var externalToken, claimManager;
+        var externalToken, claimManager, claimManagerFactory;
         beforeEach("deploying", async() => {
 
-            const ClaimManagerF = await ethers.getContractFactory("ClaimManagerMock");
+            
 
             erc20ReservedToken  = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
             externalToken       = await ERC20Factory.deploy("ERC20 External Token", "ERC20-EXT");
@@ -234,8 +234,41 @@ describe("TradedTokenInstance", function () {
                 holdersMax
             );
 
+            const ReleaseManagerFactoryF = await ethers.getContractFactory("MockReleaseManagerFactory");
+            const ReleaseManagerF = await ethers.getContractFactory("MockReleaseManager");
+            let implementationReleaseManager    = await ReleaseManagerF.deploy();
+            let releaseManagerFactory   = await ReleaseManagerFactoryF.connect(owner).deploy(implementationReleaseManager.address);
+            let tx = await releaseManagerFactory.connect(owner).produce();
+            let rc = await tx.wait(); // 0ms, as tx is already confirmed
+            let event = rc.events.find(event => event.event === 'InstanceProduced');
+            let instance;
+            [instance, /*instancesCount*/] = event.args;
+
+            let releaseManager = await ethers.getContractAt("MockReleaseManager",instance);
+
+            const ClaimManagerF = await ethers.getContractFactory("ClaimManagerMock");
+            const ClaimManagerFactoryF = await ethers.getContractFactory("ClaimManagerFactory");
+            const implementationClaimManager = await ClaimManagerF.deploy();
+
+            claimManagerFactory   = await ClaimManagerFactoryF.connect(owner).deploy(
+                implementationClaimManager.address,
+                ZERO_ADDRESS,
+                releaseManager.address
+            );
+
+            const factoriesList = [claimManagerFactory.address];
+            const factoryInfo = [
+                [
+                    1,//uint8 factoryIndex; 
+                    1,//uint16 releaseTag; 
+                    "0x53696c766572000000000000000000000000000000000000"//bytes24 factoryChangeNotes;
+                ]
+            ];
+
+            await releaseManager.connect(owner).newRelease(factoriesList, factoryInfo);
+
             await expect(
-                    ClaimManagerF.deploy(
+                claimManagerFactory.produce(
                     ZERO_ADDRESS,
                     [
                         externalToken.address,
@@ -246,7 +279,7 @@ describe("TradedTokenInstance", function () {
             ).to.be.revertedWith("EmptyTokenAddress()");
 
             await expect(
-                    ClaimManagerF.deploy(
+                claimManagerFactory.produce(
                     mainInstance.address,
                     [
                         ZERO_ADDRESS,
@@ -256,7 +289,7 @@ describe("TradedTokenInstance", function () {
                 )
             ).to.be.revertedWith("EmptyTokenAddress()");
 
-            claimManager = await ClaimManagerF.deploy(
+            tx = await claimManagerFactory.produce(
                 mainInstance.address,
                 [
                     externalToken.address,
@@ -264,6 +297,12 @@ describe("TradedTokenInstance", function () {
                     claimFrequency
                 ]
             );
+            rc = await tx.wait(); // 0ms, as tx is already confirmed
+            event = rc.events.find(event => event.event === 'InstanceCreated');
+            
+            [instance, /*instancesCount*/] = event.args;
+            
+            claimManager = await ethers.getContractAt("ClaimManagerMock",instance);
 
             // let erc777 = await mainInstance.tradedToken();
             // itrv2 = await ethers.getContractAt("ITRv2",erc777);

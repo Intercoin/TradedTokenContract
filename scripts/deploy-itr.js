@@ -17,7 +17,7 @@ async function main() {
 	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 	console.log(
 		"Deploying contracts with the account:",
-		deployer.address
+		deployer_itr.address
 	);
 
 	var options = {
@@ -30,7 +30,7 @@ async function main() {
 		options
 	];
 
-	console.log("Account balance:", (await deployer.getBalance()).toString());
+	console.log("Account balance:", (await deployer_itr.getBalance()).toString());
 
 // 	const TaxesLib = await ethers.getContractFactory("TaxesLib");
 // 	const library = await TaxesLib.connect(deployer).deploy();
@@ -59,11 +59,12 @@ async function main() {
 	});
 	
 	this.instance = await MainF.connect(deployer_itr).deploy(...params);
-console.log("Account balance:", (await deployer.getBalance()).toString());	
+	
+console.log("Account balance:", (await deployer_itr.getBalance()).toString());	
 	console.log("Instance deployed at:", this.instance.address);
 	console.log("with params:", [...paramArguments]);
-	console.log("TaxesLib.library deployed at:", library.address);
-	console.log("SwapSettingsLib.library deployed at:", library2.address);
+	console.log("TaxesLib.library deployed at:", libs.TaxesLib);
+	console.log("SwapSettingsLib.library deployed at:", libs.SwapSettingsLib);
 
 }
 
