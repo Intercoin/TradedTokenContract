@@ -12,7 +12,7 @@ const getUSDCAddress = () => {
 		return "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359";
 	} else if ((networkName == 'mainnet') && (chainId == 1)) {
 		return "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
-	} else if ((networkName == 'optimism') && (chainId == 10)) {
+	} else if ((networkName == 'optimisticEthereum') && (chainId == 10)) {
 		return "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85";
 	} else if ((networkName == 'base') && (chainId == 8453)) {
 		return "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";

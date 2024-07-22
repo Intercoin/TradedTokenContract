@@ -26,7 +26,7 @@ const maticURL = `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY
 const mumbaiURL = `https://matic-mumbai.chainstacklabs.com`;
 
 const baseURL = 'https://mainnet.base.org';
-const optimismURL = 'https://optimism-mainnet.infura.io';
+const optimismURL = 'https://optimism.llamarpc.com';
 
 module.exports = {
   networks: {

@@ -4,11 +4,11 @@ const hre = require('hardhat');
 async function main() {
 
 	var signers = await ethers.getSigners();
-    var deployer, deployer_itr;
+    var deployer;
     if (signers.length == 1) {
         deployer = signers[0];
     } else {
-        [,deployer,deployer_itr] = signers;
+        [,deployer,] = signers;
     }
 
 	console.log(
@@ -31,6 +31,14 @@ async function main() {
 	console.log("TaxesLib.library deployed at:", library.address);
 	console.log("SwapSettingsLib.library deployed at:", library2.address);
 
+    const networkName = hre.network.name;
+    if (networkName == 'hardhat') {
+        console.log("skipping verifying for  'hardhat' network");
+    } else {
+        console.log("Starting verifying:");
+        await hre.run("verify:verify", {address: library.address, constructorArguments: []});
+        await hre.run("verify:verify", {address: library2.address, constructorArguments: []});
+    }
 }
 
 main()

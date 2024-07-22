@@ -42,6 +42,22 @@ library SwapSettingsLib {
                 k1,k2,k3,k4
             );
             //_koefficients(10000, 25);
+        } else if((chainId == 0x2105)) {
+            // Base-Uniswap
+            (k1,k2,k3,k4) = _koefficients(1000, 3); // fee = 0.3%
+            return( 
+                0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24, //uniswapRouter
+                0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6, //uniswapRouterFactory
+                k1,k2,k3,k4
+            );
+        } else if((chainId == 0xa)) {
+            //Optimism-Uniswap
+            (k1,k2,k3,k4) = _koefficients(1000, 3); // fee = 0.3%
+            return( 
+                0x4A7b5Da61326A6379179b40d00F57E5bbDC962c2, //uniswapRouter
+                0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf, //uniswapRouterFactory
+                k1,k2,k3,k4
+            );
         } else {
             revert("unsupported chain");
         }
