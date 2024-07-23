@@ -15,7 +15,7 @@ abstract contract ClaimBase is IClaim {
      * 
      * @notice claimFrequency
      */
-    uint16 public claimFrequency;
+    uint32 public claimFrequency;
 
     uint256 public wantToClaimTotal; // value that accumulated all users `wantToClaim requests`
     

@@ -14,7 +14,7 @@ interface IClaim {
     struct ClaimSettings {
         address claimingToken;
         PriceNumDen claimingTokenExchangePrice;
-        uint16 claimFrequency;
+        uint32 claimFrequency;
     }
 
     function claim(uint256 amount, address account) external;   
