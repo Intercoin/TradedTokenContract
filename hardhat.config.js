@@ -10,7 +10,8 @@ const bsctestURL = 'https://data-seed-prebsc-1-s1.binance.org:8545';
 const mainnetURL = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_MAINNET}`
 const maticURL = `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
 const mumbaiURL = `https://matic-mumbai.chainstacklabs.com`;
-
+const baseURL = 'https://mainnet.base.org';
+const optimismURL = 'https://optimism.llamarpc.com';
 
 module.exports = {
   defaultNetwork: "hardhat",
@@ -21,11 +22,11 @@ module.exports = {
       // chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
       // forking: {url: bscURL}
       // matic
-      // chainId: 137,  // sync with url or getting uniswap settings will reject transactions
-      // forking: {url: maticURL}
+      chainId: 137,  // sync with url or getting uniswap settings will reject transactions
+      forking: {url: maticURL}
       // mainnet
-      chainId: 1,  // sync with url or getting uniswap settings will reject transactions
-      forking: {url: mainnetURL}
+      // chainId: 1,  // sync with url or getting uniswap settings will reject transactions
+      // forking: {url: mainnetURL}
 
     },
     kovan: {
@@ -61,7 +62,9 @@ module.exports = {
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
         process.env.private_key_claim,
-        process.env.private_key_stake
+        process.env.private_key_stake,
+        process.env.private_key_claimingTokenITR,
+        process.env.private_key_claimingTokenQBIX
       ],
       saveDeployments: true
     },
@@ -84,7 +87,9 @@ module.exports = {
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
         process.env.private_key_claim,
-        process.env.private_key_stake
+        process.env.private_key_stake,
+        process.env.private_key_claimingTokenITR,
+        process.env.private_key_claimingTokenQBIX
       ],
       saveDeployments: true
     },
@@ -108,7 +113,41 @@ module.exports = {
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
         process.env.private_key_claim,
-        process.env.private_key_stake
+        process.env.private_key_stake,
+        process.env.private_key_claimingTokenITR,
+        process.env.private_key_claimingTokenQBIX
+      ],
+      saveDeployments: true
+    },
+    base: {
+      url: baseURL,
+      chainId: 8453,
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_claim,
+        process.env.private_key_stake,
+        process.env.private_key_claimingTokenITR,
+        process.env.private_key_claimingTokenQBIX
+      ],
+      saveDeployments: true
+    },
+    optimisticEthereum: {
+      url: optimismURL,
+      chainId: 10,
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_claim,
+        process.env.private_key_stake,
+        process.env.private_key_claimingTokenITR,
+        process.env.private_key_claimingTokenQBIX
       ],
       saveDeployments: true
     }
@@ -126,7 +165,9 @@ module.exports = {
       polygonMumbai: process.env.MATIC_API_KEY,
       mainnet: process.env.ETHERSCAN_API_KEY,
       bsctest: process.env.BSCSCAN_API_KEY,
-      bsc: process.env.BSCSCAN_API_KEY
+      bsc: process.env.BSCSCAN_API_KEY,
+      optimisticEthereum: process.env.OPTIMISM_API_KEY,
+      base: process.env.BASE_API_KEY    
     }
   },
   solidity: {

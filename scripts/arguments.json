@@ -2,11 +2,14 @@
   "hardhat": {
     "time_created": 1685705981550,
     "claimManagerUpgradeable": "0x9687796759CAbecC1674A4Aaf23889fC9EC2FCA2",
-    "time_updated": 1721019676746,
+    "time_updated": 1721716903247,
     "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
-    "stakeManagerUpgradeable": "0x9687796759CAbecC1674A4Aaf23889fC9EC2FCA2"
+    "stakeManagerUpgradeable": "0x9687796759CAbecC1674A4Aaf23889fC9EC2FCA2",
+    "claimingTokenITR": "0xef11D1c2aA48826D4c41e54ab82D1Ff5Ad8A64Ca",
+    "claimingTokenQBIX": "0xBe0F340075060F856612d91e17cAe599dE92C745",
+    "claimManagerFactory": "0x13010100e02fa71139c974520196ff4575b5f639"
   },
-  "time_updated": 1721020982134,
+  "time_updated": 1721751229712,
   "polygonMumbai": {
     "time_created": 1685708032483,
     "claimManagerUpgradeable": "0x6bdb34d8DcbFb402935Ff613843c4A07CACC4bc8",
@@ -15,15 +18,21 @@
   },
   "polygon": {
     "time_created": 1685710242247,
-    "claimManagerUpgradeable": "0x192D5F66e9daD72E62eA2426a86d6Ea4f72E9946",
+    "claimManagerUpgradeable": "0xE1Dea5D2173128f5C7d7af0e9D267b123AcA58cB",
     "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
-    "time_updated": 1685710245778
+    "time_updated": 1721744774988,
+    "claimManagerFactory": "0x13010100E02fA71139c974520196FF4575B5f639",
+    "claimingTokenITR": "0x00000000bb4f887acaC830Ab1031F098Bc4CE19F",
+    "claimingTokenQBIX": "0x0000000069361B69110b190003D0220B38976D60"
   },
   "bsc": {
     "time_created": 1685710682945,
-    "claimManagerUpgradeable": "0xcd240d3a06a2C8447Dd0505fE5079727a3c1eE3E",
+    "claimManagerUpgradeable": "0x89dA2014bb56a213626eA6cE931F9AC65ad3B765",
     "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
-    "time_updated": 1685710690054
+    "time_updated": 1721746597107,
+    "claimManagerFactory": "0x13010100E02fA71139c974520196FF4575B5f639",
+    "claimingTokenITR": "0x00000000bb4f887acaC830Ab1031F098Bc4CE19F",
+    "claimingTokenQBIX": "0x0000000069361B69110b190003D0220B38976D60"
   },
   "mainnet": {
     "time_created": 1721020123155,
@@ -31,5 +40,23 @@
     "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
     "time_updated": 1721020982134,
     "stakeManagerUpgradeable": "0x25c850F82A54c83776Aaaf8a1AB4EE244939BC99"
+  },
+  "base": {
+    "time_created": 1721747734408,
+    "claimManagerUpgradeable": "0x20c89f2f31DCF780d5B82Db72B89566d10d6594f",
+    "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
+    "time_updated": 1721748481057,
+    "claimManagerFactory": "0x13010100E02fA71139c974520196FF4575B5f639",
+    "claimingTokenITR": "0x00000000bb4f887acaC830Ab1031F098Bc4CE19F",
+    "claimingTokenQBIX": "0x0000000069361B69110b190003D0220B38976D60"
+  },
+  "optimisticEthereum": {
+    "time_created": 1721748924448,
+    "claimManagerUpgradeable": "0xc0037d875762b980704A136D5f82671e22fda3E0",
+    "releaseManager": "0xccfefc930c5960d195f04a5a9a1bf6a155fcd671",
+    "time_updated": 1721751229712,
+    "claimManagerFactory": "0x13010100E02fA71139c974520196FF4575B5f639",
+    "claimingTokenITR": "0x00000000bb4f887acaC830Ab1031F098Bc4CE19F",
+    "claimingTokenQBIX": "0x0000000069361B69110b190003D0220B38976D60"
   }
 }

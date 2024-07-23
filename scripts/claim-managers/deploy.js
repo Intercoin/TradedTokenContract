@@ -22,6 +22,16 @@ function get_data(_message) {
     });
 }
 
+function write_data(_message) {
+    return new Promise(function(resolve, reject) {
+        fs.writeFile('./scripts/arguments.json', _message, (err) => {
+            if (err) throw err;
+            console.log('Data written to file');
+            resolve();
+        });
+    });
+}
+
 async function main() {
 
 	var data = await get_data();
@@ -116,6 +126,16 @@ async function main() {
     console.log('newRelease - waiting');
     await txNewRelease.wait(3);
     console.log('newRelease - mined');
+
+	data_object.claimManagerFactory = this.factory.target;
+	//---
+	const ts_updated = Date.now();
+    data_object.time_updated = ts_updated;
+    data_object_root[`${hre.network.name}`] = data_object;
+    data_object_root.time_updated = ts_updated;
+    let data_to_write = JSON.stringify(data_object_root, null, 2);
+	console.log(data_to_write);
+    await write_data(data_to_write);
 
 	console.log("verifying");
     await hre.run("verify:verify", {address: this.factory.target, constructorArguments: _params});
