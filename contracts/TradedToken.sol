@@ -930,9 +930,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             willRevert = false;
         }
 
+        bool catchAvailableToSellLogic = false;
         if (exchanges[to] != 0 && (availableToSell[from] >= amount)) {
             availableToSell[from] -= amount;
             willRevert = false;
+            catchAvailableToSellLogic = true;
         }
         
         // if (
@@ -946,6 +948,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         if (
             from != address(internalLiquidity) && //exclude check addingLiquidity
+            !catchAvailableToSellLogic &&
             exchanges[to] != 0
         ) {
             if
@@ -964,8 +967,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         // save amount which user can send back to exchange
         if (exchanges[from] != 0) {
-            canSendBack[to].amount = amount;
-            canSendBack[to].untilTime = uint64(block.timestamp) + durationSendBack;
+            _setSendBackAmount(to, amount);
+            
         }      
 
         holdersCheckBeforeTransfer(from, to, amount);
@@ -1013,7 +1016,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @notice do claim to the `account` and locked tokens if
      */
     function _claim(uint256 tradedTokenAmount, address account) internal {
-        
+
+        _setSendBackAmount(account, tradedTokenAmount);
+
         __claim(tradedTokenAmount, account);
         
         emit Claimed(account, tradedTokenAmount);
@@ -1067,6 +1072,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             }
         }
         return amount;
+    }
+
+    function _setSendBackAmount(address account, uint256 amount) internal {
+        canSendBack[account].amount = amount;
+        canSendBack[account].untilTime = uint64(block.timestamp) + durationSendBack;
     }
     
     /**
