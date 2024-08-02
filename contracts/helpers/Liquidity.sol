@@ -45,7 +45,7 @@ contract Liquidity is IERC777Recipient {
     uint64 internal constant FRACTION = 10000;
     uint64 internal constant MIN_CLAIM_PRICE_UPDATED_TIME = 1 days;
 
-    uint64 internal immutable startupTimestamp;
+    uint64 internal startupTimestamp; // should setup after adding initial liquidity
     uint256 public totalCumulativeClaimed;
     uint256 internal amountClaimedInLastPeriod;
     /**
@@ -177,6 +177,8 @@ contract Liquidity is IERC777Recipient {
     ////////////////////////////////////////////
     function addInitialLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) external {
         onlyCreator();
+
+        startupTimestamp = _currentBlockTimestamp();
 
         _addLiquidity(amountTradedToken, amountReserveToken);
 
