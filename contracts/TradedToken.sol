@@ -1052,7 +1052,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         sources[addr] = timestamp;
     }
 
-    function _validateRemoving(uint64 timestamp) internal {
+    function _validateRemoving(uint64 timestamp) internal view {
         if (block.timestamp < timestamp)  {
             revert CantRemove(timestamp);
         }
