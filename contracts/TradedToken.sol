@@ -70,8 +70,13 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         address reserveToken; //” (USDC)
         uint256 priceDrop;
         uint64 lockupDays;
+        uint64 durationSendBack;
     }
-   
+
+    struct SendBack {
+        uint256 amount;
+        uint64 untilTime;
+    }
 
     bytes32 private constant _TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant _TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
@@ -129,6 +134,10 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @notice TradedToken sell price in buySellToken, should be less than buyPrice
      */
     uint256 public sellPrice;
+    /**
+     * @notice duration time when user can send previous amount back to exchange
+     */
+    uint64 durationSendBack;
 
     mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
 
@@ -142,7 +151,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => uint64) public exchanges;
     mapping(address => uint64) public sources;
     mapping(address => uint256) public availableToSell;
-    
+    mapping(address => SendBack) public canSendBack;
 
     address internal governor;
  
@@ -166,6 +175,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     error CantCreatePair(address tradedToken, address reserveToken);
     error CantRemove(uint64 untilTime);
     error CantBeZero();
+    error CantSendBack();
     error ClaimsDisabled();
     error ClaimsEnabledTimeAlreadySetup();
     error EmptyAddress();
@@ -221,6 +231,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         tradedToken = address(this);
         reserveToken = commonSettings.reserveToken;
+        durationSendBack = commonSettings.durationSendBack;
 
         // setup swap addresses
         liquidityLib = ILiquidityLib(liquidityLib_);
@@ -421,7 +432,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             revert InsufficientAmount();
         }
         ///
-
         __claim(amountTradedToken, address(internalLiquidity));
         ERC777(reserveToken).safeTransfer(address(internalLiquidity), amountReserveToken);
 
@@ -920,13 +930,46 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             willRevert = false;
         }
 
+        bool catchAvailableToSellLogic = false;
         if (exchanges[to] != 0 && (availableToSell[from] >= amount)) {
             availableToSell[from] -= amount;
             willRevert = false;
+            catchAvailableToSellLogic = true;
         }
+        
+        // if (
+        //     willRevert &&
+
+        // ) {
+
         if (willRevert) {
             revert NotInTheWhiteList();
-        }        
+        }       
+
+        if (
+            from != address(internalLiquidity) && //exclude check addingLiquidity
+            !catchAvailableToSellLogic &&
+            exchanges[to] != 0
+        ) {
+            if
+            (
+                canSendBack[from].amount >= amount && 
+                canSendBack[from].untilTime >= uint64(block.timestamp)
+            ) {
+
+                canSendBack[from].amount -= amount;
+                canSendBack[from].untilTime = 0;
+                
+            } else {
+                revert CantSendBack();
+            }
+        }
+
+        // save amount which user can send back to exchange
+        if (exchanges[from] != 0) {
+            _setSendBackAmount(to, amount);
+            
+        }      
 
         holdersCheckBeforeTransfer(from, to, amount);
         if (sales[from] != 0) {
@@ -973,7 +1016,9 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      * @notice do claim to the `account` and locked tokens if
      */
     function _claim(uint256 tradedTokenAmount, address account) internal {
-        
+
+        _setSendBackAmount(account, tradedTokenAmount);
+
         __claim(tradedTokenAmount, account);
         
         emit Claimed(account, tradedTokenAmount);
@@ -1027,6 +1072,11 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             }
         }
         return amount;
+    }
+
+    function _setSendBackAmount(address account, uint256 amount) internal {
+        canSendBack[account].amount = amount;
+        canSendBack[account].untilTime = uint64(block.timestamp) + durationSendBack;
     }
     
     /**

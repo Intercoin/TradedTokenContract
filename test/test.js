@@ -67,6 +67,7 @@ describe("TradedTokenInstance", function () {
                 emissionPeriod,
                 emissionDecrease,
                 emissionPriceGainMinimum,
+                durationSendBack,
                 liquidityLib
             } = await loadFixture(deploy);
 
@@ -77,7 +78,8 @@ describe("TradedTokenInstance", function () {
                         tokenSymbol,
                         constants.ZERO_ADDRESS, //” (USDC)
                         priceDrop,
-                        lockupIntervalAmount
+                        lockupIntervalAmount,
+                        durationSendBack
                     ],
                     [
                         [minClaimPriceNumerator, minClaimPriceDenominator],
@@ -691,6 +693,7 @@ describe("TradedTokenInstance", function () {
                             lockupIntervalAmount,
                             buySellToken,
                             internalLiquidity,
+                            uniswapRouterInstance,
                             mainInstance
                         } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
 
@@ -749,6 +752,7 @@ describe("TradedTokenInstance", function () {
                             erc20ReservedToken,
                             lockupIntervalAmount,
                             buySellToken,
+                            uniswapRouterInstance,
                             mainInstance
                         } = await loadFixture(deployAndTestUniswapSettings);
 
@@ -994,6 +998,7 @@ describe("TradedTokenInstance", function () {
                             lockupIntervalAmount,
                             buySellToken,
                             erc20ReservedToken,
+                            uniswapRouterInstance,
                             mainInstance
                         } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
 
@@ -1477,6 +1482,7 @@ describe("TradedTokenInstance", function () {
                     charlie,
                     lockupIntervalAmount,
                     erc20ReservedToken,
+                    uniswapRouterInstance,
                     mainInstance
                 } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
 
@@ -1486,7 +1492,9 @@ describe("TradedTokenInstance", function () {
                 const RateForUniswap = 5000n; // 50%
                 await mainInstance.connect(owner).setRateLimit([DurationForUniswap, RateForUniswap])
 
-                await mainInstance.connect(owner).claim(ethers.parseEther('1'), charlie.address);
+                //await mainInstance.connect(owner).claim(ethers.parseEther('1'), charlie.address);
+                await mainInstance.connect(owner).claim(ethers.parseEther('0.5'), charlie.address);
+
                 await mainInstance.connect(charlie).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
                 let ts = await time.latest();
                 let timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
@@ -1501,7 +1509,9 @@ describe("TradedTokenInstance", function () {
                     timeUntil //uint deadline   
 
                 );
-                // // try to send all that left
+
+                await mainInstance.connect(owner).claim(ethers.parseEther('0.5'), charlie.address);
+                // // try to send another part
                 await mainInstance.connect(charlie).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
 
                 //PanicSellRateExceeded()
@@ -1911,7 +1921,9 @@ describe("TradedTokenInstance", function () {
                     );
 
                     let tmp2 = await mainInstance.balanceOf(bob.address);
-                    const obtainERC777Tokens = tmp2 - tmp;
+                    //const obtainERC777Tokens = tmp2 - tmp;
+                    //make a little bit less that obtainERC777Tokens. because when try to swap. it will stuck in div precision
+                    const obtainERC777Tokens = tmp2 - tmp - 10n;
                     //----
                     // const snapObj = await snapshot();
                     // reverted with: 
@@ -1924,7 +1936,8 @@ describe("TradedTokenInstance", function () {
                     let bobBalanceBeforeWoTax = await erc20ReservedToken.balanceOf(bob.address);
 
                     await mainInstance.connect(bob).approve(uniswapRouterInstance.target, obtainERC777Tokens);
-                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+                    //await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+                    
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokensSupportingFeeOnTransferTokens(
                         obtainERC777Tokens, //uint amountIn,
                         0, //uint amountOutMin,
@@ -1949,7 +1962,7 @@ describe("TradedTokenInstance", function () {
                     let bobBalanceBeforeWithTax = await erc20ReservedToken.balanceOf(bob.address);
 
                     await mainInstance.connect(bob).approve(uniswapRouterInstance.target, obtainERC777Tokens);
-                    await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
+                    //await mainInstance.connect(owner).claim(smthFromOwner, bob.address);
                     await uniswapRouterInstance.connect(bob).swapExactTokensForTokensSupportingFeeOnTransferTokens(
                         obtainERC777Tokens, //uint amountIn,
                         0, //uint amountOutMin,
@@ -2138,6 +2151,8 @@ describe("TradedTokenInstance", function () {
                 await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
                 ts = await time.latest();
                 timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+
+                let bobTradeTokeBalanceBefore = await mainInstance.balanceOf(bob.address);
                 await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                     ethers.parseEther('0.5'), //uint amountIn,
                     0, //uint amountOutMin,
@@ -2146,16 +2161,17 @@ describe("TradedTokenInstance", function () {
                     timeUntil //uint deadline   
 
                 );
+                let bobTradeTokeBalanceAfter = await mainInstance.balanceOf(bob.address);
+                const tradedTokensToSwapBack = bobTradeTokeBalanceAfter - bobTradeTokeBalanceBefore;
+                //let balanceTradedTokens = await mainInstance.balanceOf(bob.address);
 
-                let balanceTradedTokens = await mainInstance.balanceOf(bob.address);
-
-                await mainInstance.connect(bob).approve(uniswapRouterInstance.target, balanceTradedTokens);
+                await mainInstance.connect(bob).approve(uniswapRouterInstance.target, tradedTokensToSwapBack);
 
                 ts = await time.latest();
                 timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
                 await expect(
                     uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-                        balanceTradedTokens, //uint amountIn,
+                        tradedTokensToSwapBack, //uint amountIn,
                         0, //uint amountOutMin,
                         [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
                         bob.address, //address to,
@@ -2168,12 +2184,230 @@ describe("TradedTokenInstance", function () {
                 await mainInstance.connect(owner).communitiesAdd(bob.address, timeUntil);
 
                 await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
-                    balanceTradedTokens, //uint amountIn,
+                    tradedTokensToSwapBack, //uint amountIn,
                     0, //uint amountOutMin,
                     [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
                     bob.address, //address to,
                     timeUntil //uint deadline   
                 )
+
+            }); 
+
+            it("shouldn't send back to exchange if durationSendBack are passed", async() => {
+                const {
+                    owner,
+                    bob,
+                    charlie,
+                    buyPrice,
+                    lockupIntervalAmount,
+                    claimFrequency,
+                    durationSendBack,
+                    buySellToken,
+                    uniswapRouterInstance,
+                    erc20ReservedToken,
+                    mainInstance
+                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                // pass time to clear bucket
+                await time.increase(claimFrequency);
+                await addNewHolderAndSwap({
+                    owner: owner,
+                    account: charlie,
+                    buyPrice: buyPrice,
+                    lockupIntervalAmount: lockupIntervalAmount,
+                    mainInstance: mainInstance,
+                    buySellToken: buySellToken,
+                    uniswapRouterInstance: uniswapRouterInstance,
+                    erc20ReservedToken: erc20ReservedToken
+                });
+
+                let ts, timeUntil;
+
+                await erc20ReservedToken.connect(owner).mint(bob.address, ethers.parseEther('0.5'));
+                await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+                let bobBalanceTradedTokensBeforeSwap = await mainInstance.balanceOf(bob.address);
+                await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                    ethers.parseEther('0.5'), //uint amountIn,
+                    0, //uint amountOutMin,
+                    [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+                    bob.address, //address to,
+                    timeUntil //uint deadline   
+
+                );
+                let bobBalanceTradedTokensAfterSwap = await mainInstance.balanceOf(bob.address);
+                //calculate how much Bob can send back 
+                const availableFundToSendBack = bobBalanceTradedTokensAfterSwap - bobBalanceTradedTokensBeforeSwap;
+                
+                // pass durationSendBack time
+                await time.increase(durationSendBack);
+
+                await mainInstance.connect(bob).approve(uniswapRouterInstance.target, availableFundToSendBack);
+
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+                
+
+                //after adding bob into the communities list tx will pass
+                await mainInstance.connect(owner).setGovernor(owner.address);
+                await mainInstance.connect(owner).communitiesAdd(bob.address, timeUntil);
+
+                await expect(
+                    uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                        availableFundToSendBack, //uint amountIn,
+                        0, //uint amountOutMin,
+                        [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+                    )
+                ).to.be.revertedWith('TransferHelper: TRANSFER_FROM_FAILED');
+
+            }); 
+
+            it("should send back to exchange if durationSendBack are NOT passed", async() => {
+                const {
+                    owner,
+                    bob,
+                    charlie,
+                    buyPrice,
+                    lockupIntervalAmount,
+                    claimFrequency,
+                    durationSendBack,
+                    buySellToken,
+                    uniswapRouterInstance,
+                    erc20ReservedToken,
+                    mainInstance
+                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                // pass time to clear bucket
+                await time.increase(claimFrequency);
+                await addNewHolderAndSwap({
+                    owner: owner,
+                    account: charlie,
+                    buyPrice: buyPrice,
+                    lockupIntervalAmount: lockupIntervalAmount,
+                    mainInstance: mainInstance,
+                    buySellToken: buySellToken,
+                    uniswapRouterInstance: uniswapRouterInstance,
+                    erc20ReservedToken: erc20ReservedToken
+                });
+
+                let ts, timeUntil;
+
+                await erc20ReservedToken.connect(owner).mint(bob.address, ethers.parseEther('0.5'));
+                await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+
+                let bobBalanceTradedTokensBeforeSwap = await mainInstance.balanceOf(bob.address);
+                await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                    ethers.parseEther('0.5'), //uint amountIn,
+                    0, //uint amountOutMin,
+                    [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+                    bob.address, //address to,
+                    timeUntil //uint deadline   
+
+                );
+                let bobBalanceTradedTokensAfterSwap = await mainInstance.balanceOf(bob.address);
+                //calculate how much Bob can send back 
+                const availableFundToSendBack = bobBalanceTradedTokensAfterSwap - bobBalanceTradedTokensBeforeSwap;
+
+                // // pass durationSendBack time
+                // await time.increase(durationSendBack);
+
+                await mainInstance.connect(bob).approve(uniswapRouterInstance.target, availableFundToSendBack);
+
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+                
+
+                //after adding bob into the communities list tx will pass
+                await mainInstance.connect(owner).setGovernor(owner.address);
+                await mainInstance.connect(owner).communitiesAdd(bob.address, timeUntil);
+
+                await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                    availableFundToSendBack, //uint amountIn,
+                    0, //uint amountOutMin,
+                    [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
+                    bob.address, //address to,
+                    timeUntil //uint deadline   
+                );
+
+            }); 
+            
+            it("shouldnt send back to exchange more than was sent to exchange", async() => {
+                const {
+                    owner,
+                    bob,
+                    charlie,
+                    buyPrice,
+                    lockupIntervalAmount,
+                    claimFrequency,
+                    durationSendBack,
+                    buySellToken,
+                    uniswapRouterInstance,
+                    erc20ReservedToken,
+                    mainInstance
+                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                // pass time to clear bucket
+                await time.increase(claimFrequency);
+                await addNewHolderAndSwap({
+                    owner: owner,
+                    account: charlie,
+                    buyPrice: buyPrice,
+                    lockupIntervalAmount: lockupIntervalAmount,
+                    mainInstance: mainInstance,
+                    buySellToken: buySellToken,
+                    uniswapRouterInstance: uniswapRouterInstance,
+                    erc20ReservedToken: erc20ReservedToken
+                });
+
+                let ts, timeUntil;
+
+                await erc20ReservedToken.connect(owner).mint(bob.address, ethers.parseEther('0.5'));
+                await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+
+                let bobBalanceTradedTokensBeforeSwap = await mainInstance.balanceOf(bob.address);
+                await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                    ethers.parseEther('0.5'), //uint amountIn,
+                    0, //uint amountOutMin,
+                    [erc20ReservedToken.target, mainInstance.target], //address[] calldata path,
+                    bob.address, //address to,
+                    timeUntil //uint deadline   
+
+                );
+                let bobBalanceTradedTokensAfterSwap = await mainInstance.balanceOf(bob.address);
+                //calculate how much Bob can send back 
+                const availableFundToSendBack = bobBalanceTradedTokensAfterSwap - bobBalanceTradedTokensBeforeSwap;
+                expect(availableFundToSendBack).to.be.gt(0n);
+                
+                const littleBitMoreThanAvailable = availableFundToSendBack+2n;
+                // // pass durationSendBack time
+                // await time.increase(durationSendBack);
+
+                await mainInstance.connect(bob).approve(uniswapRouterInstance.target, littleBitMoreThanAvailable);
+
+                ts = await time.latest();
+                timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+                
+
+                //after adding bob into the communities list tx will pass
+                await mainInstance.connect(owner).setGovernor(owner.address);
+                await mainInstance.connect(owner).communitiesAdd(bob.address, timeUntil);
+                
+                await expect(
+                    uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
+                        littleBitMoreThanAvailable, //uint amountIn,
+                        0, //uint amountOutMin,
+                        [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
+                        bob.address, //address to,
+                        timeUntil //uint deadline   
+                    )
+                ).to.be.revertedWith('TransferHelper: TRANSFER_FROM_FAILED');
 
             }); 
 
@@ -2211,6 +2445,8 @@ describe("TradedTokenInstance", function () {
                 await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, ethers.parseEther('0.5'));
                 ts = await time.latest();
                 timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+
+                let bobTradedTokensBalanceBefore = await mainInstance.balanceOf(bob.address);
                 await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
                     ethers.parseEther('0.5'), //uint amountIn,
                     0, //uint amountOutMin,
@@ -2219,9 +2455,11 @@ describe("TradedTokenInstance", function () {
                     timeUntil //uint deadline   
 
                 );
+                let bobTradedTokensBalanceAfter = await mainInstance.balanceOf(bob.address);
+                const tokensToSwap = bobTradedTokensBalanceAfter - bobTradedTokensBalanceBefore;
 
-                let balanceTradedTokens = await mainInstance.balanceOf(bob.address);
-                const halfOfBalanceTradedTokens = balanceTradedTokens/2n;
+                //let balanceTradedTokens = await mainInstance.balanceOf(bob.address);
+                const halfOfTokensToSwap = tokensToSwap/2n;
 
                 await mainInstance.connect(owner).setGovernor(owner.address);
                 // imitation case when SalesContract transfer tokens to David. and hardcoded holderMax before it
@@ -2229,7 +2467,7 @@ describe("TradedTokenInstance", function () {
 
                 // transfer to david half before bob become in sources list
                 await mainInstance.connect(owner).addManager(bob.address);
-                await mainInstance.connect(bob).transfer(david.address, halfOfBalanceTradedTokens);
+                await mainInstance.connect(bob).transfer(david.address, halfOfTokensToSwap);
                 await mainInstance.connect(owner).removeManagers([bob.address]);
 
                 // put Bob into the sources list
@@ -2238,18 +2476,18 @@ describe("TradedTokenInstance", function () {
                 await mainInstance.connect(owner).sourcesAdd(bob.address, timeUntil);
 
                 // and transfer to david half after bob become in sources list
-                await mainInstance.connect(bob).transfer(david.address, halfOfBalanceTradedTokens);
+                await mainInstance.connect(bob).transfer(david.address, halfOfTokensToSwap);
 
-                expect(await mainInstance.balanceOf(david.address)).to.be.eq(balanceTradedTokens);
+                expect(await mainInstance.balanceOf(david.address)).to.be.eq(tokensToSwap);
 
                 // now try to sell only a half
-                await mainInstance.connect(david).approve(uniswapRouterInstance.target, halfOfBalanceTradedTokens);
+                await mainInstance.connect(david).approve(uniswapRouterInstance.target, halfOfTokensToSwap);
 
                 ts = await time.latest();
                 timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
                 await expect(
                     uniswapRouterInstance.connect(david).swapExactTokensForTokens(
-                        halfOfBalanceTradedTokens, //uint amountIn,
+                        halfOfTokensToSwap, //uint amountIn,
                         0, //uint amountOutMin,
                         [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
                         david.address, //address to,
@@ -2258,10 +2496,10 @@ describe("TradedTokenInstance", function () {
                 ).not.to.be.revertedWith('TransferHelper: TRANSFER_FROM_FAILED');
 
                 // but second half will reverted
-                await mainInstance.connect(david).approve(uniswapRouterInstance.target, halfOfBalanceTradedTokens);
+                await mainInstance.connect(david).approve(uniswapRouterInstance.target, halfOfTokensToSwap);
                 await expect(
                     uniswapRouterInstance.connect(david).swapExactTokensForTokens(
-                        halfOfBalanceTradedTokens, //uint amountIn,
+                        halfOfTokensToSwap, //uint amountIn,
                         0, //uint amountOutMin,
                         [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
                         david.address, //address to,

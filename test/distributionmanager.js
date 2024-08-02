@@ -182,6 +182,7 @@ describe("DistributionManager", function () {
                 emissionPeriod,
                 emissionDecrease,
                 emissionPriceGainMinimum,
+                durationSendBack,
 
                 RateLimitDuration, RateLimitValue,
                 liquidityLib,
@@ -204,7 +205,8 @@ describe("DistributionManager", function () {
                     tokenSymbol,
                     erc20ReservedToken.target, //” (USDC)
                     priceDrop,
-                    lockupIntervalAmount
+                    lockupIntervalAmount,
+                    durationSendBack
                 ],
                 [
                     [minClaimPriceNumerator, minClaimPriceDenominator],

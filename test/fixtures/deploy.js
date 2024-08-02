@@ -46,6 +46,8 @@ async function deploy() {
     const externalTokenExchangePriceNumerator = 1n;
     const externalTokenExchangePriceDenominator = 1n;
 
+    const durationSendBack = 3600; // 1 hour
+
     const TaxesLib = await ethers.getContractFactory("TaxesLib");
     
     const library = await TaxesLib.deploy();
@@ -172,6 +174,7 @@ async function deploy() {
         emissionPeriod,
         emissionDecrease,
         emissionPriceGainMinimum,
+        durationSendBack,
         FRACTION,
         TaxesLib,
         liquidityLib,
@@ -207,6 +210,7 @@ async function deploy2() {
         emissionPeriod,
         emissionDecrease,
         emissionPriceGainMinimum,
+        durationSendBack,
 
         RateLimitDuration, RateLimitValue,
         ERC20MintableF,
@@ -227,7 +231,8 @@ async function deploy2() {
             tokenSymbol,
             erc20ReservedToken.target,
             priceDrop,
-            lockupIntervalAmount
+            lockupIntervalAmount,
+            durationSendBack
         ],
         [
             [minClaimPriceNumerator, minClaimPriceDenominator],
@@ -294,10 +299,8 @@ async function deploy3() {
         erc20ReservedToken,
         mainInstance
     } = res;
-
     await erc20ReservedToken.connect(owner).mint(mainInstance.target, ethers.parseEther('10'));
     await mainInstance.connect(owner).addInitialLiquidity(ethers.parseEther('10'), ethers.parseEther('10'));
-
     return res;
 }
 
@@ -353,7 +356,7 @@ async function deployAndTestUniswapSettings() {
     } = res;
 
     const UNISWAP_ROUTER = await mainInstance.getUniswapRouter();
-    uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+    const uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
 
     const storedBuyTax = await mainInstance.buyTax();
     const storedSellTax = await mainInstance.sellTax();
@@ -397,7 +400,7 @@ async function deployAndTestUniswapSettingsWithFirstSwap() {
     const reserveTokenToSwap = ethers.parseEther("0.5");
     await erc20ReservedToken.connect(owner).mint(bob.address, reserveTokenToSwap);
     await erc20ReservedToken.connect(bob).approve(uniswapRouterInstance.target, reserveTokenToSwap);
-    
+
     await uniswapRouterInstance.connect(bob).swapExactTokensForTokens(
         reserveTokenToSwap, //uint amountIn,
         0, //uint amountOutMin,
