@@ -46,7 +46,7 @@ module.exports =  [
   [
     ethers.parseEther('684931'), // uint128 amount; (of tokens) //  500_000_000 first 2 years
     86400, //uint32 frequency; // in seconds                    // 1 day 
-    86400n*365n, // uint32 period; // in seconds                // 2 years 
+    86400n*365n*2n, // uint32 period; // in seconds                // 2 years 
     5000, // uint32 decrease; // out of FRACTION 10,000         // 50%
     0 //int32 priceGainMinimum; // out of FRACTION 10,000       // 0  block claims if price go down
   ],
