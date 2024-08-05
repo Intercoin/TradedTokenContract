@@ -484,7 +484,14 @@ contract Liquidity is IERC777Recipient {
             return result >= roundedDownResult ? roundedDownResult : result;
         }
     }
-
+    function updateAveragePrice() external {
+        onlyCreator();
+        (/*reserve0_*/, /*reserve1_*/, uint32 blockTimestampCurrent, uint256 priceReservedCumulativeCurrent) = _uniswapReserves();
+        if (blockTimestampCurrent - blockTimestampLast > 2*emission.frequency) {
+            twapPriceLast = (priceReservedCumulativeCurrent - priceReservedCumulativeLast) / (blockTimestampCurrent - blockTimestampLast);
+            blockTimestampLast = blockTimestampCurrent;
+        }
+    }
     function validateClaim(uint256 tradedTokenAmount, address account) external {
         onlyCreator();
 
@@ -509,9 +516,12 @@ contract Liquidity is IERC777Recipient {
         ) = __availableToClaim(tradedTokenAmount);
 
         // update twap price and emission things
-        twapPriceLast = twapPriceCurrent;
-        blockTimestampLast = blockTimestampCurrent;
-        priceReservedCumulativeLast = priceReservedCumulativeCurrent;
+        //----
+        // twapPriceLast = twapPriceCurrent;
+        // blockTimestampLast = blockTimestampCurrent;
+        // priceReservedCumulativeLast = priceReservedCumulativeCurrent;
+        updateAveragePrice();
+        //----
         amountClaimedInLastPeriod = currentAmountClaimed + tradedTokenAmount;
 
         totalCumulativeClaimed  += tradedTokenAmount;

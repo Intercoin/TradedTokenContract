@@ -580,6 +580,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         onlyOwnerAndGovernor();
         governor = addr;
     }
+    /**
+     * @notice update average price
+     */
+    function updateAveragePrice() external {
+        internalLiquidity.updateAveragePrice();
+    }
     
     /**
      * @notice Get the amount of tokens available to claim.
@@ -592,6 +598,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             tradedTokenAmount = 0;
         }
     }
+
+    
 
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
