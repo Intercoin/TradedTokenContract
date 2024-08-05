@@ -484,7 +484,14 @@ contract Liquidity is IERC777Recipient {
             return result >= roundedDownResult ? roundedDownResult : result;
         }
     }
-
+    function updateAveragePrice() external {
+        onlyCreator();
+        (/*reserve0_*/, /*reserve1_*/, uint32 blockTimestampCurrent, uint256 priceReservedCumulativeCurrent) = _uniswapReserves();
+        if (blockTimestampCurrent - blockTimestampLast > 2*emission.frequency) {
+            twapPriceLast = (priceReservedCumulativeCurrent - priceReservedCumulativeLast) / (blockTimestampCurrent - blockTimestampLast);
+            blockTimestampLast = blockTimestampCurrent;
+        }
+    }
     function validateClaim(uint256 tradedTokenAmount, address account) external {
         onlyCreator();
 
@@ -509,9 +516,12 @@ contract Liquidity is IERC777Recipient {
         ) = __availableToClaim(tradedTokenAmount);
 
         // update twap price and emission things
-        twapPriceLast = twapPriceCurrent;
-        blockTimestampLast = blockTimestampCurrent;
-        priceReservedCumulativeLast = priceReservedCumulativeCurrent;
+        //----
+        // twapPriceLast = twapPriceCurrent;
+        // blockTimestampLast = blockTimestampCurrent;
+        // priceReservedCumulativeLast = priceReservedCumulativeCurrent;
+        updateAveragePrice();
+        //----
         amountClaimedInLastPeriod = currentAmountClaimed + tradedTokenAmount;
 
         totalCumulativeClaimed  += tradedTokenAmount;
@@ -580,8 +590,11 @@ contract Liquidity is IERC777Recipient {
         }
 
         // how much available after calculate emission.period
-        uint256 periodCount = (block.timestamp - startupTimestamp) / emission.period * emission.period ;
+        uint256 periodCount = (block.timestamp - startupTimestamp) / emission.period;
+
+
         uint256 capWithDecreasePeriod = emission.amount;
+
         for (uint256 i=0; i<periodCount; ++i) {
             capWithDecreasePeriod = capWithDecreasePeriod * (FRACTION-emission.decrease) / FRACTION;
         }
@@ -590,6 +603,7 @@ contract Liquidity is IERC777Recipient {
         // if (availableToClaim_ > 0 && currentFrequencyClaimed >= emission.frequency) {
         //     availableToClaim_ = 0;
         // }
+
         if (amountIn != 0) {
             //amountIn != 0
             if (amountIn > availableToClaim_) {
@@ -655,6 +669,7 @@ contract Liquidity is IERC777Recipient {
         }
 
         if (
+            claimSettings.minClaimPrice.numerator != 0 &&
             FixedPoint.fraction(reserve1_ - amountOut, reserve0_ + currentIterationTotalCumulativeClaimed)._x <=
             FixedPoint.fraction(claimSettings.minClaimPrice.numerator, claimSettings.minClaimPrice.denominator)._x
         ) {
