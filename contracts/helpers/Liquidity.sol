@@ -486,11 +486,7 @@ contract Liquidity is IERC777Recipient {
     }
     function updateAveragePrice() external {
         onlyCreator();
-        (/*reserve0_*/, /*reserve1_*/, uint32 blockTimestampCurrent, uint256 priceReservedCumulativeCurrent) = _uniswapReserves();
-        if (blockTimestampCurrent - blockTimestampLast > 2*emission.frequency) {
-            twapPriceLast = (priceReservedCumulativeCurrent - priceReservedCumulativeLast) / (blockTimestampCurrent - blockTimestampLast);
-            blockTimestampLast = blockTimestampCurrent;
-        }
+        _updateAveragePrice();
     }
     function validateClaim(uint256 tradedTokenAmount, address account) external {
         onlyCreator();
@@ -520,7 +516,7 @@ contract Liquidity is IERC777Recipient {
         // twapPriceLast = twapPriceCurrent;
         // blockTimestampLast = blockTimestampCurrent;
         // priceReservedCumulativeLast = priceReservedCumulativeCurrent;
-        updateAveragePrice();
+        _updateAveragePrice();
         //----
         amountClaimedInLastPeriod = currentAmountClaimed + tradedTokenAmount;
 
@@ -701,6 +697,14 @@ contract Liquidity is IERC777Recipient {
             
         claimSettings.minClaimPrice.numerator = newMinimumPrice.numerator;
         claimSettings.minClaimPrice.denominator = newMinimumPrice.denominator;
+    }
+
+    function _updateAveragePrice() internal {
+        (/*reserve0_*/, /*reserve1_*/, uint32 blockTimestampCurrent, uint256 priceReservedCumulativeCurrent) = _uniswapReserves();
+        if (blockTimestampCurrent - blockTimestampLast > 2*emission.frequency) {
+            twapPriceLast = (priceReservedCumulativeCurrent - priceReservedCumulativeLast) / (blockTimestampCurrent - blockTimestampLast);
+            blockTimestampLast = blockTimestampCurrent;
+        }
     }
 
 }
