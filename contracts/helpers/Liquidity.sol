@@ -570,16 +570,16 @@ contract Liquidity is IERC777Recipient {
             bool priceMayBecomeLowerThanMinClaimPrice,
             uint112 reserve0_, 
             uint112 reserve1_, 
-            uint32 _blockTimestampLast, 
-            uint256 _priceReservedCumulativeLast, 
+            uint32 blockTimestampCurrent, 
+            uint256 priceReservedCumulativeCurrent, 
             uint256 twapPriceCurrent,
             uint256 currentAmountClaimed
         ) 
     {
-        (reserve0_, reserve1_, _blockTimestampLast, _priceReservedCumulativeLast) = _uniswapReserves();
+        (reserve0_, reserve1_, blockTimestampCurrent, priceReservedCumulativeCurrent) = _uniswapReserves();
 
         // how much claimed in emission.frequency
-        if (block.timestamp/emission.frequency*emission.frequency < _blockTimestampLast) {
+        if (block.timestamp/emission.frequency*emission.frequency < blockTimestampCurrent) {
             currentAmountClaimed = amountClaimedInLastPeriod;
         } else {
             currentAmountClaimed = 0;
@@ -625,27 +625,36 @@ contract Liquidity is IERC777Recipient {
         }
 
         //exceptional case
-        if (_priceReservedCumulativeLast == 0) {
-            _priceReservedCumulativeLast = priceReservedCumulativeLast;
+        if (priceReservedCumulativeCurrent == 0) {
+            priceReservedCumulativeCurrent = priceReservedCumulativeLast;
         }
 
 
-        if (_blockTimestampLast == blockTimestampLast) {
+        if (blockTimestampCurrent == blockTimestampLast) {
             availableToClaim_ = 0;
         }
 
-        if (availableToClaim_ > 0 && _priceReservedCumulativeLast > 0) {
-            //-----------------------------------
-            // 10000 * (currentPrice - lastPrice) / lastPrice < priceGainMinimum    
-            twapPriceCurrent = (_priceReservedCumulativeLast - priceReservedCumulativeLast) / (_blockTimestampLast - blockTimestampLast);
-
-            bool sign = twapPriceCurrent >= twapPriceLast ? true : false;
-            uint256 mod = sign ? twapPriceCurrent - twapPriceLast : twapPriceLast - twapPriceCurrent;
-
-            int32 priceGain = int32(int256(FRACTION * mod / twapPriceLast)) * (sign ? int32(1) : int32(-1));
-
-            if (priceGain < emission.priceGainMinimum) {
+        if (availableToClaim_ > 0 && priceReservedCumulativeCurrent > 0) {
+            if (
+                priceReservedCumulativeCurrent == priceReservedCumulativeLast &&
+                0 < emission.priceGainMinimum
+            ) {
+                // avoid calculation when priceGain become a ZERO
+                // it happens when there are no swaps on uniswap (no triggers to change cumulative price)
                 availableToClaim_ = 0;
+            } else {
+                //-----------------------------------
+                // 10000 * (currentPrice - lastPrice) / lastPrice < priceGainMinimum    
+                twapPriceCurrent = (priceReservedCumulativeCurrent - priceReservedCumulativeLast) / (blockTimestampCurrent - blockTimestampLast);
+
+                bool sign = twapPriceCurrent >= twapPriceLast ? true : false;
+                uint256 mod = sign ? twapPriceCurrent - twapPriceLast : twapPriceLast - twapPriceCurrent;
+
+                int32 priceGain = int32(int256(FRACTION * mod / twapPriceLast)) * (sign ? int32(1) : int32(-1));
+
+                if (priceGain < emission.priceGainMinimum) {
+                    availableToClaim_ = 0;
+                }
             }
         }
 
@@ -701,7 +710,7 @@ contract Liquidity is IERC777Recipient {
 
     function _updateAveragePrice() internal {
         (/*reserve0_*/, /*reserve1_*/, uint32 blockTimestampCurrent, uint256 priceReservedCumulativeCurrent) = _uniswapReserves();
-        if (blockTimestampCurrent - blockTimestampLast > 2*emission.frequency) {
+        if (blockTimestampCurrent - blockTimestampLast > emission.frequency) {
             twapPriceLast = (priceReservedCumulativeCurrent - priceReservedCumulativeLast) / (blockTimestampCurrent - blockTimestampLast);
             priceReservedCumulativeLast = priceReservedCumulativeCurrent;
             blockTimestampLast = blockTimestampCurrent;
