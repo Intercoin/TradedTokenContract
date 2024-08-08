@@ -703,6 +703,7 @@ contract Liquidity is IERC777Recipient {
         (/*reserve0_*/, /*reserve1_*/, uint32 blockTimestampCurrent, uint256 priceReservedCumulativeCurrent) = _uniswapReserves();
         if (blockTimestampCurrent - blockTimestampLast > 2*emission.frequency) {
             twapPriceLast = (priceReservedCumulativeCurrent - priceReservedCumulativeLast) / (blockTimestampCurrent - blockTimestampLast);
+            priceReservedCumulativeLast = priceReservedCumulativeCurrent;
             blockTimestampLast = blockTimestampCurrent;
         }
     }
