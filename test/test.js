@@ -565,19 +565,6 @@ describe("TradedTokenInstance", function () {
                 ).to.be.revertedWithCustomError(mainInstance, "BeforeInitialLiquidityRequired");
             });
 
-            it("[cover] available to claim == 0", async() => {
-                
-                const res = await loadFixture(deploy5);
-                const {
-                    owner,
-                    mainInstance
-                } = res;
-
-                await mainInstance.setEmissionPeriod(86400n);
-
-                let availableToClaim = await mainInstance.availableToClaim();
-                expect(availableToClaim).to.be.eq(0);
-            });
 
             describe("after adding liquidity", function () {
                 it("shouldnt claim if claimingTokenAmount == 0", async() => {
@@ -899,6 +886,54 @@ describe("TradedTokenInstance", function () {
 
                                 expect(balanceAfter-balanceBefore).to.be.eq(ethers.parseEther('1'));
                                 
+                            });
+
+                            it("[cover] available to claim == 0", async() => {
+                                
+                                // const res = await loadFixture(deploy5);
+                                // const {
+                                //     owner,
+                                //     mainInstance
+                                // } = res;
+
+                                // var emissionAmount = ethers.parseEther('1');
+                                // await mainInstance.setEmissionAmount(emissionAmount);
+                                // await mainInstance.setEmissionPeriod(86400n);
+                                
+                                // let availableToClaim = await mainInstance.availableToClaim();
+                                // expect(availableToClaim).to.be.eq(emissionAmount);
+
+                                const {
+                                    owner,
+                                    bob,
+                                    david,
+                                    claimFrequency,
+                                    claimManager,
+                                    externalToken,
+                                    mainInstance
+                                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                                //var emissionAmount = ethers.parseEther('1');
+                                //await mainInstance.setEmissionAmount(emissionAmount);
+                                //await mainInstance.setEmissionPeriod(86400n);
+                                await mainInstance.setEmissionFrequency(86400n);
+                                
+                                let availableToClaim = await mainInstance.availableToClaim();
+
+                                //minting to bob and approve
+                                await externalToken.connect(owner).mint(bob.address, availableToClaim);
+                                await externalToken.connect(bob).approve(claimManager.target, availableToClaim);
+
+                                await claimManager.connect(bob).wantToClaim(availableToClaim);
+                                // // pass time to clear bucket
+                                await time.increase(86400n);
+                                
+                                await mainInstance.connect(owner).addManager(claimManager.target);
+
+                                await claimManager.connect(bob).claim(availableToClaim, bob.address);
+                                availableToClaim = await mainInstance.availableToClaim();
+                                expect(availableToClaim).to.be.eq(0n);
+
                             });
 
                             it("should transfer to dead-address tokens after user claim", async() => {

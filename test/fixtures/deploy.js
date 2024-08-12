@@ -424,6 +424,7 @@ async function deployAndTestUniswapSettingsWithFirstSwap() {
         timeUntil //uint deadline   
     );
 
+    //await mainInstance.connect(owner).updateAveragePrice();
     return {...res, ...{
 //        internalLiquidityAddress
     }};
