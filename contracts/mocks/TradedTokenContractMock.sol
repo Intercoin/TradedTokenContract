@@ -167,6 +167,10 @@ contract TradedTokenMock is TradedToken {
     function setEmissionPriceGainMinimum(int32 priceGainMinimum) public {
         LiquidityMock(address(internalLiquidity)).setEmissionPriceGainMinimum(priceGainMinimum);
     }
+
+    function getCurrentPriceGain() public view returns(int32) {
+        return LiquidityMock(address(internalLiquidity)).getCurrentPriceGain();
+    }
     // function getBlockTimestampLast() public view returns(uint32) {
     //     return blockTimestampLast;
     // }

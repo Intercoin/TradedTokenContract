@@ -565,19 +565,6 @@ describe("TradedTokenInstance", function () {
                 ).to.be.revertedWithCustomError(mainInstance, "BeforeInitialLiquidityRequired");
             });
 
-            it("[cover] available to claim == 0", async() => {
-                
-                const res = await loadFixture(deploy5);
-                const {
-                    owner,
-                    mainInstance
-                } = res;
-
-                await mainInstance.setEmissionPeriod(86400n);
-
-                let availableToClaim = await mainInstance.availableToClaim();
-                expect(availableToClaim).to.be.eq(0);
-            });
 
             describe("after adding liquidity", function () {
                 it("shouldnt claim if claimingTokenAmount == 0", async() => {
@@ -899,6 +886,132 @@ describe("TradedTokenInstance", function () {
 
                                 expect(balanceAfter-balanceBefore).to.be.eq(ethers.parseEther('1'));
                                 
+                            });
+                            it("when PriceGain more then minPriceGain - availableToClaim should be zero after !changes bucket!", async() => {
+                                const {
+                                    owner,
+                                    bob,
+                                    charlie,
+                                    //claimFrequency,
+                                    lockupIntervalAmount,
+                                    uniswapRouterInstance,
+                                    erc20ReservedToken,
+                                    mainInstance
+                                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+                                await mainInstance.setEmissionFrequency(86400n);
+
+                                let availableToClaim;
+
+                                // FOR TEST make hte following things
+                                // Bob - should be a manager = only managers can claim. actually this is should be a contract
+                                await mainInstance.connect(owner).addManager(bob.address);
+                                // Charlie - shoudl be a Community, because only community can send to exchanges
+                                await mainInstance.connect(owner).setGovernor(bob.address);
+                                await mainInstance.connect(bob).communitiesAdd(charlie.address, 1000n);
+                                // Also Bob - should be a exchange, because common user can send back to exchanges only those tokens which was received from exchange
+                                await mainInstance.connect(bob).exchangesAdd(bob.address, 1000n);
+
+                                availableToClaim = await mainInstance.availableToClaim();
+                                await mainInstance.connect(bob).claim(availableToClaim, charlie.address);
+                                // // // pass time to clear bucket
+                                // await time.increase(86400n);
+
+                                // availableToClaim = await mainInstance.availableToClaim();
+                                // await mainInstance.connect(bob).claim(availableToClaim, charlie.address);
+                                
+                                //let balanceCharlie =  await mainInstance.balanceOf(charlie.address);
+                                let toSwap = availableToClaim//;balanceCharlie/20n;
+                                await mainInstance.connect(charlie).approve(uniswapRouterInstance.target, toSwap);
+
+                                let ts = await time.latest();
+                                let timeUntil = BigInt(ts) + lockupIntervalAmount*24n*60n*60n;
+
+                                //swapExactTokensForTokensSupportingFeeOnTransferTokens
+                                //swapExactTokensForTokens
+
+                                await uniswapRouterInstance.connect(charlie).swapExactTokensForTokens(
+                                    toSwap, //uint amountIn,
+                                    0, //uint amountOutMin,
+                                    [mainInstance.target, erc20ReservedToken.target], //address[] calldata path,
+                                    charlie.address, //address to,
+                                    timeUntil //uint deadline   
+                                );
+
+                                var customPriceGainMinimum = 8000n;
+                                let currentPriceGain;
+
+                                await mainInstance.setEmissionPriceGainMinimum(customPriceGainMinimum);
+                                await time.increase(86400n);
+                                availableToClaim = await mainInstance.availableToClaim();
+                                //await mainInstance.connect(bob).claim(availableToClaim, charlie.address);
+                                currentPriceGain = await mainInstance.getCurrentPriceGain();
+                                expect(availableToClaim).to.be.eq(0n);
+                                expect(currentPriceGain).lt(customPriceGainMinimum);
+
+                                await time.increase(86400n);
+
+                                availableToClaim = await mainInstance.availableToClaim();
+                                expect(availableToClaim).to.be.eq(0n);
+                                //await mainInstance.connect(bob).claim(availableToClaim, charlie.address);
+
+                                await mainInstance.updateAveragePrice();
+                                // here keep previuos state
+
+                                await time.increase(86400n);
+                                await mainInstance.updateAveragePrice();
+                                //and now pricegain turn to 0
+                                currentPriceGain = await mainInstance.getCurrentPriceGain();
+                                expect(currentPriceGain).to.be.eq(0n);
+                                
+
+                            });
+
+                            it("[cover] available to claim == 0", async() => {
+                                
+                                // const res = await loadFixture(deploy5);
+                                // const {
+                                //     owner,
+                                //     mainInstance
+                                // } = res;
+
+                                // var emissionAmount = ethers.parseEther('1');
+                                // await mainInstance.setEmissionAmount(emissionAmount);
+                                // await mainInstance.setEmissionPeriod(86400n);
+                                
+                                // let availableToClaim = await mainInstance.availableToClaim();
+                                // expect(availableToClaim).to.be.eq(emissionAmount);
+
+                                const {
+                                    owner,
+                                    bob,
+                                    david,
+                                    claimFrequency,
+                                    claimManager,
+                                    externalToken,
+                                    mainInstance
+                                } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwap);
+
+                                //var emissionAmount = ethers.parseEther('1');
+                                //await mainInstance.setEmissionAmount(emissionAmount);
+                                //await mainInstance.setEmissionPeriod(86400n);
+                                await mainInstance.setEmissionFrequency(86400n);
+                                
+                                let availableToClaim = await mainInstance.availableToClaim();
+
+                                //minting to bob and approve
+                                await externalToken.connect(owner).mint(bob.address, availableToClaim);
+                                await externalToken.connect(bob).approve(claimManager.target, availableToClaim);
+
+                                await claimManager.connect(bob).wantToClaim(availableToClaim);
+                                // // pass time to clear bucket
+                                await time.increase(86400n);
+                                
+                                await mainInstance.connect(owner).addManager(claimManager.target);
+
+                                await claimManager.connect(bob).claim(availableToClaim, bob.address);
+                                availableToClaim = await mainInstance.availableToClaim();
+                                expect(availableToClaim).to.be.eq(0n);
+
                             });
 
                             it("should transfer to dead-address tokens after user claim", async() => {
