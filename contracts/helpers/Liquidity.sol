@@ -12,7 +12,7 @@ import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
 
 import "../interfaces/IStructs.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract Liquidity is IERC777Recipient {
     address private _owner;
@@ -62,6 +62,8 @@ contract Liquidity is IERC777Recipient {
     uint256 public totalCumulativeClaimed;
     uint256 internal amountClaimedInLastPeriod;
     uint64 internal lastClaimedTime;
+    uint64 internal lastUpdatedAveragePriceTime;
+
     /**
      * 
      * @notice price drop (mul by fraction)
@@ -121,6 +123,7 @@ contract Liquidity is IERC777Recipient {
 
         startupTimestamp = _currentBlockTimestamp();
         lastMinClaimPriceUpdatedTime = _currentBlockTimestamp();
+        lastUpdatedAveragePriceTime = _currentBlockTimestamp();
         pairObservation.timestampLast = _currentBlockTimestamp();
 
         priceDrop = priceDrop_;
@@ -688,11 +691,15 @@ contract Liquidity is IERC777Recipient {
 
     function _updateAveragePrice() internal {
         (/*reserve0_*/, /*reserve1_*/, uint32 blockTimestampCurrent, uint256 priceReservedCumulativeCurrent) = _uniswapReserves();
-
         // swap cumulative prices and timestamp when passed `emission.frequency` time from last swap
         // prev = last; last = current; and calcualte priceGain between prev and last
-        if (blockTimestampCurrent - blockTimestampLast > emission.frequency) {
-            //     
+        if (_currentBlockTimestamp() - lastUpdatedAveragePriceTime > emission.frequency) {
+            lastUpdatedAveragePriceTime = _currentBlockTimestamp();
+            //  A - Prev
+            //  B - Last     
+            //  C - Current
+            // twapA TwapB
+
             blockTimestampPrev = blockTimestampLast;
             priceReservedCumulativePrev = priceReservedCumulativeLast;
 
@@ -700,20 +707,22 @@ contract Liquidity is IERC777Recipient {
             priceReservedCumulativeLast = priceReservedCumulativeCurrent;
 
             twapPricePrev = twapPriceLast;
-            twapPriceLast = (priceReservedCumulativeLast - priceReservedCumulativePrev) / (blockTimestampLast - blockTimestampPrev);
 
             if (
                 blockTimestampPrev == 0 || 
-                blockTimestampLast == 0
+                blockTimestampLast == 0 || 
+                blockTimestampPrev == blockTimestampLast
             ) {
                 priceGain = 0;
+                //twapPriceLast =  left the same
             } else {
+                twapPriceLast = (priceReservedCumulativeLast - priceReservedCumulativePrev) / (blockTimestampLast - blockTimestampPrev);
+
                 bool sign = twapPriceLast >= twapPricePrev ? true : false;
                 uint256 mod = sign ? twapPriceLast - twapPricePrev : twapPricePrev - twapPriceLast;
 
                 priceGain = int32(int256(FRACTION * mod / twapPricePrev)) * (sign ? int32(1) : int32(-1));
             }
-
         }
     }
 

@@ -38,6 +38,9 @@ contract LiquidityMock is Liquidity {
     function setEmissionPriceGainMinimum(int32 priceGainMinimum) public {
         emission.priceGainMinimum = priceGainMinimum;
     }
+    function getCurrentPriceGain() public view returns(int32) {
+        return priceGain;
+    }
 
     function sqrt(uint256 x) public pure returns (uint256 result) {
         return _sqrt(x);

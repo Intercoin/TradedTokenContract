@@ -103,7 +103,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      */
     address public immutable uniswapV2Pair;
 
-    address internal uniswapRouterFactory;
+    address internal immutable uniswapRouterFactory;
+    address internal immutable uniswapRouter;
     
     bool internal buyPaused;
     bool private addedInitialLiquidityRun;
@@ -235,7 +236,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         // setup swap addresses
         liquidityLib = ILiquidityLib(liquidityLib_);
-        address uniswapRouter;
         (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
         
         lockupDays = commonSettings.lockupDays;
@@ -303,6 +303,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
 
         //exchanges
         exchanges[address(uniswapV2Pair)] = type(uint64).max;
+        
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -964,10 +965,8 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 canSendBack[from].amount >= amount && 
                 canSendBack[from].untilTime >= uint64(block.timestamp)
             ) {
-
                 canSendBack[from].amount -= amount;
                 canSendBack[from].untilTime = 0;
-                
             } else {
                 revert CantSendBack();
             }
@@ -976,7 +975,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // save amount which user can send back to exchange
         if (exchanges[from] != 0) {
             _setSendBackAmount(to, amount);
-            
         }      
 
         holdersCheckBeforeTransfer(from, to, amount);
