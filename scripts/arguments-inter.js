@@ -6,8 +6,7 @@ module.exports =  [
     "Intercoin", // string memory tokenName_,
     "INTER",// string memory tokenSymbol_,
     helperAddresses.getUSDTAddress(), // address reserveToken_, //” (USDT)
-    1000, // uint256 priceDrop_,
-    365,// uint64 lockupDays,
+    1000, // uint256 priceDrop_, 10%
   ],
   // TradedToken.ClaimSettings memory claimSettings,
   [

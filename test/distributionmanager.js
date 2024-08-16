@@ -205,7 +205,6 @@ describe("DistributionManager", function () {
                     tokenSymbol,
                     erc20ReservedToken.target, //” (USDC)
                     priceDrop,
-                    lockupIntervalAmount,
                     durationSendBack
                 ],
                 [

@@ -69,7 +69,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         string tokenSymbol;
         address reserveToken; //” (USDC)
         uint256 priceDrop;
-        uint64 lockupDays;
         uint64 durationSendBack;
     }
 
@@ -145,7 +144,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
     mapping(address => uint64) public managers;
     mapping(address => uint64) public presales;
     mapping(address => uint64) public sales;
-    mapping(address => uint64) public receivedTransfersCount;
     mapping(address => Bucket) private _buckets;
 
     mapping(address => uint64) public communities;
@@ -201,7 +199,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
      *      tokenSymbol_ token symbol
      *      reserveToken_ reserve token address
      *      priceDrop_ price drop while add liquidity
-     *      lockupDays_ interval amount in days (see minimum lib)
      * @param claimSettings_ struct of claim settings
      *      minClaimPrice_ (numerator,denominator) minimum claim price that should be after "sell all claimed tokens"
      *      minClaimPriceGrow_ (numerator,denominator) minimum claim price grow
@@ -237,8 +234,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         // setup swap addresses
         liquidityLib = ILiquidityLib(liquidityLib_);
         (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
-        
-        lockupDays = commonSettings.lockupDays;
         
         panicSellRateLimit = panicSellRateLimit_;
 
@@ -938,26 +933,14 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             availableToSell[to] += amount;
             willRevert = false;
         }
-
-        bool catchAvailableToSellLogic = false;
+        /*
         if (exchanges[to] != 0 && (availableToSell[from] >= amount)) {
             availableToSell[from] -= amount;
             willRevert = false;
-            catchAvailableToSellLogic = true;
         }
-        
-        // if (
-        //     willRevert &&
-
-        // ) {
-
-        if (willRevert) {
-            revert NotInTheWhiteList();
-        }       
 
         if (
             from != address(internalLiquidity) && //exclude check addingLiquidity
-            !catchAvailableToSellLogic &&
             exchanges[to] != 0
         ) {
             if
@@ -971,6 +954,30 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
                 revert CantSendBack();
             }
         }
+        */
+       if (
+            from != address(internalLiquidity) && //exclude check addingLiquidity
+            exchanges[to] != 0
+        ) {
+            if (availableToSell[from] >= amount) {
+                availableToSell[from] -= amount;
+                willRevert = false;
+            } else if (
+                canSendBack[from].amount >= amount && 
+                canSendBack[from].untilTime >= uint64(block.timestamp)
+            ) {
+                canSendBack[from].amount -= amount;
+                canSendBack[from].untilTime = 0;
+            } else {
+                revert CantSendBack();
+            }
+        }
+
+        if (willRevert) {
+            revert NotInTheWhiteList();
+        }       
+
+        
 
         // save amount which user can send back to exchange
         if (exchanges[from] != 0) {
@@ -982,7 +989,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
             if (ISales(from).owner() != to) {
                 tokensLocked[to]._minimumsAdd(amount, sales[from], LOCKUP_INTERVAL, true);
             }
-        } 
+        }
         if (
             // if minted
             (from == address(0)) ||
@@ -993,29 +1000,12 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         } else {
             uint256 balance = balanceOf(from);
             uint256 locked = tokensLocked[from]._getMinimum();
-            // if (balance - locked < amount) {
-            //     revert InsufficientAmount();
-            // }
-            bool isLocked = (balance - locked < amount);
 
-            // if ((receivedTransfersCount[from] >= MAX_TRANSFER_COUNT) && isLocked) {
-            //     revert InsufficientAmount();
-            // }
+            if (balance - locked < amount) {
+                revert InsufficientAmount();
+            }
 
-            if (isLocked) {
-                //tokensLocked[from].minimumsTransfer(tokensLocked[to], false, amount);
-                if ((receivedTransfersCount[from] < MAX_TRANSFER_COUNT) && (balance >= amount)) {
-                    // pass
-                    tokensLocked[from].minimumsTransfer(tokensLocked[to], false, amount);
-                } else {
-                    revert InsufficientAmount();
-                }
-            }
- 
-            if (receivedTransfersCount[from] < MAX_TRANSFER_COUNT) {
-                receivedTransfersCount[from] += 1;
-            }
-        }
+         }
     }
 
     /**
@@ -1028,19 +1018,6 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         __claim(tradedTokenAmount, account);
         
         emit Claimed(account, tradedTokenAmount);
-
-        address sender = _msgSender();
-        // _handleTransferToUniswap tokens for any except:
-        // - owner(because it's owner)
-        // - current contract(because do sell traded tokens and add liquidity)
-        // - managers (like ClaimManager or StakeManager)
-        if (
-            sender != owner() && 
-            account != address(this) &&
-            managers[sender] == 0
-        ) {
-            tokensLocked[account]._minimumsAdd(tradedTokenAmount, lockupDays, LOCKUP_INTERVAL, true);
-        }
     }
 
     function __claim(uint256 tradedTokenAmount, address account) internal {
