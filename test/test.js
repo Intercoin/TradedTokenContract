@@ -78,7 +78,6 @@ describe("TradedTokenInstance", function () {
                         tokenSymbol,
                         constants.ZERO_ADDRESS, //” (USDC)
                         priceDrop,
-                        lockupIntervalAmount,
                         durationSendBack
                     ],
                     [
@@ -1414,95 +1413,10 @@ describe("TradedTokenInstance", function () {
                         // transfer from SaleContract to David. now David have locked up tokens
                         await SaleMock.connect(alice).transferTokens(mainInstance.target, david.address, smthFromOwner);
 
-                        // exceed maximum transferCount. now transfer revert it tokens locked up
-                        await mainInstance.connect(owner).setReceivedTransfersCount(david.address, 10n);
                         await expect(
                             mainInstance.connect(david).transfer(eve.address,ethers.parseEther('0.8'))
                         ).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
 
-                    }); 
-
-                    it("should locked up tokens when receivedTransfersCount > 4", async() => {
-                        const {
-                            owner,
-                            alice,
-                            charlie,
-                            david,
-                            eve,
-                            buyPrice,
-                            lockupIntervalAmount,
-                            claimFrequency,
-                            buySellToken,
-                            uniswapRouterInstance,
-                            erc20ReservedToken,
-                            mainInstance
-                        } = await loadFixture(deployAndTestUniswapSettingsWithFirstSwapAndWhitelisted);
-
-                        await mainInstance.connect(owner).increaseHoldersThreshold(ethers.parseEther('1'))
-
-                        const smthFromOwner= ethers.parseEther('1');
-
-                        // send a little to Sales contract. Alice will be owner
-                        const SaleMockF = await ethers.getContractFactory("SaleMock");
-                        const SaleMock = await SaleMockF.connect(alice).deploy();
-
-                        // pass time to clear bucket
-                        await time.increase(claimFrequency);
-                        await addNewHolderAndSwap({
-                            owner: owner,
-                            account: charlie,
-                            buyPrice: buyPrice,
-                            lockupIntervalAmount: lockupIntervalAmount,
-                            mainInstance: mainInstance,
-                            buySellToken: buySellToken,
-                            uniswapRouterInstance: uniswapRouterInstance,
-                            erc20ReservedToken: erc20ReservedToken
-                        });
-
-                        await mainInstance.connect(owner).claim(smthFromOwner, SaleMock.target);
-                        await mainInstance.connect(alice).startSale(SaleMock.target, 10n*86400n);
-
-                        // transfer from SaleContract to David. now David have locked up tokens
-                        await SaleMock.connect(alice).transferTokens(mainInstance.target, david.address, smthFromOwner);
-
-                        // so boths, David and Eve are common users
-
-                        // start to calculate transfersCount
-                        expect(await mainInstance.receivedTransfersCount(david.address)).to.be.eq(0);
-                        expect(await mainInstance.receivedTransfersCount(eve.address)).to.be.eq(0);
-
-                        // transfer to charlie and back to david 
-                        await mainInstance.connect(david).transfer(eve.address,ethers.parseEther('1'));
-                        await mainInstance.connect(eve).transfer(david.address,ethers.parseEther('1'));
-                        expect(await mainInstance.receivedTransfersCount(david.address)).to.be.eq(1n);
-                        expect(await mainInstance.receivedTransfersCount(eve.address)).to.be.eq(1n);
-
-                        // again
-                        await mainInstance.connect(david).transfer(eve.address,ethers.parseEther('1'));
-                        await mainInstance.connect(eve).transfer(david.address,ethers.parseEther('1'));
-                        expect(await mainInstance.receivedTransfersCount(david.address)).to.be.eq(2n);
-                        expect(await mainInstance.receivedTransfersCount(eve.address)).to.be.eq(2n);
-
-                        // and again
-                        await mainInstance.connect(david).transfer(eve.address,ethers.parseEther('1'));
-                        await mainInstance.connect(eve).transfer(david.address,ethers.parseEther('1'));
-                        expect(await mainInstance.receivedTransfersCount(david.address)).to.be.eq(3n);
-                        expect(await mainInstance.receivedTransfersCount(eve.address)).to.be.eq(3n);
-
-                        // the last one, but eve send only half of it
-                        await mainInstance.connect(david).transfer(eve.address,ethers.parseEther('1'));
-                        await mainInstance.connect(eve).transfer(david.address,ethers.parseEther('0.5'));
-                        expect(await mainInstance.receivedTransfersCount(david.address)).to.be.eq(4n);
-                        expect(await mainInstance.receivedTransfersCount(eve.address)).to.be.eq(4n);
-
-                        // david should have receivedTransfersCount => 4. after that tokens(which keep save gradual lock-up), can't be transferred until lock-up passed
-                        await expect(mainInstance.connect(david).transfer(eve.address,ethers.parseEther('0.5'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
-                        // eve have receivedTransfersCount => 4 too. 
-                        await expect(mainInstance.connect(eve).transfer(david.address,ethers.parseEther('0.5'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
-                        // even if eve will become as a manager. Tokens have already locked up
-                        await mainInstance.connect(owner).addManager(eve.address);
-                        await expect(mainInstance.connect(eve).transfer(david.address,ethers.parseEther('0.5'))).to.be.revertedWithCustomError(mainInstance, "InsufficientAmount");
-                        
                     }); 
 
                 }); 

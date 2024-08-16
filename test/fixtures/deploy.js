@@ -231,7 +231,6 @@ async function deploy2() {
             tokenSymbol,
             erc20ReservedToken.target,
             priceDrop,
-            lockupIntervalAmount,
             durationSendBack
         ],
         [
