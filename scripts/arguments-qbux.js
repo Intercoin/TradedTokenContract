@@ -1,18 +1,18 @@
-const helperAddresses = require('./helpers/usdtAddress.js');
+const helperAddresses = require('./helpers/usdcAddress.js');
 const FRACTION = 10000n;
 module.exports =  [
   //CommonSettings memory commonSettings,
   [
     "QBUX", // string memory tokenName_,
     "QBUX",// string memory tokenSymbol_,
-    helperAddresses.getUSDTAddress(), // address reserveToken_, //” (USDT)
+    helperAddresses.getUSDCAddress(), // address reserveToken_, //” (USDT)
     1000, // uint256 priceDrop_, 10%
-    86400,// uint64 durationSendBack, time in seconds when tokens can send back to exchange after claiming
+    31536000,// 1 year // uint64 durationSendBack, time in seconds when tokens can send back to exchange after claiming
   ],
   // TradedToken.ClaimSettings memory claimSettings,
   [
-    [1,10], // PriceNumDen minClaimPrice;
-    [1,10], // PriceNumDen minClaimPriceGrow;
+    [0,10], // PriceNumDen minClaimPrice;   // no claim price
+    [0,10], // PriceNumDen minClaimPriceGrow; // cant change or increase minClaimPrice
   ],
   // TaxesLib.TaxesInfoInit memory taxesInfoInit,
   [
@@ -33,12 +33,12 @@ module.exports =  [
   [
     0n, //FRACTION*0n/100n, // uint256 buyTaxMax_,
     0n, //FRACTION*10n/100n, // uint256 sellTaxMax_
-    100 //holdersMax
+    0 //holdersMax
   ],
 
   // BuySellStruct memory buySellStruct,
   [ 
-    helperAddresses.getUSDTAddress(), // address buySellToken;
+    helperAddresses.getUSDCAddress(), // address buySellToken;
     FRACTION*10n, // 0.1 bnb for token // uint256 buyPrice;   // [amount * FRACTION / buyPrice]
     0n   // 0.05 bnb for token// uint256 sellPrice;           // [amount * sellPrice / FRACTION]
   ],
