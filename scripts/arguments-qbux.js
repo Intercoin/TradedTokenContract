@@ -39,7 +39,7 @@ module.exports =  [
   // BuySellStruct memory buySellStruct,
   [ 
     helperAddresses.getUSDCAddress(), // address buySellToken;
-    FRACTION*10n, // 0.1 bnb for token // uint256 buyPrice;   // [amount * FRACTION / buyPrice]
+    FRACTION*10n, // 10 USDC за 1 TRADEDTOKEN // uint256 buyPrice;   // [amount * FRACTION / buyPrice]
     0n   // 0.05 bnb for token// uint256 sellPrice;           // [amount * sellPrice / FRACTION]
   ],
   // IStructs.Emission memory emission_,
