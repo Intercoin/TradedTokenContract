@@ -11,6 +11,15 @@
   "scripts": {
     "t1": "npx hardhat verify --libraries ./scripts/libraries/polygon/list.js --constructor-args ./scripts/arguments-itr.js 0x1111158f88410DA5F92c7E34c01e7B8649Bc0155 --network polygon",
     "t2": "npx hardhat verify --libraries ./scripts/libraries/bsc/list.js --constructor-args ./scripts/arguments-itr.js 0x1111158f88410DA5F92c7E34c01e7B8649Bc0155 --network bsc",
+    "addManagers:itr:test": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js",
+    "addManagers:itr:bsc": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js --network bsc",
+    "addManagers:itr:polygon": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js --network polygon",
+    "addManagers:itr:base": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js --network base",
+    "addManagers:itr:optimisticEthereum": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js --network optimisticEthereum",
+    "addManagers:qbix:bsc": "set mode=qbix && set tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb && npx hardhat run ./scripts/tradedtoken/addManagers.js --network bsc",
+    "addManagers:qbix:polygon": "set mode=qbix && set tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb && npx hardhat run ./scripts/tradedtoken/addManagers.js --network polygon",
+    "addManagers:qbix:base": "set mode=qbix && set tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb && npx hardhat run ./scripts/tradedtoken/addManagers.js --network base",
+    "addManagers:qbix:optimisticEthereum": "set mode=qbix && set tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb && npx hardhat run ./scripts/tradedtoken/addManagers.js --network optimisticEthereum",
     "size-contracts": "npx hardhat size-contracts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

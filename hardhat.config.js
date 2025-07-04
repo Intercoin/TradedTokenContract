@@ -21,12 +21,12 @@ module.exports = {
       // bsc
       // chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
       // forking: {url: bscURL}
-      // // matic
-      // chainId: 137,  // sync with url or getting uniswap settings will reject transactions
-      // forking: {url: maticURL}
+      // matic
+      chainId: 137,  // sync with url or getting uniswap settings will reject transactions
+      forking: {url: maticURL}
       // mainnet
-      chainId: 1,  // sync with url or getting uniswap settings will reject transactions
-      forking: {url: mainnetURL}
+      // chainId: 1,  // sync with url or getting uniswap settings will reject transactions
+      // forking: {url: mainnetURL}
 
     },
     kovan: {
@@ -59,12 +59,14 @@ module.exports = {
         process.env.private_key,
         process.env.private_key_auxiliary,
         process.env.private_key_releasemanager,
-        process.env.private_key_tradedTokenITR,
-        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_tradedTokenINTER,
+        process.env.private_key_tradedTokenQBUX,
         process.env.private_key_claim,
         process.env.private_key_stake,
         process.env.private_key_claimingTokenITR,
-        process.env.private_key_claimingTokenQBIX
+        process.env.private_key_claimingTokenQBIX,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX
       ],
       saveDeployments: true
     },
@@ -84,12 +86,14 @@ module.exports = {
         process.env.private_key,
         process.env.private_key_auxiliary,
         process.env.private_key_releasemanager,
-        process.env.private_key_tradedTokenITR,
-        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_tradedTokenINTER,
+        process.env.private_key_tradedTokenQBUX,
         process.env.private_key_claim,
         process.env.private_key_stake,
         process.env.private_key_claimingTokenITR,
-        process.env.private_key_claimingTokenQBIX
+        process.env.private_key_claimingTokenQBIX,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX
       ],
       saveDeployments: true
     },
@@ -110,12 +114,14 @@ module.exports = {
         process.env.private_key,
         process.env.private_key_auxiliary,
         process.env.private_key_releasemanager,
-        process.env.private_key_tradedTokenITR,
-        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_tradedTokenINTER,
+        process.env.private_key_tradedTokenQBUX,
         process.env.private_key_claim,
         process.env.private_key_stake,
         process.env.private_key_claimingTokenITR,
-        process.env.private_key_claimingTokenQBIX
+        process.env.private_key_claimingTokenQBIX,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX
       ],
       saveDeployments: true
     },
@@ -126,12 +132,14 @@ module.exports = {
         process.env.private_key,
         process.env.private_key_auxiliary,
         process.env.private_key_releasemanager,
-        process.env.private_key_tradedTokenITR,
-        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_tradedTokenINTER,
+        process.env.private_key_tradedTokenQBUX,
         process.env.private_key_claim,
         process.env.private_key_stake,
         process.env.private_key_claimingTokenITR,
-        process.env.private_key_claimingTokenQBIX
+        process.env.private_key_claimingTokenQBIX,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX
       ],
       saveDeployments: true
     },
@@ -142,12 +150,14 @@ module.exports = {
         process.env.private_key,
         process.env.private_key_auxiliary,
         process.env.private_key_releasemanager,
-        process.env.private_key_tradedTokenITR,
-        process.env.private_key_tradedTokenQBIX,
+        process.env.private_key_tradedTokenINTER,
+        process.env.private_key_tradedTokenQBUX,
         process.env.private_key_claim,
         process.env.private_key_stake,
         process.env.private_key_claimingTokenITR,
-        process.env.private_key_claimingTokenQBIX
+        process.env.private_key_claimingTokenQBIX,
+        process.env.private_key_tradedTokenITR,
+        process.env.private_key_tradedTokenQBIX
       ],
       saveDeployments: true
     }
