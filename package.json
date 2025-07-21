@@ -11,15 +11,26 @@
   "scripts": {
     "t1": "npx hardhat verify --libraries ./scripts/libraries/polygon/list.js --constructor-args ./scripts/arguments-itr.js 0x1111158f88410DA5F92c7E34c01e7B8649Bc0155 --network polygon",
     "t2": "npx hardhat verify --libraries ./scripts/libraries/bsc/list.js --constructor-args ./scripts/arguments-itr.js 0x1111158f88410DA5F92c7E34c01e7B8649Bc0155 --network bsc",
-    "addManagers:itr:test": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js",
-    "addManagers:itr:bsc": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js --network bsc",
-    "addManagers:itr:polygon": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js --network polygon",
-    "addManagers:itr:base": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js --network base",
-    "addManagers:itr:optimisticEthereum": "set mode=itr && set tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 && npx hardhat run ./scripts/tradedtoken/addManagers.js --network optimisticEthereum",
-    "addManagers:qbix:bsc": "set mode=qbix && set tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb && npx hardhat run ./scripts/tradedtoken/addManagers.js --network bsc",
-    "addManagers:qbix:polygon": "set mode=qbix && set tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb && npx hardhat run ./scripts/tradedtoken/addManagers.js --network polygon",
-    "addManagers:qbix:base": "set mode=qbix && set tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb && npx hardhat run ./scripts/tradedtoken/addManagers.js --network base",
-    "addManagers:qbix:optimisticEthereum": "set mode=qbix && set tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb && npx hardhat run ./scripts/tradedtoken/addManagers.js --network optimisticEthereum",
+    "addManagers:itr:test": "cross-env mode=itr tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 npx hardhat run ./scripts/tradedtoken/addManagers.js",
+    "addManagers:itr:bsc": "cross-env mode=itr tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 npx hardhat run ./scripts/tradedtoken/addManagers.js --network bsc",
+    "addManagers:itr:polygon": "cross-env mode=itr tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 npx hardhat run ./scripts/tradedtoken/addManagers.js --network polygon",
+    "addManagers:itr:base": "cross-env mode=itr tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 npx hardhat run ./scripts/tradedtoken/addManagers.js --network base",
+    "addManagers:itr:optimisticEthereum": "cross-env mode=itr tradedtoken=0x1117d11930a11d2e36eff79e47ac92d25551b155 npx hardhat run ./scripts/tradedtoken/addManagers.js --network optimisticEthereum",
+    "addManagers:qbix:bsc": "cross-env mode=qbix tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb npx hardhat run ./scripts/tradedtoken/addManagers.js --network bsc",
+    "addManagers:qbix:polygon": "cross-env mode=qbix tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb npx hardhat run ./scripts/tradedtoken/addManagers.js --network polygon",
+    "addManagers:qbix:base": "cross-env mode=qbix tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb npx hardhat run ./scripts/tradedtoken/addManagers.js --network base",
+    "addManagers:qbix:optimisticEthereum": "cross-env mode=qbix tradedtoken=0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb npx hardhat run ./scripts/tradedtoken/addManagers.js --network optimisticEthereum",
+    "addPresale:itr:test":                "cross-env argPath=../helpers/addPresale/presaletest.js npx hardhat run ./scripts/tradedtoken/addPresale.js",
+    "addPresale:itr:bsc":                 "cross-env argPath=../helpers/addPresale/presale1.js npx hardhat run ./scripts/tradedtoken/addPresale.js --network bsc",
+    "addPresale:itr:polygon":             "cross-env argPath=../helpers/addPresale/presale1.js npx hardhat run ./scripts/tradedtoken/addPresale.js --network polygon",
+    "addPresale:itr:base":                "cross-env argPath=../helpers/addPresale/presale1.js npx hardhat run ./scripts/tradedtoken/addPresale.js --network base",
+    "addPresale:itr:optimisticEthereum":  "cross-env argPath=../helpers/addPresale/presale1.js npx hardhat run ./scripts/tradedtoken/addPresale.js --network optimisticEthereum",
+    "addPresale:qbix:bsc":                "cross-env argPath=../helpers/addPresale/presale2.js npx hardhat run ./scripts/tradedtoken/addPresale.js --network bsc",
+    "addPresale:qbix:polygon":            "cross-env argPath=../helpers/addPresale/presale2.js npx hardhat run ./scripts/tradedtoken/addPresale.js --network polygon",
+    "addPresale:qbix:base":               "cross-env argPath=../helpers/addPresale/presale2.js npx hardhat run ./scripts/tradedtoken/addPresale.js --network base",
+    "addPresale:qbix:optimisticEthereum": "cross-env argPath=../helpers/addPresale/presale2.js npx hardhat run ./scripts/tradedtoken/addPresale.js --network optimisticEthereum",
+
+    
     "size-contracts": "npx hardhat size-contracts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -35,6 +46,7 @@
   "homepage": "https://github.com/Intercoin/TradedTokenContract#readme",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "cross-env": "^7.0.3",
     "dotenv": "^16.4.5",
     "hardhat-contract-sizer": "^2.10.0"
   },

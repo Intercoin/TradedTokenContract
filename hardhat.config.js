@@ -2,14 +2,10 @@ require('dotenv').config();
 require("@nomicfoundation/hardhat-toolbox");
 require("hardhat-contract-sizer");
 
-const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
-const goerliURL = `https://eth-goerli.alchemyapi.io/v2/${process.env.ALCHEMY_GOERLI}`
-const rinkebyURL = /*`https://rinkeby.infura.io/v3/${process.env.INFURA_ID_PROJECT}` */`https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_RINKEBY}`
-const bscURL = 'https://bsc-dataseed.binance.org' //`https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_RINKEBY}`
+const bscURL = `https://bsc-mainnet.infura.io/v3/${process.env.INFURA_ID_PROJECT}` //'https://bsc-dataseed.binance.org' //`https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_RINKEBY}`
 const bsctestURL = 'https://data-seed-prebsc-1-s1.binance.org:8545';
 const mainnetURL = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_MAINNET}`
-const maticURL = `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
-const mumbaiURL = `https://matic-mumbai.chainstacklabs.com`;
+const maticURL = `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_ID_PROJECT}`//`https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
 const baseURL = 'https://mainnet.base.org';
 const optimismURL = 'https://optimism.llamarpc.com';
 
@@ -17,38 +13,25 @@ module.exports = {
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
+      accounts: [
+        {balance: '10000000000000000000000', privateKey: process.env.private_key,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_auxiliary,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_releasemanager,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_tradedTokenINTER,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_tradedTokenQBUX,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_claim,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_stake,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_claimingTokenITR,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_claimingTokenQBIX,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_tradedTokenITR,},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_tradedTokenQBIX,},
+      ],
       allowUnlimitedContractSize: true,
-      // bsc
-      // chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
-      // forking: {url: bscURL}
-      // matic
-      chainId: 137,  // sync with url or getting uniswap settings will reject transactions
-      forking: {url: maticURL}
-      // mainnet
-      // chainId: 1,  // sync with url or getting uniswap settings will reject transactions
-      // forking: {url: mainnetURL}
+      //[bscURL]
+      chainId: 56, // 0x38
+      forking: {url: bscURL,}
 
-    },
-    kovan: {
-      url: kovanURL,
-      chainId: 42,
-      gas: 12000000,
-      accounts: [process.env.private_key],
-      saveDeployments: true
-    },
-    goerli: {
-      url: goerliURL,
-      chainId: 5,
-      gasPrice: 1000,
-      accounts: [process.env.private_key],
-      saveDeployments: true
-    },
-    rinkeby: {
-      url: rinkebyURL,
-      chainId: 4,
-      gasPrice: "auto",
-      accounts: [process.env.private_key],
-      saveDeployments: true
+
     },
     bsc: {
       url: bscURL,
@@ -95,14 +78,6 @@ module.exports = {
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX
       ],
-      saveDeployments: true
-    },
-    polygonMumbai: { // matic test
-      url: mumbaiURL,
-      chainId: 80001,
-      gasPrice: "auto",
-      //accounts: [process.env.private_key],
-      accounts: [process.env.private_key_auxiliary],
       saveDeployments: true
     },
     mainnet: {

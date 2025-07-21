@@ -44,7 +44,13 @@ async function main() {
 
   var deployer;
   var managersToAdd = [];
-	data_object = data_object_root[networkName];
+
+  if (networkName == 'hardhat') {
+    data_object = data_object_root['bsc'];
+  } else {
+    data_object = data_object_root[networkName];
+  }
+	//data_object = data_object_root[networkName];
 
   switch (mode) {
     case 'itr':
@@ -117,7 +123,14 @@ async function main() {
 
   console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
 
-  const libs = require('../libraries/'+networkName+'/list.js');
+  var pathLib;
+  if (networkName == 'hardhat') {
+    pathLib = '../libraries/bsc/list.js';
+  } else {
+    pathLib = '../libraries/'+networkName+'/list.js';
+  }
+  const libs = require(pathLib);
+  //const libs = require('../libraries/'+networkName+'/list.js');
 
   const itrF = await ethers.getContractFactory("TradedToken",  {
 		libraries: {
