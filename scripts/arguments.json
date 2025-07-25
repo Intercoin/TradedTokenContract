@@ -27,7 +27,7 @@
     "claimingManagerITR": "0xFF5CE584F6104ac4676f7AB0143ECbEEa27cEf0C",
     "claimingManagerQBIX": "0x54717897a1e9690D4b5cd025D2607F75D812564D",
     "distributionManagerQBIX": "0x403A00941A035Aef8085A890Cc825F8FbeD528e0",
-    "liquidityManagerITR": "0x3df057e82E521e7AC8b2934698FB5bc5B3378776",
+    "liquidityManagerITR": "0xd16eC47EBbA44B25ae1D605800206a809ad73774",
     "liquidityManagerQBIX": "0x8d2DC7397F62a16D391DD1c0efB789C84cb0a48f"
   },
   "bsc": {
@@ -41,7 +41,7 @@
     "claimingManagerITR": "0xFF5CE584F6104ac4676f7AB0143ECbEEa27cEf0C",
     "claimingManagerQBIX": "0x54717897a1e9690D4b5cd025D2607F75D812564D",
     "distributionManagerQBIX": "0x646B6d55eB1351d991Ee9CC72e994159b73CC7c1",
-    "liquidityManagerITR": "0x4eb46893006E389389F61Cefd7B681Da3BA8Be01",
+    "liquidityManagerITR": "0x21c088b519dCfC72a95b24aF2474C270e3CEC5b0",
     "liquidityManagerQBIX": "0xB0FfC2a87A3940D33F55D60039958824AF4A68c9"
   },
   "mainnet": {
@@ -62,7 +62,7 @@
     "claimingManagerITR": "0xFF5CE584F6104ac4676f7AB0143ECbEEa27cEf0C",
     "claimingManagerQBIX": "0x54717897a1e9690D4b5cd025D2607F75D812564D",
     "distributionManagerQBIX": "0xe89D16379d42e6E64582C1773AC7EF15b9DeF2FD",
-    "liquidityManagerITR": "0x8BDa578c81589aB58c757F3b395b58b45a51197B",
+    "liquidityManagerITR": "0x1FCE6F7bbb6f12460059f2d28300b1Ab406ECEaF",
     "liquidityManagerQBIX": "0x9c62fA550e6C4FdB47504B25723BB24E833b3252"
   },
   "optimisticEthereum": {
@@ -76,7 +76,7 @@
     "claimingManagerITR": "0xFF5CE584F6104ac4676f7AB0143ECbEEa27cEf0C",
     "claimingManagerQBIX": "0x54717897a1e9690D4b5cd025D2607F75D812564D",
     "distributionManagerQBIX": "0xDccF4f25BDd5937e74E7D8fE4dA6975540D69148",
-    "liquidityManagerITR": "0xf6db8bCA9944943eF4ab5204abeDF7FD35cC6002",
+    "liquidityManagerITR": "0x8BDa578c81589aB58c757F3b395b58b45a51197B",
     "liquidityManagerQBIX": "0xA79eb6930ACAE3bFFD44A95c8d60E09774Be6f32"
   }
 }

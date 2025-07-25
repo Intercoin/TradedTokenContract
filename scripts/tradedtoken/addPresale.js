@@ -64,7 +64,7 @@ async function main() {
             ,//deployer_qbix
             ] = signers;
         }
-        tradedTokenAddress = '0x1117d11930a11d2e36eff79e47ac92d25551b155';
+        tradedTokenAddress = '0x1111efB58AB01c60C9071A28a18830Bd70390155';
 
         break;
     case 'qbix':

@@ -6,8 +6,8 @@ const bscURL = `https://bsc-mainnet.infura.io/v3/${process.env.INFURA_ID_PROJECT
 const bsctestURL = 'https://data-seed-prebsc-1-s1.binance.org:8545';
 const mainnetURL = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_MAINNET}`
 const maticURL = `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_ID_PROJECT}`//`https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
-const baseURL = 'https://mainnet.base.org';
-const optimismURL = 'https://optimism.llamarpc.com';
+const baseURL = `https://base-mainnet.infura.io/v3/${process.env.INFURA_ID_PROJECT}`;//'https://mainnet.base.org';
+const optimismURL = `https://optimism-mainnet.infura.io/v3/${process.env.INFURA_ID_PROJECT}`;//'https://optimism.llamarpc.com';
 
 module.exports = {
   defaultNetwork: "hardhat",

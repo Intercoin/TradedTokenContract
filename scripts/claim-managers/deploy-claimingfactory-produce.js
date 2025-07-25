@@ -97,7 +97,7 @@ async function main() {
     const claimManagerFactory = await claimManagerFactoryF.attach(data_object.claimManagerFactory);
     
     const claimingToken1 = data_object.claimingTokenITR; // 
-    const tradedToken1 = "0x1117d11930a11d2e36eff79e47ac92d25551b155"; //ITR(CERTIK)
+    const tradedToken1 = "0x1111efB58AB01c60C9071A28a18830Bd70390155"; //ITR(CERTIK)
 
     const claimingToken2 = data_object.claimingTokenQBIX; // 
     const tradedToken2 = "0xfaced1a6dc5d064ba397cb9be8c6cd666b8ddabb"; //QBIX(CERTIK)
