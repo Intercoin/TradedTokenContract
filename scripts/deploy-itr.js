@@ -50,6 +50,7 @@ async function main() {
 
 
 	const networkName = hre.network.name;
+
 	const libs = require('./libraries/'+networkName+'/list.js');
 	const MainF = await ethers.getContractFactory("TradedToken",  {
 		libraries: {
@@ -60,7 +61,7 @@ async function main() {
 	
 	this.instance = await MainF.connect(deployer_itr).deploy(...params);
 	
-console.log("Account balance:", (await deployer_itr.getBalance()).toString());	
+	console.log("Account balance:", (await deployer_itr.getBalance()).toString());	
 	console.log("Instance deployed at:", this.instance.address);
 	console.log("with params:", [...paramArguments]);
 	console.log("TaxesLib.library deployed at:", libs.TaxesLib);
