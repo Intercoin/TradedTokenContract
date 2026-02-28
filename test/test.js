@@ -6,8 +6,13 @@ const { time } = require('@openzeppelin/test-helpers');
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
-const UNISWAP_ROUTER_FACTORY_ADDRESS = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
-const UNISWAP_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
+// ethereum uniswapV2
+// const UNISWAP_ROUTER_FACTORY_ADDRESS = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
+// const UNISWAP_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
+
+// bsc PancakeSwapV2
+const UNISWAP_ROUTER_FACTORY_ADDRESS = '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73';
+const UNISWAP_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
 
 const ZERO = BigNumber.from('0');
 const ONE = BigNumber.from('1');
@@ -360,6 +365,7 @@ describe("TradedTokenInstance", function () {
             let timeUntil = parseInt(ts)+parseInt(8*DAY);
 
             // handle TransferHelper error although it's happens in our contract
+            
             await expect(
                 uniswapRouterInstance.connect(bob).addLiquidity(
                     mainInstance.address, //address tokenA,
@@ -372,7 +378,7 @@ describe("TradedTokenInstance", function () {
                     timeUntil //uint deadline
                 )
             ).to.be.revertedWith("TransferHelper: TRANSFER_FROM_FAILED");
-
+           
         }); 
 
         it("should add managers", async() => {
@@ -1106,7 +1112,7 @@ describe("TradedTokenInstance", function () {
                     bob.address, //address to,
                     timeUntil //uint deadline   
 
-                )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly()"
+                )).to.be.revertedWith('Pancake: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly()"
             });
 
             describe("taxes", function () {
@@ -1426,7 +1432,7 @@ describe("TradedTokenInstance", function () {
                         timeUntil //uint deadline   
 
 
-                    )).to.be.revertedWith('UniswapV2: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly()"
+                    )).to.be.revertedWith('Pancake: TRANSFER_FAILED'); // reverted in TradedToken with "OwnerAndManagersOnly()"
 
                     const smthFromOwner = 1;
                     await mainInstance.connect(owner).enableClaims();
