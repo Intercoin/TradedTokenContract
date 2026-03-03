@@ -133,9 +133,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     mapping(address => uint64) public managers;
     mapping(address => uint64) public presales;
 
-    mapping(address => bool) public greenlist;
-
-
     bool private addedInitialLiquidityRun;
 
     event AddedLiquidity(uint256 tradedTokenAmount, uint256 priceAverageData);
@@ -150,7 +147,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
     event IncreasedHoldersMax(uint16 newHoldersMax);
     event IncreasedHoldersThreshold(uint256 newHoldersThreshold);
     event ClaimsEnabled(uint64 claimsEnabledTime);
-    event GreenlistSet(address indexed account, bool allowed);
 
     error AlreadyCalled();
     error InitialLiquidityRequired();
@@ -274,10 +270,6 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             revert CantCreatePair(tradedToken, reserveToken);
         }
 
-        // add pair to green list
-        greenlist[uniswapV2Pair] = true;
-        //emit GreenlistSet(account, allowed);
-
         token01 = (IUniswapV2Pair(uniswapV2Pair).token0() == tradedToken);
 
         internalLiquidity = new Liquidity(tradedToken, reserveToken, uniswapRouter);
@@ -347,25 +339,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             emit RemovedManager(managers_[i], _msgSender());
         }
     }
-
-    /**
-     * @notice used to add/remove an account to greenlist
-     * @param account desired address
-     * @param allowed true - allowed, overwise - false
-     */
-    function setGreenlist(
-        address account, 
-        bool allowed
-    ) 
-        external 
-    {
-        onlyOwnerAndManagers();
-
-        greenlist[account] = allowed;
-        emit GreenlistSet(account, allowed);
     
-    }
-
     /**
      * @notice set taxes that are burned when buying/selling
      *  from Uniswap v2 liquidity pool. Callable by owner.
@@ -833,13 +807,8 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
         holdersCheckBeforeTransfer(from, to, amount);
         if (presales[from] != 0) {
             tokensLocked[to]._minimumsAdd(amount, presales[from], LOCKUP_INTERVAL, true);
-            // destination address should be automatically greenlisted
-            //_setGreenlist(to, true);
-            greenlist[to] = true;
-            emit GreenlistSet(to, true);
-            //---
-            
         } 
+        
         /*
         if (
             // if minted
@@ -867,13 +836,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
             uint256 balance = balanceOf(from);
             uint256 locked = tokensLocked[from]._getMinimum();
             if (balance - locked < amount) {
-
-                if (greenlist[from] && greenlist[to]) {
-                    // green -> green: переносим минимум (lock) вместе с токенами
-                    MinimumsLib.minimumsTransfer(tokensLocked[from], tokensLocked[to], to == address(0), amount);
-                } else {
-                    revert InsufficientAmount();
-                }
+                revert InsufficientAmount();
             }
         }
     }
