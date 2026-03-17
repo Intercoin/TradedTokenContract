@@ -5,14 +5,14 @@ tokenname
 tokensymbol 
 и maxsellTaxes/maxBuyTaxes
 
-Name: KTA Coin
-Ticker: KTAX
+Name: XRK
+Ticker: XRK
 No taxes (max sell and max buy taxes are zero)
 
 */
 module.exports =  [
-  "KTA Coin", // string memory tokenName_,
-  "KTA",// string memory tokenSymbol_,
+  "XRK", // string memory tokenName_,
+  "XRK",// string memory tokenSymbol_,
   helperAddresses.getUSDCAddress(), // address reserveToken_, //” (USDC)
   1000, // uint256 priceDrop_,
   365,// uint64 lockupIntervalAmount_,

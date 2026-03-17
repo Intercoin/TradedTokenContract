@@ -34,7 +34,8 @@ module.exports = {
         {balance: '10000000000000000000000', privateKey: process.env.private_key_tradedTokenITR},
         {balance: '10000000000000000000000', privateKey: process.env.private_key_tradedTokenQBIX},
         {balance: '10000000000000000000000', privateKey: process.env.private_key_claim},
-        {balance: '10000000000000000000000', privateKey: process.env.private_key_tradedTokenKTA}
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_tradedTokenKTA},
+        {balance: '10000000000000000000000', privateKey: process.env.private_key_tradedTokenXRK}
       ],
       //[bscURL]
       chainId: 56, // 0x38
@@ -67,7 +68,8 @@ module.exports = {
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
         process.env.private_key_claim,
-        process.env.private_key_tradedTokenKTA
+        process.env.private_key_tradedTokenKTA,
+        process.env.private_key_tradedTokenXRK
       ],
       saveDeployments: true
     },
@@ -89,7 +91,8 @@ module.exports = {
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
         process.env.private_key_claim,
-        process.env.private_key_tradedTokenKTA
+        process.env.private_key_tradedTokenKTA,
+        process.env.private_key_tradedTokenXRK
       ],
       saveDeployments: true
     },
@@ -104,7 +107,8 @@ module.exports = {
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
         process.env.private_key_claim,
-        process.env.private_key_tradedTokenKTA
+        process.env.private_key_tradedTokenKTA,
+        process.env.private_key_tradedTokenXRK
       ],
       saveDeployments: true
     },
@@ -117,7 +121,8 @@ module.exports = {
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
         process.env.private_key_claim,
-        process.env.private_key_tradedTokenKTA
+        process.env.private_key_tradedTokenKTA,
+        process.env.private_key_tradedTokenXRK
       ],
       saveDeployments: true
     },
@@ -130,7 +135,8 @@ module.exports = {
         process.env.private_key_tradedTokenITR,
         process.env.private_key_tradedTokenQBIX,
         process.env.private_key_claim,
-        process.env.private_key_tradedTokenKTA
+        process.env.private_key_tradedTokenKTA,
+        process.env.private_key_tradedTokenXRK
       ],
       saveDeployments: true
     }
