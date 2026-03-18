@@ -986,7 +986,7 @@ contract TradedToken is Ownable, IERC777Recipient, IERC777Sender, ERC777, Reentr
         holdersCheckBeforeTransfer(from, to, amount);
         if (sales[from] != 0) {
             if (ISales(from).owner() != to) {
-                tokensLocked[to]._minimumsAdd(amount, sales[from], LOCKUP_INTERVAL, true);
+                tokensLocked[to]._minimumsAdd(amount, sales[from], LOCKUP_INTERVAL, false);
             }
         }
         if (
