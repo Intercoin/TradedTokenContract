@@ -1,6 +1,6 @@
 const fs = require('fs');
 const hre = require('hardhat');
-const paramArguments = require('./arguments-kta.js');
+const paramArguments = require('./arguments-xrk.js');
 const chainIdConverter = require('./helpers/chainIdConverter.js');
 
 async function main() {
@@ -32,14 +32,15 @@ async function main() {
 
 	console.log("Account balance:", (await deployer_xrk.getBalance()).toString());
 
-// 	const TaxesLib = await ethers.getContractFactory("TaxesLib");
-// 	const library = await TaxesLib.connect(deployer).deploy();
-// 	await library.deployed();
-// console.log("Account balance:", (await deployer.getBalance()).toString());
-// 	const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
-// 	const library2 = await SwapSettingsLib.connect(deployer).deploy();
-// 	await library2.deployed();
-// console.log("Account balance:", (await deployer.getBalance()).toString());
+		// const TaxesLib = await ethers.getContractFactory("TaxesLib");
+		// const library = await TaxesLib.connect(deployer).deploy();
+		// await library.deployed();
+		// return;
+	// console.log("Account balance:", (await deployer.getBalance()).toString());
+	// const SwapSettingsLib = await ethers.getContractFactory("SwapSettingsLib");
+	// const library2 = await SwapSettingsLib.connect(deployer).deploy();
+	// await library2.deployed();
+	//console.log("Account balance:", (await deployer.getBalance()).toString());
 
 	// const MainF = await ethers.getContractFactory("TradedToken",  {
 	// 	libraries: {
@@ -61,7 +62,7 @@ async function main() {
 			SwapSettingsLib:libs.SwapSettingsLib
 		}
 	});
-	
+
 	this.instance = await MainF.connect(deployer_xrk).deploy(...params);
 	
 	console.log("Account balance:", (await deployer_xrk.getBalance()).toString());	

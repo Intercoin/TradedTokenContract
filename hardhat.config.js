@@ -18,7 +18,7 @@ require('hardhat-contract-sizer');
 
 const bscURL = `https://bsc-mainnet.infura.io/v3/${process.env.INFURA_ID_PROJECT}` //'https://bsc-dataseed.binance.org' //`https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_RINKEBY}`
 const bsctestURL = 'https://data-seed-prebsc-1-s1.binance.org:8545';
-const mainnetURL = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_MAINNET}`
+const mainnetURL = 'https://ethereum-rpc.publicnode.com';//`https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_MAINNET}`
 const maticURL = `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
 
 const baseURL = `https://base-mainnet.infura.io/v3/${process.env.INFURA_ID_PROJECT}`;//'https://mainnet.base.org';
@@ -99,7 +99,8 @@ module.exports = {
     mainnet: {
       url: mainnetURL,
       chainId: 1,
-      gasPrice: 20000000000,
+      //gasPrice: 20000000000,
+      
       //accounts: [process.env.private_key],
       accounts: [
         process.env.private_key,
