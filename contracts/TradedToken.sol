@@ -806,7 +806,7 @@ contract TradedToken is Ownable, IClaim, IERC777Recipient, IERC777Sender, ERC777
 
         holdersCheckBeforeTransfer(from, to, amount);
         if (presales[from] != 0) {
-            tokensLocked[to]._minimumsAdd(amount, presales[from], LOCKUP_INTERVAL, true);
+            tokensLocked[to]._minimumsAdd(amount, presales[from], LOCKUP_INTERVAL, false);
         } 
         if (
             // if minted
