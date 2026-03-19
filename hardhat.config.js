@@ -154,19 +154,24 @@ module.exports = {
     currency: "USD"
   },
   etherscan: {
-    //apiKey: process.env.MATIC_API_KEY  
-    //apiKey: process.env.ETHERSCAN_API_KEY
-    //apiKey: process.env.BSCSCAN_API_KEY
-    apiKey: {
-      polygon: process.env.MATIC_API_KEY,
-      polygonMumbai: process.env.MATIC_API_KEY,
-      mainnet: process.env.ETHERSCAN_API_KEY,
-      bsctest: process.env.BSCSCAN_API_KEY,
-      bsc: process.env.BSCSCAN_API_KEY,
-      optimisticEthereum: process.env.OPTIMISM_API_KEY,
-      base: process.env.BASE_API_KEY
-    }
+    apiKey: process.env.ETHERSCAN_API_KEY
   },
+  // verify: {
+  //   etherscan: {
+  //     //apiKey: process.env.MATIC_API_KEY  
+  //     //apiKey: process.env.ETHERSCAN_API_KEY
+  //     //apiKey: process.env.BSCSCAN_API_KEY
+  //     apiKey: {
+  //       polygon: process.env.MATIC_API_KEY,
+  //       polygonMumbai: process.env.MATIC_API_KEY,
+  //       mainnet: process.env.ETHERSCAN_API_KEY,
+  //       bsctest: process.env.BSCSCAN_API_KEY,
+  //       bsc: process.env.BSCSCAN_API_KEY,
+  //       optimisticEthereum: process.env.OPTIMISM_API_KEY,
+  //       base: process.env.BASE_API_KEY
+  //     }
+  //   }
+  // },
   solidity: {
     compilers: [
         {
